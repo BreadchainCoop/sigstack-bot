@@ -4,7 +4,7 @@ services:
   signal-api:
     # Pinned to specific digest for TEE attestation integrity
     # To update: docker pull bbernhard/signal-cli-rest-api:latest && docker inspect --format='{{index .RepoDigests 0}}'
-    image: bbernhard/signal-cli-rest-api@sha256:04ee57f9819a90c89fbee46f74e080a032f5f05decf6e4b4a4e1f45d050ed9c8
+    image: bbernhard/signal-cli-rest-api@sha256:2399d449123cdad56c4d859277e3b9127e1a00c4d2ab4601c239882609286cf8
     container_name: signal-api
     environment:
       - MODE=normal
@@ -36,6 +36,7 @@ services:
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}
       - NEAR_AI__BASE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
       - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V3.1}
+      - NEAR_AI__TIMEOUT=${NEAR_AI_TIMEOUT:-120s}
       - CONVERSATION__MAX_MESSAGES=${CONVERSATION_MAX_MESSAGES:-50}
       - CONVERSATION__TTL=${CONVERSATION_TTL:-24h}
       - BOT__LOG_LEVEL=${LOG_LEVEL:-info}

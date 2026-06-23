@@ -105,7 +105,9 @@ Fixture: `docs/spikes/fixtures/text-with-quote-reply.json`
 | `quote_message` | string | Snippet shown in quote bubble (optional but recommended) |
 | `message` | string | Bot reply body |
 | `number` | string | Bot account |
-| `recipients` | string[] | DM source or `groupId` |
+| `recipients` | string[] | DM source/uuid **or** `group.*` id from list groups |
+
+**Group ID nuance (confirmed live):** Incoming `groupInfo.groupId` is the **`internal_id`** (e.g. `MB3b+ZC/...=`). `/v2/send` requires the **`id`** from `GET /v1/groups/{number}` (e.g. `group.TUIzYita...=`). `signal-client` resolves via `resolve_send_recipient()`.
 
 Example sketch:
 

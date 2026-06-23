@@ -34,10 +34,20 @@ pub struct DataMessage {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GroupInfo {
+    /// Internal group ID on incoming messages (`internal_id` from list groups).
     #[serde(rename = "groupId")]
     pub group_id: String,
     #[serde(rename = "groupName")]
     pub group_name: Option<String>,
+}
+
+/// Group from `GET /v1/groups/{number}` — use `id` (not `internal_id`) for `/v2/send`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Group {
+    pub name: String,
+    pub id: String,
+    #[serde(rename = "internal_id")]
+    pub internal_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -196,7 +206,10 @@ impl BotMessage {
         self.audio_attachments().next()
     }
 
-    /// Get the reply target (group ID or source number).
+    /// Raw reply target from the envelope (DM source or group `internal_id`).
+    ///
+    /// For group sends, resolve via [`SignalClient::resolve_send_recipient`] — `/v2/send`
+    /// requires the `group.*` id from list groups, not `groupInfo.groupId` on receive.
     pub fn reply_target(&self) -> &str {
         self.group_id.as_deref().unwrap_or(&self.source)
     }

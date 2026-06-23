@@ -319,7 +319,7 @@ impl CommandHandler for ChatHandler {
                     let progress_msg = format!("🔧 Using {}...", tool_call.function.name);
                     if let Err(e) = self
                         .signal_client
-                        .send(&message.receiving_account, message.reply_target(), &progress_msg)
+                        .reply(message, &progress_msg)
                         .await
                     {
                         warn!("Failed to send progress message: {}", e);

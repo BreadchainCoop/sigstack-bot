@@ -294,6 +294,46 @@ mod tests {
             .unwrap();
     }
 
+    #[tokio::test]
+    async fn test_resolve_send_recipient_group() {
+        let mock_server = MockServer::start().await;
+
+        let groups = serde_json::json!([{
+            "name": "testing signal bot",
+            "id": "group.TUIzYitaQy85SmtteUpTMEo2ZE9wZ3lib0tOWVZrcDEzNFA3bDU0N1BrOD0=",
+            "internal_id": "MB3b+ZC/9JkmyJS0J6dOpgyboKNYVkp134P7l547Pk8="
+        }]);
+
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&groups))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let message = BotMessage {
+            source: "+14155551234".into(),
+            text: "hi".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: true,
+            group_id: Some("MB3b+ZC/9JkmyJS0J6dOpgyboKNYVkp134P7l547Pk8=".into()),
+            receiving_account: "+15555555555".into(),
+            attachments: vec![],
+            quote: None,
+        };
+
+        let recipient = client.resolve_send_recipient(&message).await.unwrap();
+        assert_eq!(
+            recipient,
+            "group.TUIzYitaQy85SmtteUpTMEo2ZE9wZ3lib0tOWVZrcDEzNFA3bDU0N1BrOD0="
+        );
+
+        // Cached — list_groups should not be called again
+        let recipient2 = client.resolve_send_recipient(&message).await.unwrap();
+        assert_eq!(recipient2, recipient);
+    }
+
     #[test]
     fn test_bot_message_from_voice_fixture() {
         let fixture = include_str!("../../../docs/spikes/fixtures/voice-note-dm.json");
@@ -320,7 +360,7 @@ mod tests {
         assert!(bot_msg.is_group);
         assert_eq!(
             bot_msg.group_id.as_deref(),
-            Some("group.ckRzaEd4VmRzNnJaASAEsasa")
+            Some("MB3b+ZC/9JkmyJS0J6dOpgyboKNYVkp134P7l547Pk8=")
         );
     }
 

@@ -22,6 +22,10 @@ impl Default for TranslateLangsHandler {
 
 #[async_trait]
 impl CommandHandler for TranslateLangsHandler {
+    fn label(&self) -> &'static str {
+        "translate_langs"
+    }
+
     fn matches(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
         text == "!translate-langs" || text == "!translate-langs-common"

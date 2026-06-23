@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use near_ai_client::{Message, NearAiClient, Role};
 use signal_client::{BotMessage, QuotedMessage, SignalClient};
 use std::sync::Arc;
-use tracing::{instrument, warn};
+use tracing::{debug, info, instrument, warn};
 
 pub struct TranslateHandler {
     near_ai: Arc<NearAiClient>,
@@ -136,6 +136,10 @@ impl CommandHandler for TranslateHandler {
         true
     }
 
+    fn label(&self) -> &'static str {
+        "translate"
+    }
+
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
         let lang_token = match Self::parse_lang_token(&message.text) {
@@ -178,7 +182,15 @@ impl CommandHandler for TranslateHandler {
         };
 
         let body = match self.translate_text(&source, lang).await {
-            Ok(translation) => format!("{} {}", lang.flag, translation.trim()),
+            Ok(translation) => {
+                info!(
+                    target_lang = lang.code,
+                    source_chars = source.len(),
+                    translation_chars = translation.len(),
+                    "!translate completed"
+                );
+                format!("{} {}", lang.flag, translation.trim())
+            }
             Err(e) => {
                 warn!("NEAR AI translation failed: {}", e);
                 "Could not translate. Try again later.".to_string()

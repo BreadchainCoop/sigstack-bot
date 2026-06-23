@@ -546,12 +546,13 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 ### Phase 5: `!translate-all` (group auto-translate)
 
-- [ ] `GroupTranslateStore` (in-memory per group)
-- [ ] `TranslateAllHandler` setup/teardown commands
-- [ ] Intercept group text + voice messages when mode active
-- [ ] Text language detection (`whatlang` or similar)
-- [ ] Rate limiting for NEAR AI in busy groups
-- [ ] Update `!help` with full voice/translate command list
+- [x] `GroupTranslateStore` (in-memory per group)
+- [x] `TranslateAllHandler` setup/teardown commands
+- [x] Intercept group text + voice messages when mode active
+- [x] Text language detection (`whatlang`)
+- [x] Rate limiting for NEAR AI in busy groups
+- [x] Update `!help` with full voice/translate command list
+- [ ] Group translate end-to-end tests — manual
 
 ### Phase 6: Production hardening
 

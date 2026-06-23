@@ -1,11 +1,16 @@
 //! Implicit voice note handler — transcribe via Whisper and quote-reply.
 
+use crate::commands::translate_service::{
+    format_voice_auto_translation, near_ai_translate, detect_text_language,
+};
 use crate::commands::CommandHandler;
+use crate::group_translate_store::GroupTranslateStore;
 use crate::error::AppResult;
 use async_trait::async_trait;
+use near_ai_client::NearAiClient;
 use signal_client::{Attachment, BotMessage, SignalClient};
 use std::sync::Arc;
-use tracing::{info, instrument, warn};
+use tracing::{debug, info, instrument, warn};
 use whisper_client::{WhisperClient, WhisperError};
 
 const PROGRESS_MSG: &str = "🎤 Transcribing...";
@@ -17,6 +22,8 @@ pub struct VoiceHandler {
     signal: Arc<SignalClient>,
     reply_prefix: String,
     max_attachment_bytes: usize,
+    group_translate: Option<Arc<GroupTranslateStore>>,
+    near_ai: Option<Arc<NearAiClient>>,
 }
 
 impl VoiceHandler {
@@ -31,7 +38,19 @@ impl VoiceHandler {
             signal,
             reply_prefix: reply_prefix.into(),
             max_attachment_bytes,
+            group_translate: None,
+            near_ai: None,
         }
+    }
+
+    pub fn with_translate_all(
+        mut self,
+        store: Arc<GroupTranslateStore>,
+        near_ai: Arc<NearAiClient>,
+    ) -> Self {
+        self.group_translate = Some(store);
+        self.near_ai = Some(near_ai);
+        self
     }
 
     fn format_transcript(text: &str, prefix: &str) -> String {
@@ -63,6 +82,81 @@ impl VoiceHandler {
             }
         }
     }
+
+    async fn translate_all_voice(
+        &self,
+        _message: &BotMessage,
+        audio: &Attachment,
+        bytes: &[u8],
+        group_id: &str,
+    ) -> AppResult<String> {
+        let store = self
+            .group_translate
+            .as_ref()
+            .expect("translate-all store required");
+        let near_ai = self.near_ai.as_ref().expect("near_ai required for translate-all");
+        let mode = store
+            .get(group_id)
+            .expect("translate-all mode must be active");
+
+        let filename = Self::attachment_filename(audio);
+        let content_type = &audio.content_type;
+
+        let transcript = self
+            .whisper
+            .transcribe(bytes, &filename, content_type)
+            .await?;
+        let transcript_text = transcript.trimmed_text();
+
+        let detected = detect_text_language(transcript_text);
+        let (source, target) = match detected
+            .as_deref()
+            .and_then(|code| {
+                mode.target_for_source(code)
+                    .and_then(|t| mode.source_language(code).map(|s| (s, t)))
+            }) {
+            Some(pair) => pair,
+            None => {
+                info!(
+                    group_id,
+                    "Voice transcript language not in translate-all pair — transcript only"
+                );
+                return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
+            }
+        };
+
+        debug!(
+            group_id,
+            detected_lang = detected.as_deref().unwrap_or("unknown"),
+            source_lang = source.code,
+            target_lang = target.code,
+            whisper_translate = target.code == "en" && source.code != "en",
+            "translate-all voice pipeline"
+        );
+
+        let translation = if target.code == "en" && source.code != "en" {
+            match self
+                .whisper
+                .translate_to_english(bytes, &filename, content_type)
+                .await
+            {
+                Ok(r) => r.trimmed_text().to_string(),
+                Err(e) => {
+                    warn!("Whisper translate failed, falling back to NEAR AI: {}", e);
+                    near_ai_translate(near_ai, transcript_text, target).await?
+                }
+            }
+        } else {
+            near_ai_translate(near_ai, transcript_text, target).await?
+        };
+
+        Ok(format_voice_auto_translation(
+            source,
+            transcript_text,
+            target,
+            &translation,
+        ))
+    }
 }
 
 #[async_trait]
@@ -73,6 +167,10 @@ impl CommandHandler for VoiceHandler {
 
     fn reply_with_quote(&self) -> bool {
         true
+    }
+
+    fn label(&self) -> &'static str {
+        "voice"
     }
 
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
@@ -118,6 +216,36 @@ impl CommandHandler for VoiceHandler {
                 "Downloaded voice attachment exceeds size limit"
             );
             return Ok("Voice note too long (max 5 min). Send a shorter clip.".into());
+        }
+
+        let translate_all_active = message.is_group
+            && message.group_id.as_ref().is_some_and(|gid| {
+                self.group_translate
+                    .as_ref()
+                    .is_some_and(|s| s.is_active(gid))
+            });
+
+        if translate_all_active {
+            let group_id = message.group_id.as_deref().unwrap();
+            let store = self.group_translate.as_ref().unwrap();
+            if store.allow_message(group_id) {
+                match self.translate_all_voice(message, audio, &bytes, group_id).await {
+                    Ok(response) => {
+                        info!(
+                            source = %message.source,
+                            chars = response.len(),
+                            "Voice note translated (translate-all)"
+                        );
+                        return Ok(response);
+                    }
+                    Err(e) => {
+                        warn!("translate-all voice failed: {}", e);
+                        return Ok("Could not transcribe voice note. Try again later.".into());
+                    }
+                }
+            } else {
+                warn!(group_id, "translate-all rate limited — transcript only");
+            }
         }
 
         let filename = Self::attachment_filename(audio);

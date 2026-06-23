@@ -7,8 +7,10 @@ mod deposit;
 mod help;
 mod models;
 mod translate;
-mod translate_lang;
+mod translate_all;
+pub mod translate_lang;
 mod translate_langs;
+mod translate_service;
 mod verify;
 mod voice;
 
@@ -19,6 +21,7 @@ pub use deposit::DepositHandler;
 pub use help::HelpHandler;
 pub use models::ModelsHandler;
 pub use translate::TranslateHandler;
+pub use translate_all::TranslateAllHandler;
 pub use translate_langs::TranslateLangsHandler;
 pub use verify::VerifyHandler;
 pub use voice::VoiceHandler;
@@ -60,5 +63,14 @@ pub trait CommandHandler: Send + Sync {
     /// When true, the handler sends its own Signal reply in `execute` (main loop skips send).
     fn handles_own_reply(&self) -> bool {
         false
+    }
+
+    /// Short name for dispatch / debug logs.
+    fn label(&self) -> &'static str {
+        if self.is_default() {
+            "chat"
+        } else {
+            "command"
+        }
     }
 }

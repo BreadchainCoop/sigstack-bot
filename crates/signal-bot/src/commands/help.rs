@@ -30,6 +30,14 @@ impl CommandHandler for HelpHandler {
 
 Just send a message to chat with AI.
 
+**Voice & translation:**
+- Send a voice note — auto-transcribed (no command needed)
+- !translate <lang> — Quote-reply a message to translate it
+- !translate-all <lang1> <lang2> — Group only: auto-translate between two languages
+- !translate-off — Disable group auto-translate
+- !translate-langs — List all supported languages
+- !translate-langs-common — List top 12 languages by speakers
+
 **Commands:**
 - !verify <challenge> - Get TEE attestation with your challenge
 - !clear - Clear conversation history
@@ -46,6 +54,8 @@ This bot uses prepaid credits. Deposit USDC on Base, NEAR, or Solana to add cred
 
 **Privacy:**
 Your messages are end-to-end encrypted via Signal, processed in a verified TEE (Intel TDX), and sent to NEAR AI Cloud's private inference (NVIDIA GPU TEE).
+
+Voice transcription runs locally in the TEE (Whisper). Translation uses NEAR AI on text only.
 
 Neither the bot operator nor NEAR AI can read your messages."#
             .into())

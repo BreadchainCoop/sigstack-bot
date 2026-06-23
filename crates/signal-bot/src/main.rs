@@ -3,6 +3,7 @@
 use signal_bot::commands::*;
 use signal_bot::config::Config;
 use signal_bot::error::AppResult;
+use signal_bot::group_translate_store::GroupTranslateStore;
 use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
@@ -13,7 +14,7 @@ use std::sync::Arc;
 use tokio::signal;
 use tokio_stream::StreamExt;
 use tools::{ToolRegistry, builtin::{CalculatorTool, WeatherTool, WebSearchTool}};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use x402_payments::CreditStore;
 
@@ -215,14 +216,38 @@ async fn main() -> AppResult<()> {
 
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
 
+    let group_translate_store = if config.translate_all.enabled {
+        Some(Arc::new(GroupTranslateStore::new(
+            config.translate_all.max_messages_per_minute,
+        )))
+    } else {
+        None
+    };
+
     if let Some(ref whisper) = whisper_client {
-        handlers.push(Box::new(VoiceHandler::new(
+        let mut voice = VoiceHandler::new(
             whisper.clone(),
             signal.clone(),
             config.whisper.reply_prefix.clone(),
             config.whisper.max_attachment_bytes,
-        )));
+        );
+        if let Some(ref store) = group_translate_store {
+            voice = voice.with_translate_all(store.clone(), near_ai.clone());
+        }
+        handlers.push(Box::new(voice));
         info!("Voice note transcription enabled");
+    }
+
+    if let Some(ref store) = group_translate_store {
+        handlers.push(Box::new(TranslateAllHandler::new(
+            store.clone(),
+            near_ai.clone(),
+            signal.clone(),
+        )));
+        info!(
+            "Group auto-translate enabled: !translate-all, !translate-off (max {}/min)",
+            config.translate_all.max_messages_per_minute
+        );
     }
 
     handlers.push(Box::new(TranslateHandler::new(
@@ -265,6 +290,16 @@ async fn main() -> AppResult<()> {
                 if let Some(handler) = handler {
                     let quote_reply = handler.reply_with_quote();
                     let own_reply = handler.handles_own_reply();
+                    debug!(
+                        handler = handler.label(),
+                        source = %message.source,
+                        is_group = message.is_group,
+                        voice = message.is_voice_note(),
+                        has_quote = message.quote.is_some(),
+                        own_reply,
+                        quote_reply,
+                        "Dispatching to handler"
+                    );
                     match handler.execute(&message).await {
                         Ok(response) => {
                             if own_reply {
@@ -292,6 +327,13 @@ async fn main() -> AppResult<()> {
                             };
                         }
                     }
+                } else if message.is_voice_note() || !message.text.trim().is_empty() {
+                    debug!(
+                        source = %message.source,
+                        is_group = message.is_group,
+                        voice = message.is_voice_note(),
+                        "No handler matched message"
+                    );
                 }
             }
             _ = signal::ctrl_c() => {

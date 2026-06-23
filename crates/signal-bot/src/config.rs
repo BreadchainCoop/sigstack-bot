@@ -37,6 +37,10 @@ pub struct Config {
     /// Whisper transcription configuration
     #[serde(default)]
     pub whisper: WhisperConfig,
+
+    /// Group auto-translate (`!translate-all`) configuration
+    #[serde(default)]
+    pub translate_all: TranslateAllConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -176,6 +180,17 @@ pub struct WhisperConfig {
     pub reply_prefix: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TranslateAllConfig {
+    /// Master switch for group auto-translate
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Max auto-translate replies per group per minute (NEAR AI protection)
+    #[serde(default = "default_translate_all_max_per_minute")]
+    pub max_messages_per_minute: u32,
+}
+
 // Default implementations
 impl Default for SignalConfig {
     fn default() -> Self {
@@ -261,6 +276,15 @@ impl Default for WhisperConfig {
             timeout: default_whisper_timeout(),
             max_attachment_bytes: default_whisper_max_attachment_bytes(),
             reply_prefix: default_whisper_reply_prefix(),
+        }
+    }
+}
+
+impl Default for TranslateAllConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_true(),
+            max_messages_per_minute: default_translate_all_max_per_minute(),
         }
     }
 }
@@ -385,6 +409,10 @@ fn default_whisper_max_attachment_bytes() -> usize {
 
 fn default_whisper_reply_prefix() -> String {
     "📝 Transcript:".into()
+}
+
+fn default_translate_all_max_per_minute() -> u32 {
+    30
 }
 
 impl Config {

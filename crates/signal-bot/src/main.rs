@@ -8,6 +8,7 @@ use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
 use signal_client::{MessageReceiver, SignalClient};
+use whisper_client::WhisperClient;
 use std::sync::Arc;
 use tokio::signal;
 use tokio_stream::StreamExt;
@@ -157,6 +158,33 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
+    let whisper_client = if config.whisper.enabled {
+        let whisper = Arc::new(
+            WhisperClient::new(
+                &config.whisper.service_url,
+                config.whisper.timeout,
+            )
+            .context("Failed to create Whisper client")?,
+        );
+
+        if whisper.health_check().await {
+            info!(
+                "Whisper API healthy at {} (model: {})",
+                config.whisper.service_url, config.whisper.model
+            );
+        } else {
+            warn!(
+                "Whisper API not reachable at {} — voice notes will fail until whisper-api is up",
+                config.whisper.service_url
+            );
+        }
+
+        Some(whisper)
+    } else {
+        info!("Whisper transcription disabled");
+        None
+    };
+
     // Create command handlers
     // Create ChatHandler with or without payment integration
     let chat_handler: Box<dyn CommandHandler> = if let Some(ref store) = credit_store {
@@ -185,13 +213,23 @@ async fn main() -> AppResult<()> {
         ))
     };
 
-    let mut handlers: Vec<Box<dyn CommandHandler>> = vec![
-        chat_handler,
-        Box::new(VerifyHandler::new(dstack.clone())),
-        Box::new(ClearHandler::new(conversations.clone())),
-        Box::new(HelpHandler::new()),
-        Box::new(ModelsHandler::new(near_ai.clone())),
-    ];
+    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+
+    if let Some(ref whisper) = whisper_client {
+        handlers.push(Box::new(VoiceHandler::new(
+            whisper.clone(),
+            signal.clone(),
+            config.whisper.reply_prefix.clone(),
+            config.whisper.max_attachment_bytes,
+        )));
+        info!("Voice note transcription enabled");
+    }
+
+    handlers.push(chat_handler);
+    handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
+    handlers.push(Box::new(ClearHandler::new(conversations.clone())));
+    handlers.push(Box::new(HelpHandler::new()));
+    handlers.push(Box::new(ModelsHandler::new(near_ai.clone())));
 
     // Add payment handlers if enabled
     if let Some(ref store) = credit_store {
@@ -212,47 +250,31 @@ async fn main() -> AppResult<()> {
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
-                // Phase 1: voice pipeline — download and log (Whisper handler in Phase 3)
-                if message.is_voice_note() {
-                    for audio in message.audio_attachments() {
-                        match signal.download_attachment(&audio.id).await {
-                            Ok(bytes) => {
-                                info!(
-                                    "Voice note from {}: attachment {} ({} bytes, {})",
-                                    message.source,
-                                    audio.id,
-                                    bytes.len(),
-                                    audio.content_type
-                                );
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Failed to download voice attachment {} from {}: {}",
-                                    audio.id, message.source, e
-                                );
-                            }
-                        }
-                    }
-                    continue;
-                }
-
-                // Find matching handler
                 let handler = handlers
                     .iter()
                     .find(|h| h.matches(&message));
 
                 if let Some(handler) = handler {
+                    let quote_reply = handler.reply_with_quote();
                     match handler.execute(&message).await {
                         Ok(response) => {
-                            if let Err(e) = signal.reply(&message, &response).await {
+                            let send_result = if quote_reply {
+                                signal.reply_quoted(&message, &response, None).await
+                            } else {
+                                signal.reply(&message, &response).await
+                            };
+                            if let Err(e) = send_result {
                                 error!("Failed to send reply: {}", e);
                             }
                         }
                         Err(e) => {
                             error!("Handler error: {}", e);
-                            let _ = signal
-                                .reply(&message, "Sorry, something went wrong.")
-                                .await;
+                            let fallback = "Sorry, something went wrong.";
+                            let _ = if quote_reply {
+                                signal.reply_quoted(&message, fallback, None).await
+                            } else {
+                                signal.reply(&message, fallback).await
+                            };
                         }
                     }
                 }

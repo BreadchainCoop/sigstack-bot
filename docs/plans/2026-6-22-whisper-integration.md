@@ -526,16 +526,16 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 ### Phase 2: Whisper sidecar + client
 
-- [ ] Add `whisper-api` to local compose
-- [ ] Implement `crates/whisper-client`
-- [ ] Health check from `signal-bot` startup
+- [x] Add `whisper-api` to local compose
+- [x] Implement `crates/whisper-client`
+- [x] Health check from `signal-bot` startup
 
 ### Phase 3: Voice handler + UX
 
-- [ ] Implement `VoiceHandler` (implicit; DM + group) with progress message (`🎤 Transcribing...`)
-- [ ] Quote-reply API on `signal-client` send path
-- [ ] Error handling, max duration, timeouts
-- [ ] End-to-end local Signal test (DM)
+- [x] Implement `VoiceHandler` (implicit; DM + group) with progress message (`🎤 Transcribing...`)
+- [x] Quote-reply via `reply_with_quote()` on `CommandHandler` + `SignalClient::reply_quoted`
+- [x] Error handling, max attachment size, timeouts (via `WHISPER__TIMEOUT`)
+- [ ] End-to-end local Signal test (DM) — manual
 
 ### Phase 4: `!translate` (quote-reply)
 

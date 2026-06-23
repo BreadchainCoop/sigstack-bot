@@ -37,6 +37,10 @@ services:
       - NEAR_AI__BASE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
       - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V3.1}
       - NEAR_AI__TIMEOUT=${NEAR_AI_TIMEOUT:-120s}
+      - WHISPER__ENABLED=${WHISPER_ENABLED:-true}
+      - WHISPER__SERVICE_URL=http://whisper-api:9000
+      - WHISPER__MODEL=${WHISPER_MODEL:-small}
+      - WHISPER__TIMEOUT=${WHISPER_TIMEOUT:-120s}
       - CONVERSATION__MAX_MESSAGES=${CONVERSATION_MAX_MESSAGES:-50}
       - CONVERSATION__TTL=${CONVERSATION_TTL:-24h}
       - BOT__LOG_LEVEL=${LOG_LEVEL:-info}
@@ -48,6 +52,28 @@ services:
     depends_on:
       signal-api:
         condition: service_healthy
+      whisper-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  whisper-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.whisper
+    platform: linux/amd64
+    container_name: whisper-api
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+    volumes:
+      - whisper-models:/models
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
     restart: unless-stopped
 
   signal-registration-proxy:
@@ -87,6 +113,8 @@ volumes:
   signal-config:
     driver: local
   registry-data:
+    driver: local
+  whisper-models:
     driver: local
 
 networks:

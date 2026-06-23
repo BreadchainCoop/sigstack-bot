@@ -7,6 +7,7 @@ mod deposit;
 mod help;
 mod models;
 mod verify;
+mod voice;
 
 pub use balance::BalanceHandler;
 pub use chat::ChatHandler;
@@ -15,6 +16,7 @@ pub use deposit::DepositHandler;
 pub use help::HelpHandler;
 pub use models::ModelsHandler;
 pub use verify::VerifyHandler;
+pub use voice::VoiceHandler;
 
 use crate::error::AppResult;
 use async_trait::async_trait;
@@ -44,4 +46,9 @@ pub trait CommandHandler: Send + Sync {
 
     /// Execute the command.
     async fn execute(&self, message: &BotMessage) -> AppResult<String>;
+
+    /// When true, bot replies with a Signal quote-reply to the source message.
+    fn reply_with_quote(&self) -> bool {
+        false
+    }
 }

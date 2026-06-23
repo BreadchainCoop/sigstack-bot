@@ -1,0 +1,9 @@
+# Pin linux/amd64 (Phala CVM + image manifest). Mac/ARM runs via QEMU emulation.
+FROM --platform=linux/amd64 ghcr.io/ggerganov/whisper.cpp:main
+
+USER root
+COPY docker/whisper-entrypoint.sh /whisper-entrypoint.sh
+RUN chmod +x /whisper-entrypoint.sh
+
+EXPOSE 9000
+ENTRYPOINT ["/whisper-entrypoint.sh"]

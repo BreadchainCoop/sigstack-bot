@@ -14,4 +14,5 @@ exec ./build/bin/whisper-server \
   -m "${MODEL_PATH}" \
   --host 0.0.0.0 \
   --port 9000 \
+  --language auto \
   --convert

@@ -87,10 +87,13 @@ impl WhisperClient {
 
         let mut form = reqwest::multipart::Form::new()
             .part("file", part)
-            .text("response_format", "json");
+            .text("response_format", "json")
+            .text("language", "auto");
 
         if translate {
             form = form.text("translate", "true");
+        } else {
+            form = form.text("translate", "false");
         }
 
         let response = self

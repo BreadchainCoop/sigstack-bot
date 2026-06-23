@@ -539,10 +539,10 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 ### Phase 4: `!translate` (quote-reply)
 
-- [ ] Parse Signal quote metadata on `BotMessage`
-- [ ] Implement `TranslateHandler` (NEAR AI on quoted text)
-- [ ] Implement `TranslateLangsHandler` (`!translate-langs`, `!translate-langs-common`)
-- [ ] Group + DM translate tests
+- [x] Parse Signal quote metadata on `BotMessage` (Phase 1 — `QuotedMessage` on receive)
+- [x] Implement `TranslateHandler` (NEAR AI on quoted text; quote-reply to target message)
+- [x] Implement `TranslateLangsHandler` (`!translate-langs`, `!translate-langs-common`)
+- [ ] Group + DM translate tests — manual
 
 ### Phase 5: `!translate-all` (group auto-translate)
 

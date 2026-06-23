@@ -253,26 +253,39 @@ impl SignalClient {
         message: &str,
         quote_snippet: Option<&str>,
     ) -> Result<(), SignalError> {
-        let recipient = self.resolve_send_recipient(original).await?;
         let snippet = quote_snippet
             .map(str::to_string)
-            .or_else(|| {
-                if original.text.is_empty() {
-                    original
-                        .primary_audio_attachment()
-                        .map(|a| format!("[voice note: {}]", a.content_type))
-                } else {
-                    Some(truncate_snippet(&original.text, 120))
-                }
-            });
+            .or_else(|| quote_snippet_for_message(original));
+
+        self.reply_quoted_target(
+            original,
+            original.message_timestamp,
+            original.quote_author(),
+            snippet.as_deref(),
+            message,
+        )
+        .await
+    }
+
+    /// Quote-reply to a specific message (e.g. the message quoted by the user's command).
+    #[instrument(skip(self, message))]
+    pub async fn reply_quoted_target(
+        &self,
+        context: &BotMessage,
+        quote_timestamp: i64,
+        quote_author: &str,
+        quote_snippet: Option<&str>,
+        message: &str,
+    ) -> Result<(), SignalError> {
+        let recipient = self.resolve_send_recipient(context).await?;
 
         self.send_v2(SendMessageV2Request {
             message: message.to_string(),
-            number: original.receiving_account.clone(),
+            number: context.receiving_account.clone(),
             recipients: vec![recipient],
-            quote_timestamp: Some(original.message_timestamp),
-            quote_author: Some(original.quote_author().to_string()),
-            quote_message: snippet,
+            quote_timestamp: Some(quote_timestamp),
+            quote_author: Some(quote_author.to_string()),
+            quote_message: quote_snippet.map(str::to_string),
         })
         .await
     }
@@ -296,6 +309,16 @@ fn truncate_snippet(text: &str, max_len: usize) -> String {
     } else {
         let truncated: String = text.chars().take(max_len).collect();
         format!("{truncated}…")
+    }
+}
+
+fn quote_snippet_for_message(original: &BotMessage) -> Option<String> {
+    if original.text.is_empty() {
+        original
+            .primary_audio_attachment()
+            .map(|a| format!("[voice note: {}]", a.content_type))
+    } else {
+        Some(truncate_snippet(&original.text, 120))
     }
 }
 

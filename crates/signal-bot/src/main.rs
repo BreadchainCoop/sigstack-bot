@@ -225,6 +225,14 @@ async fn main() -> AppResult<()> {
         info!("Voice note transcription enabled");
     }
 
+    handlers.push(Box::new(TranslateHandler::new(
+        near_ai.clone(),
+        signal.clone(),
+        config.whisper.reply_prefix.clone(),
+    )));
+    handlers.push(Box::new(TranslateLangsHandler::new()));
+    info!("Translation commands enabled: !translate, !translate-langs");
+
     handlers.push(chat_handler);
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(ClearHandler::new(conversations.clone())));
@@ -256,8 +264,12 @@ async fn main() -> AppResult<()> {
 
                 if let Some(handler) = handler {
                     let quote_reply = handler.reply_with_quote();
+                    let own_reply = handler.handles_own_reply();
                     match handler.execute(&message).await {
                         Ok(response) => {
+                            if own_reply {
+                                continue;
+                            }
                             let send_result = if quote_reply {
                                 signal.reply_quoted(&message, &response, None).await
                             } else {
@@ -269,6 +281,9 @@ async fn main() -> AppResult<()> {
                         }
                         Err(e) => {
                             error!("Handler error: {}", e);
+                            if own_reply {
+                                continue;
+                            }
                             let fallback = "Sorry, something went wrong.";
                             let _ = if quote_reply {
                                 signal.reply_quoted(&message, fallback, None).await

@@ -1,5 +1,6 @@
 //! Bot command handlers.
 
+mod ask;
 mod balance;
 mod chat;
 mod clear;
@@ -14,6 +15,7 @@ mod translate_service;
 mod verify;
 mod voice;
 
+pub use ask::AskHandler;
 pub use balance::BalanceHandler;
 pub use chat::ChatHandler;
 pub use clear::ClearHandler;

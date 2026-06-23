@@ -187,9 +187,8 @@ async fn main() -> AppResult<()> {
     };
 
     // Create command handlers
-    // Create ChatHandler with or without payment integration
-    let chat_handler: Box<dyn CommandHandler> = if let Some(ref store) = credit_store {
-        Box::new(ChatHandler::with_payments(
+    let chat = if let Some(ref store) = credit_store {
+        ChatHandler::with_payments(
             near_ai.clone(),
             conversations.clone(),
             signal.clone(),
@@ -200,9 +199,9 @@ async fn main() -> AppResult<()> {
             config.bot.github_repo.clone(),
             store.clone(),
             config.payments.pricing.clone(),
-        ))
+        )
     } else {
-        Box::new(ChatHandler::new(
+        ChatHandler::new(
             near_ai.clone(),
             conversations.clone(),
             signal.clone(),
@@ -211,7 +210,7 @@ async fn main() -> AppResult<()> {
             config.tools.max_tool_calls,
             config.bot.signal_username.clone(),
             config.bot.github_repo.clone(),
-        ))
+        )
     };
 
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
@@ -256,9 +255,9 @@ async fn main() -> AppResult<()> {
         config.whisper.reply_prefix.clone(),
     )));
     handlers.push(Box::new(TranslateLangsHandler::new()));
-    info!("Translation commands enabled: !translate, !translate-langs");
-
-    handlers.push(chat_handler);
+    handlers.push(Box::new(AskHandler::new(chat.clone())));
+    info!("AI chat: DM free-text; groups use !ask");
+    handlers.push(Box::new(chat));
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(ClearHandler::new(conversations.clone())));
     handlers.push(Box::new(HelpHandler::new()));

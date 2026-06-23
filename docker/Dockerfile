@@ -7,7 +7,8 @@ WORKDIR /app
 
 # Retry slow registry downloads inside Docker
 ENV CARGO_NET_RETRY=10 \
-    CARGO_HTTP_TIMEOUT=120
+    CARGO_HTTP_TIMEOUT=300 \
+    CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 # Cache dependencies (omit rust-toolchain.toml — it forces cross-target rustup
 # downloads inside the container; use the image's native musl target instead)
@@ -52,8 +53,8 @@ COPY crates crates
 # Touch source files to trigger rebuild
 RUN find crates -name "*.rs" -exec touch {} \;
 
-# Build release binary
-RUN cargo build --release --bin signal-bot
+# Build release binary (offline: deps already fetched in cached layer above)
+RUN cargo build --release --locked --offline --bin signal-bot
 
 # Runtime stage
 FROM alpine:3.21

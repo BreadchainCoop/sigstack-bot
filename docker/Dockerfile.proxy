@@ -18,7 +18,8 @@ COPY crates/whisper-client/Cargo.toml crates/whisper-client/
 COPY crates/x402-payments/Cargo.toml crates/x402-payments/
 
 ENV CARGO_NET_RETRY=10 \
-    CARGO_HTTP_TIMEOUT=120
+    CARGO_HTTP_TIMEOUT=300 \
+    CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 # Create dummy source files for dependency caching
 RUN mkdir -p crates/signal-registration-proxy/src && \
@@ -42,8 +43,8 @@ COPY crates crates
 # Touch source files to trigger rebuild
 RUN find crates -name "*.rs" -exec touch {} \;
 
-# Build release binary
-RUN cargo build --release --bin signal-registration-proxy
+# Build release binary (offline: deps already fetched in cached layer above)
+RUN cargo build --release --locked --offline --bin signal-registration-proxy
 
 # Runtime stage
 FROM alpine:3.21

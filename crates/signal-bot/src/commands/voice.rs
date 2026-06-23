@@ -13,7 +13,6 @@ use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 use whisper_client::{WhisperClient, WhisperError};
 
-const PROGRESS_MSG: &str = "🎤 Transcribing...";
 #[cfg_attr(not(test), allow(dead_code))]
 const DEFAULT_REPLY_PREFIX: &str = "📝 Transcript:";
 
@@ -191,14 +190,6 @@ impl CommandHandler for VoiceHandler {
                     "Voice note too long (max 5 min). Send a shorter clip.".into(),
                 );
             }
-        }
-
-        if let Err(e) = self
-            .signal
-            .reply_quoted(message, PROGRESS_MSG, Some("[voice note]"))
-            .await
-        {
-            warn!("Failed to send transcribing progress message: {}", e);
         }
 
         let bytes = match self.signal.download_attachment(&audio.id).await {

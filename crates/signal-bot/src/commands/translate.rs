@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use near_ai_client::{Message, NearAiClient, Role};
 use signal_client::{BotMessage, QuotedMessage, SignalClient};
 use std::sync::Arc;
-use tracing::{debug, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 pub struct TranslateHandler {
     near_ai: Arc<NearAiClient>,

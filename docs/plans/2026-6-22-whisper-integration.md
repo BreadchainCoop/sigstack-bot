@@ -13,7 +13,7 @@ Add **voice note transcription** to Signal Bot TEE: users send Signal voice mess
 
 Transcription runs **locally in the compose stack** (Whisper), not via NEAR AI, so audio never leaves the enclave as raw media. Translation sends **text only** to NEAR AI (existing HTTPS path).
 
-This extends the existing text bot without replacing it — text chat, tools, and `!verify` continue to work.
+This extends the existing text bot without replacing it — text chat, tools, and `!verify` continue to work in **DMs**. In **groups**, the bot stays quiet unless a user invokes an explicit command, sends a voice note (transcription), or `!translate-all` is active (see Phase 6).
 
 ## Goals
 
@@ -23,6 +23,8 @@ This extends the existing text bot without replacing it — text chat, tools, an
 4. **`!translate-all <lang1> <lang2>`** — **group only** (Signal group chats, including minimal 3-member groups: two users + bot); one-time setup per group; auto-translate subsequent messages between the two languages
 5. Keep **Signal CLI + bot + Whisper in the same attested compose file** (same privacy model as today)
 6. Support **local dev stack** (`docker-compose.yaml`) and **Phala production** (`phala-compose.yaml`)
+7. **Group discipline** — no unprompted AI replies in group chats; general LLM use via `!ask <text>`
+8. **Lean voice UX** — transcribe and quote-reply with transcript only (no intermediate “Transcribing…” message)
 
 ### Non-Goals (v1)
 
@@ -57,7 +59,10 @@ This extends the existing text bot without replacing it — text chat, tools, an
 | Translation backend | **Whisper** for speech `*→English`; **NEAR AI** for all other pairs and text | Keeps English voice path local; avoids NEAR cost/latency |
 | Audio plaintext boundary | Decrypt in `signal-api`; transcribe in CVM; **no disk persistence** of audio | Matches conversation-store ephemeral model |
 | Default Whisper model | `small` (configurable) | Balance of accuracy vs 4–8 GB CVM RAM |
-| Handler routing | **`VoiceHandler`**, **`TranslateHandler`**, **`TranslateAllHandler`** | Separate implicit vs explicit vs group-pair modes |
+| Handler routing | **`VoiceHandler`**, **`TranslateHandler`**, **`TranslateAllHandler`**, **`AskHandler`** | Separate implicit vs explicit vs group-pair vs opt-in chat |
+| Group text chat | **No default `ChatHandler`** in groups | Avoids replying to every group message; use `!ask` for LLM |
+| DM text chat | **Free-text** (unchanged) | 1:1 intent is conversational; groups use `!ask` |
+| Voice progress message | **None** — single quote-reply with transcript | `📝 Transcript:` is sufficient; less thread noise |
 
 > **Resolved (Phase 0):** `whisper-server` from `ghcr.io/ggerganov/whisper.cpp:main` — see `docs/spikes/2026-6-23-phase0-whisper-spike.md`.
 
@@ -376,7 +381,9 @@ All bot outputs **quote-reply** the original message (DM or group).
 | **Group** + `!translate-all es en` active | Spanish voice note | `📝 (es) {transcript}\n🇺🇸 (en) {English}` — Whisper translate for English leg |
 | **Group** + `!translate-all es en` active | English voice note | `📝 (en) {transcript}\n🇪🇸 (es) {Spanish}` — transcribe + NEAR AI |
 | **Group** + `!translate-all es en` active | Spanish text | `🇺🇸 {English}` only (translation; original visible above) |
-| Any | Text message (not a command) | Chat handler, unless `!translate-all` intercepts in group |
+| **DM** | Text message (not a command) | Chat handler (free-text AI), same as before |
+| **Group** | Text message (not a command) | **Ignored** unless `!translate-all` intercepts or user sends `!ask <text>` |
+| **Group** | `!ask What is the capital of France?` | NEAR AI reply (same tool/credit path as DM chat) |
 
 There is **no `!transcribe` command**. Sending a voice note *is* the request.
 
@@ -420,6 +427,10 @@ Bot:    ↳ 🇺🇸 Is anyone going to the meetup?
 All new commands must appear in `crates/signal-bot/src/commands/help.rs` when the feature ships. Proposed additions:
 
 ```
+**Signal AI** (Private & Verifiable)
+
+In a **DM**, send a message to chat with AI. In **groups**, use `!ask <question>` — the bot ignores unprompted group text.
+
 **Voice & translation:**
 - Send a voice note — auto-transcribed (no command needed)
 - !translate <lang> — Quote-reply a message to translate it
@@ -427,6 +438,9 @@ All new commands must appear in `crates/signal-bot/src/commands/help.rs` when th
 - !translate-off — Disable group auto-translate
 - !translate-langs — List all supported languages
 - !translate-langs-common — List top 12 languages by speakers
+
+**AI chat (groups):**
+- !ask <question> — Ask the AI in a group (bot ignores unprompted group text)
 ```
 
 Optional short note under **Privacy** or a **Voice** subsection: transcription runs locally in the TEE (Whisper); translation uses NEAR AI on text only.
@@ -477,12 +491,14 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 | `crates/signal-client/src/types.rs` | Attachments on `DataMessage`; `BotMessage` voice detection |
 | `crates/signal-client/src/client.rs` | `download_attachment()` |
 | `crates/signal-bot/src/config.rs` | `WhisperConfig` |
-| `crates/signal-bot/src/commands/voice.rs` | **New** — implicit voice handler |
+| `crates/signal-bot/src/commands/voice.rs` | **Modify** — remove progress message (Phase 6) |
 | `crates/signal-bot/src/commands/translate.rs` | **New** — `!translate` quote-reply handler |
 | `crates/signal-bot/src/commands/translate_all.rs` | **New** — `!translate-all` group mode |
 | `crates/signal-bot/src/group_translate_store.rs` | **New** — per-group lang pair state |
 | `crates/signal-bot/src/commands/translate_langs.rs` | **New** — `!translate-langs`, `!translate-langs-common` |
-| `crates/signal-bot/src/commands/help.rs` | **Modify** — list voice + translate commands in `!help` output |
+| `crates/signal-bot/src/commands/ask.rs` | **New** — `!ask` opt-in group chat handler |
+| `crates/signal-bot/src/commands/chat.rs` | **Modify** — skip default handler in groups |
+| `crates/signal-bot/src/commands/help.rs` | **Modify** — list voice + translate + `!ask` in `!help` output |
 | `crates/signal-bot/src/commands/mod.rs` | Export handler |
 | `crates/signal-bot/src/main.rs` | Register handler; health check whisper |
 | `docker/docker-compose.yaml` | Add `whisper-api` service |
@@ -503,7 +519,10 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 - [ ] Local: `!translate-all es en` → English text → Spanish via NEAR AI
 - [ ] Local: `!translate` without quote → helpful error
 - [ ] Local: `!help` lists voice note behavior and all translate commands
-- [ ] Regression: text messages and `!verify` unchanged
+- [ ] Regression: DM free-text chat and `!verify` unchanged
+- [ ] Local: group random text → no bot reply
+- [ ] Local: group `!ask hello` → AI reply
+- [ ] Local: voice note → transcript only (no “Transcribing…” progress message)
 - [ ] Phala: `!verify` after compose update; compose hash includes `whisper-api`
 - [ ] Load: 60s voice note completes within `WHISPER__TIMEOUT`
 
@@ -532,7 +551,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 ### Phase 3: Voice handler + UX
 
-- [x] Implement `VoiceHandler` (implicit; DM + group) with progress message (`🎤 Transcribing...`)
+- [x] Implement `VoiceHandler` (implicit; DM + group) *(progress message removed in Phase 6)*
 - [x] Quote-reply via `reply_with_quote()` on `CommandHandler` + `SignalClient::reply_quoted`
 - [x] Error handling, max attachment size, timeouts (via `WHISPER__TIMEOUT`)
 - [ ] End-to-end local Signal test (DM) — manual
@@ -552,15 +571,50 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 - [x] Text language detection (`whatlang`)
 - [x] Rate limiting for NEAR AI in busy groups
 - [x] Update `!help` with full voice/translate command list
-- [ ] Group translate end-to-end tests — manual
+- [x] Group translate end-to-end tests — manual
 
-### Phase 6: Production hardening
+### Phase 6: Group chat discipline + `!ask` + lean voice UX
+
+Manual testing (Phases 3–5) surfaced three UX issues: progress-message bloat, unsolicited group AI replies, and no explicit opt-in for general chat in groups.
+
+- [ ] **Remove voice progress message** — delete `🎤 Transcribing...` send in `VoiceHandler`; go straight to Whisper + quote-reply with `📝 Transcript:` (or translate-all bilingual format)
+- [ ] **Silence `ChatHandler` in groups** — default handler must not match when `message.is_group`; unprompted group text is ignored (commands, voice, and `!translate-all` intercept unchanged)
+- [ ] **Add `AskHandler` (`!ask <text>`)** — explicit opt-in for NEAR AI chat in groups; reuse `ChatHandler` conversation/credit/tool logic (extract shared `handle_chat` helper or delegate from `AskHandler`)
+- [ ] **DM behavior unchanged** — free-text messages in 1:1 chats still route to `ChatHandler` without `!ask`
+- [ ] **Update `!help`** — document group vs DM chat rules and `!ask`
+- [ ] **Tests** — unit: `ChatHandler::matches` false in groups; `AskHandler` parses `!ask` remainder; voice handler does not send progress message
+- [ ] Manual: group casual text → silence; group `!ask …` → reply; DM free-text still works; voice → single transcript reply
+
+**Handler order (unchanged principle):** commands → voice → translate-all intercept → `ChatHandler` (DM default only) / `AskHandler` (`!ask`).
+
+```rust
+// crates/signal-bot/src/commands/ask.rs (sketch)
+pub struct AskHandler { /* same deps as ChatHandler */ }
+
+// matches: text starts with "!ask " (trimmed remainder is the user question)
+// groups + DMs: !ask is always explicit LLM opt-in
+// 1. strip "!ask" prefix → question text
+// 2. run same NEAR AI + tools + credits path as ChatHandler
+```
+
+```rust
+// crates/signal-bot/src/commands/chat.rs (sketch)
+impl CommandHandler for ChatHandler {
+    fn is_default(&self) -> bool { true }
+
+    fn matches(&self, message: &BotMessage) -> bool {
+        !message.is_group && message.has_text() && !message.text.starts_with('!')
+    }
+}
+```
+
+### Phase 7: Production hardening
 
 - [ ] Pin whisper image digest in `phala-compose.yaml`
 - [ ] Document CVM sizing in `CLAUDE.md`
 - [ ] Update attestation / verification docs for new service
 
-### Phase 7 (optional): LibreTranslate sidecar
+### Phase 8 (optional): LibreTranslate sidecar
 
 - [ ] Self-hosted translation in TEE (no NEAR AI for translate)
 - [ ] Operator toggle: `TRANSLATE__BACKEND=near_ai|libretranslate`
@@ -570,6 +624,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 1. **Live voice-note JSON** — validate fixtures after user sends test voice note to bot (Phase 0 spike §6)
 2. **Quote timestamp mapping** — confirm `quote_timestamp` vs `dataMessage.timestamp` with real quote-reply capture
 3. **Model updates** — how to bump whisper model without breaking compose attestation expectations
+4. **`!ask` in DMs** — optional future: require `!ask` in DMs too for consistency (v1 keeps DM free-text)
 
 ## References
 

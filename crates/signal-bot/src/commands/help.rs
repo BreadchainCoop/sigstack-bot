@@ -28,7 +28,7 @@ impl CommandHandler for HelpHandler {
     async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
         Ok(r#"**Signal AI** (Private & Verifiable)
 
-Just send a message to chat with AI.
+In a **DM**, send a message to chat with AI. In **groups**, use `!ask <question>` — the bot ignores unprompted group text.
 
 **Voice & translation:**
 - Send a voice note — auto-transcribed (no command needed)
@@ -37,6 +37,9 @@ Just send a message to chat with AI.
 - !translate-off — Disable group auto-translate
 - !translate-langs — List all supported languages
 - !translate-langs-common — List top 12 languages by speakers
+
+**AI chat:**
+- !ask <question> — Ask the AI (required in groups; also works in DMs)
 
 **Commands:**
 - !verify <challenge> - Get TEE attestation with your challenge

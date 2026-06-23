@@ -212,6 +212,30 @@ async fn main() -> AppResult<()> {
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
+                // Phase 1: voice pipeline — download and log (Whisper handler in Phase 3)
+                if message.is_voice_note() {
+                    for audio in message.audio_attachments() {
+                        match signal.download_attachment(&audio.id).await {
+                            Ok(bytes) => {
+                                info!(
+                                    "Voice note from {}: attachment {} ({} bytes, {})",
+                                    message.source,
+                                    audio.id,
+                                    bytes.len(),
+                                    audio.content_type
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to download voice attachment {} from {}: {}",
+                                    audio.id, message.source, e
+                                );
+                            }
+                        }
+                    }
+                    continue;
+                }
+
                 // Find matching handler
                 let handler = handlers
                     .iter()

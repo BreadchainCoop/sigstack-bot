@@ -18,4 +18,7 @@ pub enum SignalError {
 
     #[error("Send failed: {0}")]
     SendFailed(String),
+
+    #[error("Attachment download failed: {0}")]
+    AttachmentDownloadFailed(String),
 }

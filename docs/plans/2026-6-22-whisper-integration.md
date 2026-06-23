@@ -42,6 +42,7 @@ This extends the existing text bot without replacing it — text chat, tools, an
 | Group behavior | **All voice notes** in groups where bot is present | Same implicit handler as DM |
 | Transcription engine | **Whisper** (whisper.cpp or compatible server) | Runs offline in TEE; no API key; predictable cost |
 | Deployment shape | **Sidecar service** in compose (`whisper-api`) | Isolates CPU/RAM spike |
+| Whisper runtime (Phase 0) | **`ghcr.io/ggerganov/whisper.cpp:main`** → `whisper-server` on :9000 | CPU-only; no Python; `/inference` multipart API |
 | NEAR AI role | **Translation** for non-English targets and text; **not** for `*→English` voice when Whisper can translate | See [Whisper translation limits](#whisper-translation-limits) |
 | Translation UX (`!translate`) | **Quote-reply** to target message | User picks which message and target language |
 | Translation UX (`!translate-all`) | **Group-only** (`groupId`); minimal **3-member** groups (user₁ + user₂ + bot) OK; `!translate-all <lang1> <lang2>`; disable via `!translate-off` | Not 1:1 DMs; 2 humans + bot = practical bilingual chat pattern |
@@ -58,7 +59,7 @@ This extends the existing text bot without replacing it — text chat, tools, an
 | Default Whisper model | `small` (configurable) | Balance of accuracy vs 4–8 GB CVM RAM |
 | Handler routing | **`VoiceHandler`**, **`TranslateHandler`**, **`TranslateAllHandler`** | Separate implicit vs explicit vs group-pair modes |
 
-> **Open:** exact Whisper runtime (`whisper.cpp` HTTP server vs `faster-whisper` vs custom Rust binding) — spike in Phase 0.
+> **Resolved (Phase 0):** `whisper-server` from `ghcr.io/ggerganov/whisper.cpp:main` — see `docs/spikes/2026-6-23-phase0-whisper-spike.md`.
 
 ## Whisper Translation Limits
 
@@ -508,18 +509,20 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 ## Implementation Phases
 
-### Phase 0: Spike (1–2 days)
+### Phase 0: Spike
 
-- [ ] Confirm signal-cli-rest-api JSON shape for voice attachments on `/v1/receive`
-- [ ] Confirm attachment download endpoint and auth requirements
-- [ ] Benchmark `whisper.cpp` vs `faster-whisper` in Docker on `linux/amd64`
-- [ ] Pick sidecar image/build approach
+- [x] Confirm signal-cli-rest-api JSON shape for voice attachments on `/v1/receive` (swagger + fixtures; live capture pending)
+- [x] Confirm attachment download endpoint and auth requirements (`GET /v1/attachments/{id}`, no auth)
+- [x] Benchmark `whisper.cpp` vs `faster-whisper` in Docker on `linux/amd64` (whisper.cpp selected; ~4.7s for 11s audio on `small`)
+- [x] Pick sidecar image/build approach (`docker/Dockerfile.whisper` from official image + baked `small` model)
+
+**Spike report:** `docs/spikes/2026-6-23-phase0-whisper-spike.md`
 
 ### Phase 1: Signal attachment pipeline
 
-- [ ] Extend `signal-client` types + download
-- [ ] Extend `BotMessage` / receiver to yield voice messages
-- [ ] Manual test: log attachment received (no Whisper yet)
+- [x] Extend `signal-client` types + download
+- [x] Extend `BotMessage` / receiver to yield voice messages
+- [x] Manual test: log attachment received (no Whisper yet)
 
 ### Phase 2: Whisper sidecar + client
 
@@ -563,10 +566,9 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 ## Open Questions
 
-1. **Exact attachment API** — document signal-cli-rest-api paths with real voice-note capture (Phase 0)
-2. **Quote/reply JSON + send API** — confirm fields for inbound quotes and outbound quote-replies (Phase 0)
-3. **Whisper runtime** — whisper.cpp server vs faster-whisper (Python, heavier image) (Phase 0)
-4. **Model updates** — how to bump whisper model without breaking compose attestation expectations
+1. **Live voice-note JSON** — validate fixtures after user sends test voice note to bot (Phase 0 spike §6)
+2. **Quote timestamp mapping** — confirm `quote_timestamp` vs `dataMessage.timestamp` with real quote-reply capture
+3. **Model updates** — how to bump whisper model without breaking compose attestation expectations
 
 ## References
 
@@ -574,6 +576,6 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 - [OpenAI Speech-to-text](https://developers.openai.com/api/docs/guides/speech-to-text) — translation to English only
 - [Whisper translation guide](https://www.mintlify.com/openai/whisper/guides/translation) — `task=translate` behavior
 - [signal-translate-bot](https://github.com/decentralparknyc/signal-translate-bot) — sidecar translation pattern
-- `docs/plans/base-plan-template.md` — plan template for this folder
+- `docs/spikes/2026-6-23-phase0-whisper-spike.md` — Phase 0 findings (attachments, quotes, whisper benchmark)
 - `docs/plans/2024-12-15-tool-use-system-design.md` — design doc pattern
 - `docs/plans/x402-payment-integration.md` — optional billing integration later

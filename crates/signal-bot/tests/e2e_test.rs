@@ -31,6 +31,8 @@ async fn test_bot_chat_e2e() {
         tool_registry.clone(),
         "You are a helpful assistant.".to_string(),
         5,
+        None,
+        None,
     );
 
     // 3. Mock NEAR AI Response
@@ -73,9 +75,12 @@ async fn test_bot_chat_e2e() {
         source: "+123456789".to_string(),
         text: "Hi there!".to_string(),
         timestamp: 123456789,
+        message_timestamp: 123456789,
         is_group: false,
         group_id: None,
         receiving_account: "+987654321".to_string(),
+        attachments: vec![],
+        quote: None,
     };
 
     // 6. Execute Handler
@@ -113,6 +118,8 @@ async fn test_bot_tool_use_e2e() {
         tool_registry.clone(),
         "You are a helpful assistant.".to_string(),
         5,
+        None,
+        None,
     );
 
     // 3. Mock NEAR AI Response 1: Tool Call
@@ -202,9 +209,12 @@ async fn test_bot_tool_use_e2e() {
         source: "+123456789".to_string(),
         text: "How much is 2+2?".to_string(),
         timestamp: 123456789,
+        message_timestamp: 123456789,
         is_group: false,
         group_id: None,
         receiving_account: "+987654321".to_string(),
+        attachments: vec![],
+        quote: None,
     };
 
     let response = chat_handler.execute(&incoming).await.unwrap();

@@ -38,7 +38,7 @@ pub trait CommandHandler: Send + Sync {
         if let Some(trigger) = self.trigger() {
             message.text.starts_with(trigger)
         } else {
-            self.is_default() && !message.text.starts_with('!')
+            self.is_default() && !message.text.starts_with('!') && !message.is_voice_note()
         }
     }
 

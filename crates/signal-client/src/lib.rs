@@ -179,6 +179,8 @@ mod tests {
                     message: Some("Hello bot!".into()),
                     timestamp: 1677652288000,
                     group_info: None,
+                    attachments: vec![],
+                    quote: None,
                 }),
             },
             account: "+15555555555".into(),
@@ -208,7 +210,10 @@ mod tests {
                     timestamp: 1677652288000,
                     group_info: Some(GroupInfo {
                         group_id: "test-group-id".into(),
+                        group_name: None,
                     }),
+                    attachments: vec![],
+                    quote: None,
                 }),
             },
             account: "+15555555555".into(),
@@ -222,6 +227,8 @@ mod tests {
         assert_eq!(msg.group_id, Some("test-group-id".into()));
         assert_eq!(msg.reply_target(), "test-group-id");
         assert_eq!(msg.receiving_account, "+15555555555");
+        assert_eq!(msg.message_timestamp, 1677652288000);
+        assert!(!msg.is_voice_note());
     }
 
     #[tokio::test]
@@ -239,5 +246,100 @@ mod tests {
 
         let bot_msg = BotMessage::from_incoming(&incoming);
         assert!(bot_msg.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_download_attachment() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/test-audio-id"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"fake-audio-bytes"))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let bytes = client.download_attachment("test-audio-id").await.unwrap();
+        assert_eq!(bytes, b"fake-audio-bytes");
+    }
+
+    #[tokio::test]
+    async fn test_send_quoted_reply() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "timestamp": 1677652288000i64
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let original = BotMessage {
+            source: "+14155551234".into(),
+            text: "Hola".into(),
+            timestamp: 1677652288000,
+            message_timestamp: 1677652287000,
+            is_group: false,
+            group_id: None,
+            receiving_account: "+15555555555".into(),
+            attachments: vec![],
+            quote: None,
+        };
+
+        client
+            .reply_quoted(&original, "Hello", Some("Hola"))
+            .await
+            .unwrap();
+    }
+
+    #[test]
+    fn test_bot_message_from_voice_fixture() {
+        let fixture = include_str!("../../../docs/spikes/fixtures/voice-note-dm.json");
+        let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
+        let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
+
+        assert!(bot_msg.is_voice_note());
+        assert!(bot_msg.text.is_empty());
+        assert_eq!(bot_msg.source, "+14155559876");
+        assert_eq!(bot_msg.message_timestamp, 1719000000000);
+
+        let audio = bot_msg.primary_audio_attachment().unwrap();
+        assert_eq!(audio.content_type, "audio/ogg");
+        assert_eq!(audio.id, "pwtcq-example-voice-id");
+    }
+
+    #[test]
+    fn test_bot_message_from_group_voice_fixture() {
+        let fixture = include_str!("../../../docs/spikes/fixtures/voice-note-group.json");
+        let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
+        let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
+
+        assert!(bot_msg.is_voice_note());
+        assert!(bot_msg.is_group);
+        assert_eq!(
+            bot_msg.group_id.as_deref(),
+            Some("group.ckRzaEd4VmRzNnJaASAEsasa")
+        );
+    }
+
+    #[test]
+    fn test_bot_message_from_quote_fixture() {
+        let fixture = include_str!("../../../docs/spikes/fixtures/text-with-quote-reply.json");
+        let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
+        let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
+
+        assert_eq!(bot_msg.text, "!translate es");
+        assert!(!bot_msg.is_voice_note());
+
+        let quote = bot_msg.quote.as_ref().unwrap();
+        assert_eq!(quote.id, 1718999999000);
+        assert_eq!(quote.author_number.as_deref(), Some("+14155559876"));
+        assert!(quote
+            .text
+            .as_ref()
+            .unwrap()
+            .contains("Hola a todos"));
     }
 }

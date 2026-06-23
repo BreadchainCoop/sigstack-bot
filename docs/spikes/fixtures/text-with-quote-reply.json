@@ -1,0 +1,35 @@
+[
+  {
+    "envelope": {
+      "source": "+14155551234",
+      "sourceNumber": "+14155551234",
+      "sourceName": "John",
+      "sourceUuid": "11111111-2222-3333-4444-555555555555",
+      "sourceDevice": 2,
+      "timestamp": 1719000002000,
+      "serverReceivedTimestamp": 1719000002100,
+      "serverDeliveredTimestamp": 1719000002200,
+      "dataMessage": {
+        "timestamp": 1719000002000,
+        "message": "!translate es",
+        "expiresInSeconds": 0,
+        "attachments": [],
+        "quote": {
+          "id": 1718999999000,
+          "author": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "authorNumber": "+14155559876",
+          "authorUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "text": "📝 Transcript:\nHola a todos, ¿cómo están?",
+          "attachments": []
+        },
+        "groupInfo": {
+          "groupId": "group.ckRzaEd4VmRzNnJaASAEsasa",
+          "groupName": "María + John + bot",
+          "revision": 3,
+          "type": "DELIVER"
+        }
+      }
+    },
+    "account": "+573107677679"
+  }
+]

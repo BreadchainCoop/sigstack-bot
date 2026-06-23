@@ -1,0 +1,30 @@
+[
+  {
+    "envelope": {
+      "source": "+14155559876",
+      "sourceNumber": "+14155559876",
+      "sourceName": "María",
+      "sourceUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "sourceDevice": 1,
+      "timestamp": 1719000000000,
+      "serverReceivedTimestamp": 1719000000100,
+      "serverDeliveredTimestamp": 1719000000200,
+      "dataMessage": {
+        "timestamp": 1719000000000,
+        "message": null,
+        "expiresInSeconds": 0,
+        "attachments": [
+          {
+            "contentType": "audio/ogg",
+            "filename": null,
+            "id": "pwtcq-example-voice-id",
+            "size": 18432,
+            "uploadTimestamp": 1719000000000
+          }
+        ],
+        "groupInfo": null
+      }
+    },
+    "account": "+573107677679"
+  }
+]

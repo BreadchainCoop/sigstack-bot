@@ -5,6 +5,7 @@ use crate::commands::translate_service::{
 };
 use crate::commands::CommandHandler;
 use crate::group_translate_store::GroupTranslateStore;
+use crate::transcribe_store::TranscribeStore;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
@@ -23,6 +24,7 @@ pub struct VoiceHandler {
     max_attachment_bytes: usize,
     group_translate: Option<Arc<GroupTranslateStore>>,
     near_ai: Option<Arc<NearAiClient>>,
+    transcribe_store: Option<Arc<TranscribeStore>>,
 }
 
 impl VoiceHandler {
@@ -39,7 +41,13 @@ impl VoiceHandler {
             max_attachment_bytes,
             group_translate: None,
             near_ai: None,
+            transcribe_store: None,
         }
+    }
+
+    pub fn with_transcribe_store(mut self, store: Arc<TranscribeStore>) -> Self {
+        self.transcribe_store = Some(store);
+        self
     }
 
     pub fn with_translate_all(
@@ -158,7 +166,12 @@ impl VoiceHandler {
 #[async_trait]
 impl CommandHandler for VoiceHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        message.is_voice_note()
+        if !message.is_voice_note() {
+            return false;
+        }
+        self.transcribe_store
+            .as_ref()
+            .is_none_or(|store| store.is_enabled(message.reply_target()))
     }
 
     fn reply_with_quote(&self) -> bool {

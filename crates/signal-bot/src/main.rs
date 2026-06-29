@@ -4,6 +4,7 @@ use signal_bot::commands::*;
 use signal_bot::config::Config;
 use signal_bot::error::AppResult;
 use signal_bot::group_translate_store::GroupTranslateStore;
+use signal_bot::transcribe_store::TranscribeStore;
 use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
@@ -223,19 +224,28 @@ async fn main() -> AppResult<()> {
         None
     };
 
+    let transcribe_store = Arc::new(TranscribeStore::new());
+    let whisper_available = whisper_client.is_some();
+
     if let Some(ref whisper) = whisper_client {
         let mut voice = VoiceHandler::new(
             whisper.clone(),
             signal.clone(),
             config.whisper.reply_prefix.clone(),
             config.whisper.max_attachment_bytes,
-        );
+        )
+        .with_transcribe_store(transcribe_store.clone());
         if let Some(ref store) = group_translate_store {
             voice = voice.with_translate_all(store.clone(), near_ai.clone());
         }
         handlers.push(Box::new(voice));
         info!("Voice note transcription enabled");
     }
+
+    handlers.push(Box::new(TranscribeHandler::new(
+        transcribe_store,
+        whisper_available,
+    )));
 
     if let Some(ref store) = group_translate_store {
         handlers.push(Box::new(TranslateAllHandler::new(
@@ -261,6 +271,7 @@ async fn main() -> AppResult<()> {
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(ClearHandler::new(conversations.clone())));
     handlers.push(Box::new(HelpHandler::new()));
+    handlers.push(Box::new(PrivacyHandler::new()));
     handlers.push(Box::new(ModelsHandler::new(near_ai.clone())));
 
     // Add payment handlers if enabled

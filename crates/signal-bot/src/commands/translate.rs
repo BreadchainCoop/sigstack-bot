@@ -155,7 +155,7 @@ impl CommandHandler for TranslateHandler {
             Some(lang) => lang,
             None => {
                 let msg = format!(
-                    "Unknown language: {lang_token}. Use !translate-langs-common for common codes."
+                    "Unknown language: {lang_token}. Use !translate-langs for supported codes."
                 );
                 self.send_reply(message, None, &msg).await?;
                 return Ok(String::new());

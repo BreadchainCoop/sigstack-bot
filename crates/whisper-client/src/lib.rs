@@ -6,7 +6,7 @@ mod types;
 
 pub use client::WhisperClient;
 pub use error::WhisperError;
-pub use types::{HealthResponse, TranscriptionResult};
+pub use types::{HealthResponse, TranscriptionResult, whisper_language_to_iso};
 
 #[cfg(test)]
 mod tests {
@@ -40,7 +40,8 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/inference"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": " Hello world\n"
+                "text": " Hello world\n",
+                "language": "english"
             })))
             .mount(&server)
             .await;
@@ -52,6 +53,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(result.trimmed_text(), "Hello world");
+        assert_eq!(result.language.as_deref(), Some("en"));
     }
 
     #[tokio::test]

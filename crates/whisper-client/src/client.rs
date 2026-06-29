@@ -1,7 +1,7 @@
 //! whisper.cpp HTTP server client.
 
 use crate::error::WhisperError;
-use crate::types::{HealthResponse, InferenceResponse, TranscriptionResult};
+use crate::types::{whisper_language_to_iso, HealthResponse, InferenceResponse, TranscriptionResult};
 use reqwest::Client;
 use std::time::Duration;
 use tracing::{debug, instrument, warn};
@@ -87,7 +87,7 @@ impl WhisperClient {
 
         let mut form = reqwest::multipart::Form::new()
             .part("file", part)
-            .text("response_format", "json")
+            .text("response_format", "verbose_json")
             .text("language", "auto");
 
         if translate {
@@ -115,12 +115,20 @@ impl WhisperClient {
             return Err(WhisperError::EmptyTranscription);
         }
 
+        let language = body
+            .language
+            .as_deref()
+            .or(body.detected_language.as_deref())
+            .and_then(whisper_language_to_iso)
+            .map(str::to_string);
+
         debug!(
-            "Whisper {} complete ({} chars)",
+            "Whisper {} complete ({} chars, lang={:?})",
             if translate { "translate" } else { "transcribe" },
-            text.len()
+            text.len(),
+            language
         );
 
-        Ok(TranscriptionResult { text })
+        Ok(TranscriptionResult { text, language })
     }
 }

@@ -1,7 +1,7 @@
 //! Implicit voice note handler — transcribe via Whisper and quote-reply.
 
 use crate::commands::translate_service::{
-    format_voice_auto_translation, near_ai_translate, detect_text_language,
+    format_voice_auto_translation, near_ai_translate, resolve_translate_all_voice_pair,
 };
 use crate::commands::CommandHandler;
 use crate::group_translate_store::GroupTranslateStore;
@@ -106,18 +106,15 @@ impl VoiceHandler {
             .transcribe(bytes, &filename, content_type)
             .await?;
         let transcript_text = transcript.trimmed_text();
+        let whisper_lang = transcript.language.as_deref();
 
-        let detected = detect_text_language(transcript_text);
-        let (source, target) = match detected
-            .as_deref()
-            .and_then(|code| {
-                mode.target_for_source(code)
-                    .and_then(|t| mode.source_language(code).map(|s| (s, t)))
-            }) {
+        let (source, target) = match resolve_translate_all_voice_pair(&mode, whisper_lang, transcript_text)
+        {
             Some(pair) => pair,
             None => {
                 info!(
                     group_id,
+                    whisper_lang,
                     "Voice transcript language not in translate-all pair — transcript only"
                 );
                 return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
@@ -126,7 +123,7 @@ impl VoiceHandler {
 
         debug!(
             group_id,
-            detected_lang = detected.as_deref().unwrap_or("unknown"),
+            whisper_lang,
             source_lang = source.code,
             target_lang = target.code,
             whisper_translate = target.code == "en" && source.code != "en",
@@ -209,12 +206,11 @@ impl CommandHandler for VoiceHandler {
             return Ok("Voice note too long (max 5 min). Send a shorter clip.".into());
         }
 
-        let translate_all_active = message.is_group
-            && message.group_id.as_ref().is_some_and(|gid| {
-                self.group_translate
-                    .as_ref()
-                    .is_some_and(|s| s.is_active(gid))
-            });
+        let translate_all_active = message.group_id.as_ref().is_some_and(|gid| {
+            self.group_translate
+                .as_ref()
+                .is_some_and(|s| s.is_active(gid))
+        });
 
         if translate_all_active {
             let group_id = message.group_id.as_deref().unwrap();

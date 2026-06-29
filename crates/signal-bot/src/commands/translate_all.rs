@@ -43,7 +43,7 @@ impl TranslateAllHandler {
 
     fn is_text_intercept(message: &BotMessage) -> bool {
         let text = message.text.trim();
-        message.is_group
+        message.group_id.is_some()
             && !message.is_voice_note()
             && !text.is_empty()
             && !text.starts_with('!')
@@ -87,7 +87,7 @@ impl TranslateAllHandler {
             Some(l) => l,
             None => {
                 return Ok(format!(
-                    "Unknown language: {token_a}. Use !translate-langs-common for common codes."
+                    "Unknown language: {token_a}. Use !translate-langs for supported codes."
                 ));
             }
         };
@@ -95,7 +95,7 @@ impl TranslateAllHandler {
             Some(l) => l,
             None => {
                 return Ok(format!(
-                    "Unknown language: {token_b}. Use !translate-langs-common for common codes."
+                    "Unknown language: {token_b}. Use !translate-langs for supported codes."
                 ));
             }
         };

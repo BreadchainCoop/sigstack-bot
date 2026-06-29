@@ -1,6 +1,6 @@
-//! `!translate-langs` and `!translate-langs-common` — language discovery.
+//! `!translate-langs` — list supported translation languages.
 
-use crate::commands::translate_lang::{format_language_list, ALL_LANGUAGES, COMMON_LANGUAGES};
+use crate::commands::translate_lang::{format_language_list, ALL_LANGUAGES};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
@@ -22,27 +22,18 @@ impl Default for TranslateLangsHandler {
 
 #[async_trait]
 impl CommandHandler for TranslateLangsHandler {
+    fn trigger(&self) -> Option<&str> {
+        Some("!translate-langs")
+    }
+
     fn label(&self) -> &'static str {
         "translate_langs"
     }
 
-    fn matches(&self, message: &BotMessage) -> bool {
-        let text = message.text.trim();
-        text == "!translate-langs" || text == "!translate-langs-common"
-    }
-
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let text = message.text.trim();
-        if text == "!translate-langs-common" {
-            Ok(format!(
-                "**Common languages** (use code with !translate):\n\n{}",
-                format_language_list(COMMON_LANGUAGES)
-            ))
-        } else {
-            Ok(format!(
-                "**Supported languages** (use code with !translate):\n\n{}",
-                format_language_list(ALL_LANGUAGES)
-            ))
-        }
+    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
+        Ok(format!(
+            "**Supported languages** (use code with !translate):\n\n{}",
+            format_language_list(ALL_LANGUAGES)
+        ))
     }
 }

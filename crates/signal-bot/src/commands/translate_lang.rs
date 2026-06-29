@@ -7,22 +7,6 @@ pub struct Language {
     pub flag: &'static str,
 }
 
-/// Top 12 languages by speakers (for `!translate-langs-common`).
-pub const COMMON_LANGUAGES: &[Language] = &[
-    Language { code: "en", name: "English", flag: "🇺🇸" },
-    Language { code: "zh", name: "Chinese", flag: "🇨🇳" },
-    Language { code: "hi", name: "Hindi", flag: "🇮🇳" },
-    Language { code: "es", name: "Spanish", flag: "🇪🇸" },
-    Language { code: "fr", name: "French", flag: "🇫🇷" },
-    Language { code: "ar", name: "Arabic", flag: "🇸🇦" },
-    Language { code: "bn", name: "Bengali", flag: "🇧🇩" },
-    Language { code: "pt", name: "Portuguese", flag: "🇵🇹" },
-    Language { code: "ru", name: "Russian", flag: "🇷🇺" },
-    Language { code: "ja", name: "Japanese", flag: "🇯🇵" },
-    Language { code: "de", name: "German", flag: "🇩🇪" },
-    Language { code: "ko", name: "Korean", flag: "🇰🇷" },
-];
-
 /// Full supported language catalog (for `!translate-langs`).
 pub const ALL_LANGUAGES: &[Language] = &[
     Language { code: "en", name: "English", flag: "🇺🇸" },

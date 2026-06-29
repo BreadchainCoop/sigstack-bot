@@ -35,8 +35,7 @@ In a **DM**, send a message to chat with AI. In **groups**, use `!ask <question>
 - !translate <lang> — Quote-reply a message to translate it
 - !translate-all <lang1> <lang2> — Group only: auto-translate between two languages
 - !translate-off — Disable group auto-translate
-- !translate-langs — List all supported languages
-- !translate-langs-common — List top 12 languages by speakers
+- !translate-langs — List supported languages
 
 **AI chat:**
 - !ask <question> — Ask the AI (required in groups; also works in DMs)

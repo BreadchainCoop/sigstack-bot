@@ -34,8 +34,11 @@ tokio-stream.workspace = true
 sha2.workspace = true
 hex.workspace = true
 whatlang = "0.16"
+aes-gcm = "0.10"
+rand = "0.8"
 
 [dev-dependencies]
 tokio-test.workspace = true
 mockall.workspace = true
 wiremock.workspace = true
+tempfile = "3"

@@ -382,4 +382,20 @@ mod tests {
             .unwrap()
             .contains("Hola a todos"));
     }
+
+    #[test]
+    fn test_bot_message_from_voice_quote_fixture() {
+        let fixture = include_str!("../../../docs/spikes/fixtures/voice-with-quote-reply.json");
+        let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
+        let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
+
+        assert_eq!(bot_msg.text, "!transcribe");
+        assert!(!bot_msg.is_voice_note());
+
+        let quote = bot_msg.quote.as_ref().unwrap();
+        assert_eq!(quote.id, 1719000000000);
+        let audio = quote.audio_attachment.as_ref().unwrap();
+        assert_eq!(audio.id, "pwtcq-example-voice-id");
+        assert!(audio.content_type.starts_with("audio/"));
+    }
 }

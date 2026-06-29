@@ -50,9 +50,12 @@ services:
       - PAYMENTS__ENABLED=false
       # Dstack TEE socket - provided by Phala CVM
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
+      - GROUP_PREFERENCES__PERSIST=true
+      - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
     volumes:
       # Dstack socket for TEE attestation (provided by Phala CVM)
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
+      - group-prefs-data:/data
     depends_on:
       - signal-api
     restart: unless-stopped
@@ -92,4 +95,6 @@ volumes:
   signal-config-v3:
     driver: local
   registry-data:
+    driver: local
+  group-prefs-data:
     driver: local

@@ -29,6 +29,7 @@ impl CommandHandler for HelpHandler {
         Ok(r#"**Bread Coop AI** (Private & Verifiable)
 
 **Voice:**
+- !transcribe — Quote-reply a voice message to transcribe it
 - !transcribe-on — auto-transcribe voice to text
 - !transcribe-off — turn off auto-transcription
 

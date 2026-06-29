@@ -45,8 +45,11 @@ services:
       - CONVERSATION__TTL=${CONVERSATION_TTL:-24h}
       - BOT__LOG_LEVEL=${LOG_LEVEL:-info}
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
+      - GROUP_PREFERENCES__PERSIST=${GROUP_PREFERENCES_PERSIST:-true}
+      - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
+      - group-prefs-data:/data
     networks:
       - internal
     depends_on:
@@ -115,6 +118,8 @@ volumes:
   registry-data:
     driver: local
   whisper-models:
+    driver: local
+  group-prefs-data:
     driver: local
 
 networks:

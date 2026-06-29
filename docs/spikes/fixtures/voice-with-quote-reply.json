@@ -1,0 +1,42 @@
+[
+  {
+    "envelope": {
+      "source": "+14155551234",
+      "sourceNumber": "+14155551234",
+      "sourceName": "John",
+      "sourceUuid": "11111111-2222-3333-4444-555555555555",
+      "sourceDevice": 2,
+      "timestamp": 1719000003000,
+      "serverReceivedTimestamp": 1719000003100,
+      "serverDeliveredTimestamp": 1719000003200,
+      "dataMessage": {
+        "timestamp": 1719000003000,
+        "message": "!transcribe",
+        "expiresInSeconds": 0,
+        "attachments": [],
+        "quote": {
+          "id": 1719000000000,
+          "author": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "authorNumber": "+14155559876",
+          "authorUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "text": null,
+          "attachments": [
+            {
+              "contentType": "audio/ogg",
+              "filename": null,
+              "thumbnail": {
+                "contentType": "audio/ogg",
+                "filename": null,
+                "id": "pwtcq-example-voice-id",
+                "size": 18432,
+                "uploadTimestamp": 1719000000000
+              }
+            }
+          ]
+        },
+        "groupInfo": null
+      }
+    },
+    "account": "+573107677679"
+  }
+]

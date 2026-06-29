@@ -226,6 +226,7 @@ mod tests {
             id: 1,
             author_number: Some("+1".into()),
             text: Some("📝 Transcript:\nHola a todos".into()),
+            audio_attachment: None,
         };
         let text =
             TranslateHandler::extract_quoted_text(&quote, "📝 Transcript:").unwrap();
@@ -238,6 +239,7 @@ mod tests {
             id: 1,
             author_number: Some("+1".into()),
             text: Some("Hello world".into()),
+            audio_attachment: None,
         };
         let text = TranslateHandler::extract_quoted_text(&quote, "📝 Transcript:").unwrap();
         assert_eq!(text, "Hello world");

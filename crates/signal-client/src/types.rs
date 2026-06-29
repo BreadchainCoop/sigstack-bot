@@ -95,6 +95,8 @@ pub struct QuotedMessage {
     pub id: i64,
     pub author_number: Option<String>,
     pub text: Option<String>,
+    /// Audio attachment from the quoted message (voice notes), when Signal includes it.
+    pub audio_attachment: Option<Attachment>,
 }
 
 /// Outgoing message request (legacy shape; prefer [`SendMessageV2Request`]).
@@ -176,6 +178,7 @@ impl BotMessage {
             id: q.id,
             author_number: q.author_number.clone().or_else(|| q.author.clone()),
             text: q.text.clone(),
+            audio_attachment: quoted_audio_attachment(q),
         });
 
         Some(Self {
@@ -218,4 +221,24 @@ impl BotMessage {
     pub fn quote_author(&self) -> &str {
         &self.source
     }
+}
+
+fn quoted_audio_attachment(quote: &Quote) -> Option<Attachment> {
+    for quoted in &quote.attachments {
+        if quoted
+            .content_type
+            .as_deref()
+            .is_some_and(|ct| ct.starts_with("audio/"))
+        {
+            if let Some(thumb) = &quoted.thumbnail {
+                return Some(thumb.clone());
+            }
+        }
+        if let Some(thumb) = &quoted.thumbnail {
+            if thumb.content_type.starts_with("audio/") {
+                return Some(thumb.clone());
+            }
+        }
+    }
+    None
 }

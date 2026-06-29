@@ -4,7 +4,7 @@ use crate::commands::translate_service::{
     format_voice_auto_translation, near_ai_translate, resolve_translate_all_voice_pair,
 };
 use crate::commands::CommandHandler;
-use crate::group_translate_store::GroupTranslateStore;
+use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_store::TranscribeStore;
 use crate::error::AppResult;
 use async_trait::async_trait;
@@ -22,7 +22,7 @@ pub struct VoiceHandler {
     signal: Arc<SignalClient>,
     reply_prefix: String,
     max_attachment_bytes: usize,
-    group_translate: Option<Arc<GroupTranslateStore>>,
+    group_translate: Option<Arc<GroupPreferencesStore>>,
     near_ai: Option<Arc<NearAiClient>>,
     transcribe_store: Option<Arc<TranscribeStore>>,
 }
@@ -52,7 +52,7 @@ impl VoiceHandler {
 
     pub fn with_translate_all(
         mut self,
-        store: Arc<GroupTranslateStore>,
+        store: Arc<GroupPreferencesStore>,
         near_ai: Arc<NearAiClient>,
     ) -> Self {
         self.group_translate = Some(store);
@@ -60,11 +60,11 @@ impl VoiceHandler {
         self
     }
 
-    fn format_transcript(text: &str, prefix: &str) -> String {
+    pub fn format_transcript(text: &str, prefix: &str) -> String {
         format!("{prefix}\n{text}")
     }
 
-    fn attachment_filename(audio: &Attachment) -> String {
+    pub fn attachment_filename(audio: &Attachment) -> String {
         if let Some(name) = &audio.filename {
             if !name.is_empty() {
                 return name.clone();
@@ -171,7 +171,7 @@ impl CommandHandler for VoiceHandler {
         }
         self.transcribe_store
             .as_ref()
-            .is_none_or(|store| store.is_enabled(message.reply_target()))
+            .is_none_or(|store| store.is_enabled(message.reply_target(), message.is_group))
     }
 
     fn reply_with_quote(&self) -> bool {

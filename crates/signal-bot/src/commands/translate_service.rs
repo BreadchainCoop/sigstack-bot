@@ -1,7 +1,7 @@
 //! Shared translation helpers for `!translate` and `!translate-all`.
 
 use crate::commands::translate_lang::Language;
-use crate::group_translate_store::GroupTranslateMode;
+use crate::group_preferences_store::GroupTranslateMode;
 use near_ai_client::{Message, NearAiClient, NearAiError, Role};
 use tracing::debug;
 use whatlang::Lang;

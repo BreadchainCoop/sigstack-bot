@@ -41,6 +41,10 @@ pub struct Config {
     /// Group auto-translate (`!translate-all`) configuration
     #[serde(default)]
     pub translate_all: TranslateAllConfig,
+
+    /// Encrypted persistence for per-group bot preferences
+    #[serde(default)]
+    pub group_preferences: GroupPreferencesConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -191,6 +195,17 @@ pub struct TranslateAllConfig {
     pub max_messages_per_minute: u32,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupPreferencesConfig {
+    /// Persist group transcription + translate-all settings (TEE-encrypted)
+    #[serde(default = "default_true")]
+    pub persist: bool,
+
+    /// Encrypted preferences file path (Docker volume in production)
+    #[serde(default = "default_group_preferences_path")]
+    pub storage_path: String,
+}
+
 // Default implementations
 impl Default for SignalConfig {
     fn default() -> Self {
@@ -285,6 +300,15 @@ impl Default for TranslateAllConfig {
         Self {
             enabled: default_true(),
             max_messages_per_minute: default_translate_all_max_per_minute(),
+        }
+    }
+}
+
+impl Default for GroupPreferencesConfig {
+    fn default() -> Self {
+        Self {
+            persist: default_true(),
+            storage_path: default_group_preferences_path(),
         }
     }
 }
@@ -413,6 +437,10 @@ fn default_whisper_reply_prefix() -> String {
 
 fn default_translate_all_max_per_minute() -> u32 {
     30
+}
+
+fn default_group_preferences_path() -> String {
+    "/data/group_prefs.enc".into()
 }
 
 impl Config {

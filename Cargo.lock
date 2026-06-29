@@ -6061,6 +6061,7 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 name = "signal-bot"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "async-trait",
  "chrono",
@@ -6072,10 +6073,12 @@ dependencies = [
  "humantime-serde",
  "mockall",
  "near-ai-client",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "signal-client",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tokio-stream",

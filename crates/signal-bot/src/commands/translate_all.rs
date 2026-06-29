@@ -6,7 +6,7 @@ use crate::commands::translate_service::{
 };
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
-use crate::group_translate_store::{GroupTranslateMode, GroupTranslateStore};
+use crate::group_preferences_store::{GroupPreferencesStore, GroupTranslateMode};
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
 use signal_client::{BotMessage, SignalClient};
@@ -18,14 +18,14 @@ const BARE_COMMAND_MSG: &str =
 const GROUP_ONLY_MSG: &str = "!translate-all is only available in group chats";
 
 pub struct TranslateAllHandler {
-    store: Arc<GroupTranslateStore>,
+    store: Arc<GroupPreferencesStore>,
     near_ai: Arc<NearAiClient>,
     signal: Arc<SignalClient>,
 }
 
 impl TranslateAllHandler {
     pub fn new(
-        store: Arc<GroupTranslateStore>,
+        store: Arc<GroupPreferencesStore>,
         near_ai: Arc<NearAiClient>,
         signal: Arc<SignalClient>,
     ) -> Self {
@@ -229,7 +229,7 @@ mod tests {
 
     fn test_handler() -> TranslateAllHandler {
         TranslateAllHandler::new(
-            Arc::new(GroupTranslateStore::new(30)),
+            GroupPreferencesStore::new_in_memory(30),
             Arc::new(
                 NearAiClient::new("key", "http://localhost", "model", std::time::Duration::from_secs(5))
                     .unwrap(),

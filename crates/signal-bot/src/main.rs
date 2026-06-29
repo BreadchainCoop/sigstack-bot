@@ -3,7 +3,7 @@
 use signal_bot::commands::*;
 use signal_bot::config::Config;
 use signal_bot::error::AppResult;
-use signal_bot::group_translate_store::GroupTranslateStore;
+use signal_bot::group_preferences_store::GroupPreferencesStore;
 use signal_bot::transcribe_store::TranscribeStore;
 use anyhow::Context;
 use conversation_store::ConversationStore;
@@ -11,6 +11,7 @@ use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
 use signal_client::{MessageReceiver, SignalClient};
 use whisper_client::WhisperClient;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
 use tokio_stream::StreamExt;
@@ -216,15 +217,22 @@ async fn main() -> AppResult<()> {
 
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
 
-    let group_translate_store = if config.translate_all.enabled {
-        Some(Arc::new(GroupTranslateStore::new(
-            config.translate_all.max_messages_per_minute,
-        )))
-    } else {
-        None
-    };
+    let group_prefs = GroupPreferencesStore::open(
+        dstack.clone(),
+        PathBuf::from(&config.group_preferences.storage_path),
+        config.group_preferences.persist,
+        config.translate_all.max_messages_per_minute,
+    )
+    .await;
 
-    let transcribe_store = Arc::new(TranscribeStore::new());
+    if config.group_preferences.persist {
+        info!(
+            "Group preferences persistence enabled: {}",
+            config.group_preferences.storage_path
+        );
+    }
+
+    let transcribe_store = Arc::new(TranscribeStore::new(Some(group_prefs.clone())));
     let whisper_available = whisper_client.is_some();
 
     if let Some(ref whisper) = whisper_client {
@@ -235,10 +243,16 @@ async fn main() -> AppResult<()> {
             config.whisper.max_attachment_bytes,
         )
         .with_transcribe_store(transcribe_store.clone());
-        if let Some(ref store) = group_translate_store {
-            voice = voice.with_translate_all(store.clone(), near_ai.clone());
+        if config.translate_all.enabled {
+            voice = voice.with_translate_all(group_prefs.clone(), near_ai.clone());
         }
         handlers.push(Box::new(voice));
+        handlers.push(Box::new(ManualTranscribeHandler::new(
+            whisper.clone(),
+            signal.clone(),
+            config.whisper.reply_prefix.clone(),
+            config.whisper.max_attachment_bytes,
+        )));
         info!("Voice note transcription enabled");
     }
 
@@ -247,9 +261,9 @@ async fn main() -> AppResult<()> {
         whisper_available,
     )));
 
-    if let Some(ref store) = group_translate_store {
+    if config.translate_all.enabled {
         handlers.push(Box::new(TranslateAllHandler::new(
-            store.clone(),
+            group_prefs.clone(),
             near_ai.clone(),
             signal.clone(),
         )));

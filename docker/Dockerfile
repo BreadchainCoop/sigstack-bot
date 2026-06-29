@@ -25,12 +25,13 @@ COPY crates/x402-payments/Cargo.toml crates/x402-payments/
 
 # Minimal stubs so `cargo fetch` can resolve path dependencies
 RUN mkdir -p crates/signal-bot/src/commands && \
-    echo "pub mod commands; pub mod config; pub mod error; pub mod group_translate_store;" > crates/signal-bot/src/lib.rs && \
+    echo "pub mod commands; pub mod config; pub mod error; pub mod group_preferences_store; pub mod transcribe_store;" > crates/signal-bot/src/lib.rs && \
     echo "fn main() {}" > crates/signal-bot/src/main.rs && \
     echo "" > crates/signal-bot/src/commands/mod.rs && \
     echo "" > crates/signal-bot/src/config.rs && \
     echo "" > crates/signal-bot/src/error.rs && \
-    echo "" > crates/signal-bot/src/group_translate_store.rs && \
+    echo "" > crates/signal-bot/src/group_preferences_store.rs && \
+    echo "" > crates/signal-bot/src/transcribe_store.rs && \
     mkdir -p crates/near-ai-client/src && echo "pub fn dummy() {}" > crates/near-ai-client/src/lib.rs && \
     mkdir -p crates/conversation-store/src && echo "pub fn dummy() {}" > crates/conversation-store/src/lib.rs && \
     mkdir -p crates/dstack-client/src && echo "pub fn dummy() {}" > crates/dstack-client/src/lib.rs && \
@@ -65,8 +66,8 @@ RUN apk add --no-cache ca-certificates
 # Copy binary
 COPY --from=builder /app/target/release/signal-bot /signal-bot
 
-# Non-root user
-RUN adduser -D -u 1000 appuser
+# Non-root user + writable data dir for encrypted group preferences
+RUN adduser -D -u 1000 appuser && mkdir -p /data && chown appuser:appuser /data
 USER appuser
 
 ENTRYPOINT ["/signal-bot"]

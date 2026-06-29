@@ -3,16 +3,18 @@
 use signal_bot::commands::*;
 use signal_bot::config::Config;
 use signal_bot::error::AppResult;
+use signal_bot::group_translate_store::GroupTranslateStore;
 use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
 use signal_client::{MessageReceiver, SignalClient};
+use whisper_client::WhisperClient;
 use std::sync::Arc;
 use tokio::signal;
 use tokio_stream::StreamExt;
 use tools::{ToolRegistry, builtin::{CalculatorTool, WeatherTool, WebSearchTool}};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use x402_payments::CreditStore;
 
@@ -157,10 +159,36 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
+    let whisper_client = if config.whisper.enabled {
+        let whisper = Arc::new(
+            WhisperClient::new(
+                &config.whisper.service_url,
+                config.whisper.timeout,
+            )
+            .context("Failed to create Whisper client")?,
+        );
+
+        if whisper.health_check().await {
+            info!(
+                "Whisper API healthy at {} (model: {})",
+                config.whisper.service_url, config.whisper.model
+            );
+        } else {
+            warn!(
+                "Whisper API not reachable at {} — voice notes will fail until whisper-api is up",
+                config.whisper.service_url
+            );
+        }
+
+        Some(whisper)
+    } else {
+        info!("Whisper transcription disabled");
+        None
+    };
+
     // Create command handlers
-    // Create ChatHandler with or without payment integration
-    let chat_handler: Box<dyn CommandHandler> = if let Some(ref store) = credit_store {
-        Box::new(ChatHandler::with_payments(
+    let chat = if let Some(ref store) = credit_store {
+        ChatHandler::with_payments(
             near_ai.clone(),
             conversations.clone(),
             signal.clone(),
@@ -171,9 +199,9 @@ async fn main() -> AppResult<()> {
             config.bot.github_repo.clone(),
             store.clone(),
             config.payments.pricing.clone(),
-        ))
+        )
     } else {
-        Box::new(ChatHandler::new(
+        ChatHandler::new(
             near_ai.clone(),
             conversations.clone(),
             signal.clone(),
@@ -182,16 +210,58 @@ async fn main() -> AppResult<()> {
             config.tools.max_tool_calls,
             config.bot.signal_username.clone(),
             config.bot.github_repo.clone(),
-        ))
+        )
     };
 
-    let mut handlers: Vec<Box<dyn CommandHandler>> = vec![
-        chat_handler,
-        Box::new(VerifyHandler::new(dstack.clone())),
-        Box::new(ClearHandler::new(conversations.clone())),
-        Box::new(HelpHandler::new()),
-        Box::new(ModelsHandler::new(near_ai.clone())),
-    ];
+    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+
+    let group_translate_store = if config.translate_all.enabled {
+        Some(Arc::new(GroupTranslateStore::new(
+            config.translate_all.max_messages_per_minute,
+        )))
+    } else {
+        None
+    };
+
+    if let Some(ref whisper) = whisper_client {
+        let mut voice = VoiceHandler::new(
+            whisper.clone(),
+            signal.clone(),
+            config.whisper.reply_prefix.clone(),
+            config.whisper.max_attachment_bytes,
+        );
+        if let Some(ref store) = group_translate_store {
+            voice = voice.with_translate_all(store.clone(), near_ai.clone());
+        }
+        handlers.push(Box::new(voice));
+        info!("Voice note transcription enabled");
+    }
+
+    if let Some(ref store) = group_translate_store {
+        handlers.push(Box::new(TranslateAllHandler::new(
+            store.clone(),
+            near_ai.clone(),
+            signal.clone(),
+        )));
+        info!(
+            "Group auto-translate enabled: !translate-all, !translate-off (max {}/min)",
+            config.translate_all.max_messages_per_minute
+        );
+    }
+
+    handlers.push(Box::new(TranslateHandler::new(
+        near_ai.clone(),
+        signal.clone(),
+        config.whisper.reply_prefix.clone(),
+    )));
+    handlers.push(Box::new(TranslateLangsHandler::new()));
+    handlers.push(Box::new(AskHandler::new(chat.clone())));
+    info!("AI chat: DM free-text; groups use !ask");
+    handlers.push(Box::new(chat));
+    handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
+    handlers.push(Box::new(ClearHandler::new(conversations.clone())));
+    handlers.push(Box::new(HelpHandler::new()));
+    handlers.push(Box::new(ModelsHandler::new(near_ai.clone())));
 
     // Add payment handlers if enabled
     if let Some(ref store) = credit_store {
@@ -212,25 +282,57 @@ async fn main() -> AppResult<()> {
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
-                // Find matching handler
                 let handler = handlers
                     .iter()
                     .find(|h| h.matches(&message));
 
                 if let Some(handler) = handler {
+                    let quote_reply = handler.reply_with_quote();
+                    let own_reply = handler.handles_own_reply();
+                    debug!(
+                        handler = handler.label(),
+                        source = %message.source,
+                        is_group = message.is_group,
+                        voice = message.is_voice_note(),
+                        has_quote = message.quote.is_some(),
+                        own_reply,
+                        quote_reply,
+                        "Dispatching to handler"
+                    );
                     match handler.execute(&message).await {
                         Ok(response) => {
-                            if let Err(e) = signal.reply(&message, &response).await {
+                            if own_reply {
+                                continue;
+                            }
+                            let send_result = if quote_reply {
+                                signal.reply_quoted(&message, &response, None).await
+                            } else {
+                                signal.reply(&message, &response).await
+                            };
+                            if let Err(e) = send_result {
                                 error!("Failed to send reply: {}", e);
                             }
                         }
                         Err(e) => {
                             error!("Handler error: {}", e);
-                            let _ = signal
-                                .reply(&message, "Sorry, something went wrong.")
-                                .await;
+                            if own_reply {
+                                continue;
+                            }
+                            let fallback = "Sorry, something went wrong.";
+                            let _ = if quote_reply {
+                                signal.reply_quoted(&message, fallback, None).await
+                            } else {
+                                signal.reply(&message, fallback).await
+                            };
                         }
                     }
+                } else if message.is_voice_note() || !message.text.trim().is_empty() {
+                    debug!(
+                        source = %message.source,
+                        is_group = message.is_group,
+                        voice = message.is_voice_note(),
+                        "No handler matched message"
+                    );
                 }
             }
             _ = signal::ctrl_c() => {

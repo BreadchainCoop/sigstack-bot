@@ -69,12 +69,24 @@ impl MessageReceiver {
                         Ok(messages) => {
                             for msg in messages {
                                 if let Some(bot_msg) = BotMessage::from_incoming(&msg) {
-                                    debug!(
-                                        "Received on {}: '{}' from {}",
-                                        account,
-                                        &bot_msg.text[..bot_msg.text.len().min(50)],
-                                        bot_msg.source
-                                    );
+                                    if bot_msg.is_voice_note() {
+                                        if let Some(audio) = bot_msg.primary_audio_attachment() {
+                                            debug!(
+                                                "Voice note on {} from {} (attachment {}, {} bytes expected)",
+                                                account,
+                                                bot_msg.source,
+                                                audio.id,
+                                                audio.size.unwrap_or(0)
+                                            );
+                                        }
+                                    } else {
+                                        debug!(
+                                            "Received on {}: '{}' from {}",
+                                            account,
+                                            &bot_msg.text[..bot_msg.text.len().min(50)],
+                                            bot_msg.source
+                                        );
+                                    }
                                     yield bot_msg;
                                 }
                             }

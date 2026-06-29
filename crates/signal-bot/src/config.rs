@@ -33,6 +33,14 @@ pub struct Config {
     /// Payment configuration
     #[serde(default)]
     pub payments: x402_payments::PaymentConfig,
+
+    /// Whisper transcription configuration
+    #[serde(default)]
+    pub whisper: WhisperConfig,
+
+    /// Group auto-translate (`!translate-all`) configuration
+    #[serde(default)]
+    pub translate_all: TranslateAllConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -145,6 +153,44 @@ pub struct CalculatorConfig {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct WhisperConfig {
+    /// Master switch for voice transcription
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// whisper-server base URL (no trailing path)
+    #[serde(default = "default_whisper_service")]
+    pub service_url: String,
+
+    /// Model name loaded in the sidecar (e.g. `small`)
+    #[serde(default = "default_whisper_model")]
+    pub model: String,
+
+    /// Max time per transcribe request
+    #[serde(default = "default_whisper_timeout", with = "humantime_serde")]
+    pub timeout: Duration,
+
+    /// Reject attachments larger than this (rough proxy for max voice length)
+    #[serde(default = "default_whisper_max_attachment_bytes")]
+    pub max_attachment_bytes: usize,
+
+    /// Prefix line before transcript text in quote-replies
+    #[serde(default = "default_whisper_reply_prefix")]
+    pub reply_prefix: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TranslateAllConfig {
+    /// Master switch for group auto-translate
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Max auto-translate replies per group per minute (NEAR AI protection)
+    #[serde(default = "default_translate_all_max_per_minute")]
+    pub max_messages_per_minute: u32,
+}
+
 // Default implementations
 impl Default for SignalConfig {
     fn default() -> Self {
@@ -217,6 +263,28 @@ impl Default for CalculatorConfig {
     fn default() -> Self {
         Self {
             enabled: default_true(),
+        }
+    }
+}
+
+impl Default for WhisperConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_true(),
+            service_url: default_whisper_service(),
+            model: default_whisper_model(),
+            timeout: default_whisper_timeout(),
+            max_attachment_bytes: default_whisper_max_attachment_bytes(),
+            reply_prefix: default_whisper_reply_prefix(),
+        }
+    }
+}
+
+impl Default for TranslateAllConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_true(),
+            max_messages_per_minute: default_translate_all_max_per_minute(),
         }
     }
 }
@@ -320,6 +388,31 @@ fn default_max_tool_calls() -> usize {
 
 fn default_search_results() -> usize {
     5
+}
+
+fn default_whisper_service() -> String {
+    "http://whisper-api:9000".into()
+}
+
+fn default_whisper_model() -> String {
+    "small".into()
+}
+
+fn default_whisper_timeout() -> Duration {
+    Duration::from_secs(120)
+}
+
+fn default_whisper_max_attachment_bytes() -> usize {
+    // ~5 min voice at typical Signal bitrates
+    10 * 1024 * 1024
+}
+
+fn default_whisper_reply_prefix() -> String {
+    "📝 Transcript:".into()
+}
+
+fn default_translate_all_max_per_minute() -> u32 {
+    30
 }
 
 impl Config {

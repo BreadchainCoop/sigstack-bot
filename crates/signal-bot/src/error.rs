@@ -19,6 +19,9 @@ pub enum AppError {
 
     #[error("Dstack error: {0}")]
     Dstack(#[from] dstack_client::DstackError),
+
+    #[error("Whisper error: {0}")]
+    Whisper(#[from] whisper_client::WhisperError),
 }
 
 /// Result type alias for application errors.

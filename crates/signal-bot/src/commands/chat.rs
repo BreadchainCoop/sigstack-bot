@@ -16,6 +16,7 @@ use x402_payments::{
     calculate_credits, estimate_credits, CreditStore, PricingConfig, TokenUsage, UsageRecord,
 };
 
+#[derive(Clone)]
 pub struct ChatHandler {
     near_ai: Arc<NearAiClient>,
     conversations: Arc<ConversationStore>,
@@ -163,16 +164,10 @@ impl ChatHandler {
             .await?;
         Ok(response)
     }
-}
 
-#[async_trait]
-impl CommandHandler for ChatHandler {
-    fn is_default(&self) -> bool {
-        true
-    }
-
+    /// Run NEAR AI chat for `user_text` (shared by DM free-text and `!ask`).
     #[instrument(skip(self, message), fields(user = %message.source, is_group = %message.is_group))]
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+    pub async fn handle_chat(&self, message: &BotMessage, user_text: &str) -> AppResult<String> {
         // Use reply_target as conversation key:
         // - For DMs: sender's phone number
         // - For groups: group_id (shared context for all members)
@@ -185,19 +180,19 @@ impl CommandHandler for ChatHandler {
                 "Group chat from {} in {}: {}...",
                 &message.source[..message.source.len().min(8)],
                 &conversation_id[..conversation_id.len().min(12)],
-                &message.text[..message.text.len().min(50)]
+                &user_text[..user_text.len().min(50)]
             );
         } else {
             info!(
                 "Chat from {}: {}...",
                 &conversation_id[..conversation_id.len().min(8)],
-                &message.text[..message.text.len().min(50)]
+                &user_text[..user_text.len().min(50)]
             );
         }
 
         // Pre-flight credit check (if payments enabled)
         if let Some(ref credit_store) = self.credit_store {
-            let estimated_credits = estimate_credits(message.text.len(), &self.pricing_config);
+            let estimated_credits = estimate_credits(user_text.len(), &self.pricing_config);
             if !credit_store.has_credits(user_id, estimated_credits).await {
                 let balance = credit_store.get_balance(user_id).await;
                 return Ok(format!(
@@ -210,7 +205,7 @@ impl CommandHandler for ChatHandler {
 
         // Add user message to history
         self.conversations
-            .add_message(conversation_id, "user", &message.text, Some(&self.system_prompt))
+            .add_message(conversation_id, "user", user_text, Some(&self.system_prompt))
             .await?;
 
         // Get tool definitions and convert to NEAR AI format
@@ -319,7 +314,7 @@ impl CommandHandler for ChatHandler {
                     let progress_msg = format!("🔧 Using {}...", tool_call.function.name);
                     if let Err(e) = self
                         .signal_client
-                        .send(&message.receiving_account, message.reply_target(), &progress_msg)
+                        .reply(message, &progress_msg)
                         .await
                     {
                         warn!("Failed to send progress message: {}", e);
@@ -413,5 +408,80 @@ impl CommandHandler for ChatHandler {
         // Max iterations reached
         warn!("Max tool iterations ({}) reached for {}", self.max_tool_iterations, conversation_id);
         Ok("I've reached my maximum number of tool uses for this request. Please start a new conversation.".into())
+    }
+}
+
+#[async_trait]
+impl CommandHandler for ChatHandler {
+    fn is_default(&self) -> bool {
+        true
+    }
+
+    fn matches(&self, message: &BotMessage) -> bool {
+        self.is_default()
+            && !message.is_group
+            && !message.text.starts_with('!')
+            && !message.is_voice_note()
+            && !message.text.trim().is_empty()
+    }
+
+    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+        self.handle_chat(message, &message.text).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use signal_client::BotMessage;
+    use std::time::Duration;
+    use tools::ToolRegistry;
+
+    fn sample_message(text: &str, is_group: bool) -> BotMessage {
+        BotMessage {
+            source: "+1234567890".into(),
+            text: text.into(),
+            timestamp: 0,
+            message_timestamp: 0,
+            is_group,
+            group_id: if is_group {
+                Some("group.test".into())
+            } else {
+                None
+            },
+            receiving_account: "+0987654321".into(),
+            attachments: vec![],
+            quote: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn chat_handler_matches_dm_text() {
+        let handler = ChatHandler::new(
+            Arc::new(NearAiClient::new("key", "http://localhost", "model", Duration::from_secs(30)).unwrap()),
+            Arc::new(ConversationStore::new(50, Duration::from_secs(3600))),
+            Arc::new(SignalClient::new("http://localhost").unwrap()),
+            Arc::new(ToolRegistry::new()),
+            String::new(),
+            5,
+            None,
+            None,
+        );
+        assert!(handler.matches(&sample_message("hello", false)));
+    }
+
+    #[tokio::test]
+    async fn chat_handler_ignores_group_text() {
+        let handler = ChatHandler::new(
+            Arc::new(NearAiClient::new("key", "http://localhost", "model", Duration::from_secs(30)).unwrap()),
+            Arc::new(ConversationStore::new(50, Duration::from_secs(3600))),
+            Arc::new(SignalClient::new("http://localhost").unwrap()),
+            Arc::new(ToolRegistry::new()),
+            String::new(),
+            5,
+            None,
+            None,
+        );
+        assert!(!handler.matches(&sample_message("hello", true)));
     }
 }

@@ -1,0 +1,35 @@
+[
+  {
+    "envelope": {
+      "source": "+14155559876",
+      "sourceNumber": "+14155559876",
+      "sourceName": "María",
+      "sourceUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "sourceDevice": 1,
+      "timestamp": 1719000001000,
+      "serverReceivedTimestamp": 1719000001100,
+      "serverDeliveredTimestamp": 1719000001200,
+      "dataMessage": {
+        "timestamp": 1719000001000,
+        "message": null,
+        "expiresInSeconds": 0,
+        "attachments": [
+          {
+            "contentType": "audio/aac",
+            "filename": null,
+            "id": "group-voice-attachment-id",
+            "size": 24576,
+            "uploadTimestamp": 1719000001000
+          }
+        ],
+        "groupInfo": {
+          "groupId": "MB3b+ZC/9JkmyJS0J6dOpgyboKNYVkp134P7l547Pk8=",
+          "groupName": "María + John + bot",
+          "revision": 3,
+          "type": "DELIVER"
+        }
+      }
+    },
+    "account": "+573107677679"
+  }
+]

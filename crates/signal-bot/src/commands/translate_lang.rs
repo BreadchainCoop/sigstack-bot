@@ -7,7 +7,7 @@ pub struct Language {
     pub flag: &'static str,
 }
 
-/// Full supported language catalog (for `!translate-langs`).
+/// Full supported language catalog (for `!list-langs`).
 pub const ALL_LANGUAGES: &[Language] = &[
     Language { code: "en", name: "English", flag: "🇺🇸" },
     Language { code: "es", name: "Spanish", flag: "🇪🇸" },

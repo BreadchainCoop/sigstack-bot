@@ -38,7 +38,7 @@ pub struct Config {
     #[serde(default)]
     pub whisper: WhisperConfig,
 
-    /// Group auto-translate (`!translate-all`) configuration
+    /// Group auto-translate (`!translate-on`) configuration
     #[serde(default)]
     pub translate_all: TranslateAllConfig,
 

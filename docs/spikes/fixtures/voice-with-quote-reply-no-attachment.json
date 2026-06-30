@@ -1,0 +1,30 @@
+[
+  {
+    "envelope": {
+      "source": "+14155551234",
+      "sourceNumber": "+14155551234",
+      "sourceName": "John",
+      "sourceUuid": "11111111-2222-3333-4444-555555555555",
+      "sourceDevice": 2,
+      "timestamp": 1719000004000,
+      "serverReceivedTimestamp": 1719000004100,
+      "serverDeliveredTimestamp": 1719000004200,
+      "dataMessage": {
+        "timestamp": 1719000004000,
+        "message": "!transcribe",
+        "expiresInSeconds": 0,
+        "attachments": [],
+        "quote": {
+          "id": 1719000000000,
+          "author": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "authorNumber": "+14155559876",
+          "authorUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "text": null,
+          "attachments": []
+        },
+        "groupInfo": null
+      }
+    },
+    "account": "+573107677679"
+  }
+]

@@ -1,4 +1,4 @@
-//! `!translate-all` / `!translate-off` — group auto-translate mode.
+//! `!translate-on` / `!translate-off` — group auto-translate mode.
 
 use crate::commands::translate_lang::resolve_language;
 use crate::commands::translate_service::{
@@ -13,9 +13,34 @@ use signal_client::{BotMessage, SignalClient};
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
+const TRANSLATE_ON_PREFIXES: &[&str] = &["!translate-on", "!translation-on"];
+const TRANSLATE_OFF_COMMANDS: &[&str] = &["!translate-off", "!translation-off"];
+
 const BARE_COMMAND_MSG: &str =
-    "Please specify languages to translate between. !translate-all en es";
-const GROUP_ONLY_MSG: &str = "!translate-all is only available in group chats";
+    "Please specify two languages. Example: !translate-on es en";
+const GROUP_ONLY_MSG: &str = "!translate-on is only available in group chats";
+
+/// Whether the message is `!translate-on` / `!translation-on` or the off variant.
+pub(crate) fn is_translate_on_or_off_command(text: &str) -> bool {
+    let text = text.trim();
+    TRANSLATE_ON_PREFIXES
+        .iter()
+        .any(|prefix| text.starts_with(prefix))
+        || TRANSLATE_OFF_COMMANDS.iter().any(|cmd| text == *cmd)
+}
+
+fn strip_translate_on_prefix(text: &str) -> Option<&str> {
+    let text = text.trim();
+    TRANSLATE_ON_PREFIXES
+        .iter()
+        .find_map(|prefix| text.strip_prefix(prefix))
+        .map(str::trim)
+}
+
+fn is_bare_translate_on(text: &str) -> bool {
+    let text = text.trim();
+    TRANSLATE_ON_PREFIXES.iter().any(|prefix| text == *prefix)
+}
 
 pub struct TranslateAllHandler {
     store: Arc<GroupPreferencesStore>,
@@ -37,8 +62,7 @@ impl TranslateAllHandler {
     }
 
     fn is_command(text: &str) -> bool {
-        let text = text.trim();
-        text.starts_with("!translate-all") || text == "!translate-off"
+        is_translate_on_or_off_command(text)
     }
 
     fn is_text_intercept(message: &BotMessage) -> bool {
@@ -50,7 +74,7 @@ impl TranslateAllHandler {
     }
 
     fn parse_lang_pair(text: &str) -> Option<(&str, &str)> {
-        let rest = text.trim().strip_prefix("!translate-all")?.trim();
+        let rest = strip_translate_on_prefix(text)?;
         let mut parts = rest.split_whitespace();
         let a = parts.next()?;
         let b = parts.next()?;
@@ -74,7 +98,7 @@ impl TranslateAllHandler {
         };
 
         let text = message.text.trim();
-        if text == "!translate-all" {
+        if is_bare_translate_on(text) {
             return Ok(BARE_COMMAND_MSG.into());
         }
 
@@ -87,7 +111,7 @@ impl TranslateAllHandler {
             Some(l) => l,
             None => {
                 return Ok(format!(
-                    "Unknown language: {token_a}. Use !translate-langs for supported codes."
+                    "Unknown language: {token_a}. Use !list-langs for supported codes."
                 ));
             }
         };
@@ -95,13 +119,13 @@ impl TranslateAllHandler {
             Some(l) => l,
             None => {
                 return Ok(format!(
-                    "Unknown language: {token_b}. Use !translate-langs for supported codes."
+                    "Unknown language: {token_b}. Use !list-langs for supported codes."
                 ));
             }
         };
 
         if lang_a.code == lang_b.code {
-            return Ok("Choose two different languages. Example: !translate-all es en".into());
+            return Ok("Choose two different languages. Example: !translate-on es en".into());
         }
 
         let mode = GroupTranslateMode::new(lang_a, lang_b);
@@ -180,7 +204,8 @@ impl TranslateAllHandler {
 
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
     async fn handle_command(&self, message: &BotMessage) -> AppResult<String> {
-        if message.text.trim() == "!translate-off" {
+        let text = message.text.trim();
+        if TRANSLATE_OFF_COMMANDS.iter().any(|cmd| text == *cmd) {
             self.handle_off(message).await
         } else {
             self.handle_setup(message).await
@@ -241,11 +266,24 @@ mod tests {
     #[test]
     fn parse_lang_pair_from_command() {
         assert_eq!(
-            TranslateAllHandler::parse_lang_pair("!translate-all es en"),
+            TranslateAllHandler::parse_lang_pair("!translate-on es en"),
             Some(("es", "en"))
         );
-        assert!(TranslateAllHandler::parse_lang_pair("!translate-all").is_none());
-        assert!(TranslateAllHandler::parse_lang_pair("!translate-all es en fr").is_none());
+        assert_eq!(
+            TranslateAllHandler::parse_lang_pair("!translation-on es en"),
+            Some(("es", "en"))
+        );
+        assert!(TranslateAllHandler::parse_lang_pair("!translate-on").is_none());
+        assert!(TranslateAllHandler::parse_lang_pair("!translation-on").is_none());
+        assert!(TranslateAllHandler::parse_lang_pair("!translate-on es en fr").is_none());
+    }
+
+    #[test]
+    fn is_translate_on_or_off_command_recognizes_aliases() {
+        assert!(is_translate_on_or_off_command("!translate-on es en"));
+        assert!(is_translate_on_or_off_command("!translation-on"));
+        assert!(is_translate_on_or_off_command("!translation-off"));
+        assert!(!is_translate_on_or_off_command("!translate es"));
     }
 
     #[test]

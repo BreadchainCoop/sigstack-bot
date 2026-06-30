@@ -1,21 +1,20 @@
 //! Help command - displays feature menu.
 
+use crate::commands::menu_locale::{help_menu, menu_language_for_message};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
+use crate::group_preferences_store::GroupPreferencesStore;
 use async_trait::async_trait;
 use signal_client::BotMessage;
+use std::sync::Arc;
 
-pub struct HelpHandler;
-
-impl HelpHandler {
-    pub fn new() -> Self {
-        Self
-    }
+pub struct HelpHandler {
+    group_prefs: Arc<GroupPreferencesStore>,
 }
 
-impl Default for HelpHandler {
-    fn default() -> Self {
-        Self::new()
+impl HelpHandler {
+    pub fn new(group_prefs: Arc<GroupPreferencesStore>) -> Self {
+        Self { group_prefs }
     }
 }
 
@@ -25,26 +24,12 @@ impl CommandHandler for HelpHandler {
         Some("!help")
     }
 
-    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
-        Ok(r#"**Bread Coop AI** (Private & Verifiable)
+    fn label(&self) -> &'static str {
+        "help"
+    }
 
-**Voice:**
-- !transcribe — Quote-reply a voice message to transcribe it
-- !transcribe-on — auto-transcribe voice to text
-- !transcribe-off — turn off auto-transcription
-
-**Translation:**
-- !translate <lang> — Quote-reply a message to translate it
-- !translate-all <lang1> <lang2> — Group only: auto-translate between two languages
-- !translate-off — Disable group auto-translate
-- !translate-langs — List supported languages
-
-**AI chat:**
-- !ask <question> — Ask the AI anything
-
-**Command Menus**
-- !privacy — Show privacy & security menu
-- !help — Show this menu"#
-            .into())
+    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+        let language = menu_language_for_message(message, &self.group_prefs);
+        Ok(help_menu(language).into())
     }
 }

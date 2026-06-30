@@ -1,21 +1,20 @@
 //! `!privacy` — privacy, security, and TEE commands menu.
 
+use crate::commands::menu_locale::{menu_language_for_message, privacy_menu};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
+use crate::group_preferences_store::GroupPreferencesStore;
 use async_trait::async_trait;
 use signal_client::BotMessage;
+use std::sync::Arc;
 
-pub struct PrivacyHandler;
-
-impl PrivacyHandler {
-    pub fn new() -> Self {
-        Self
-    }
+pub struct PrivacyHandler {
+    group_prefs: Arc<GroupPreferencesStore>,
 }
 
-impl Default for PrivacyHandler {
-    fn default() -> Self {
-        Self::new()
+impl PrivacyHandler {
+    pub fn new(group_prefs: Arc<GroupPreferencesStore>) -> Self {
+        Self { group_prefs }
     }
 }
 
@@ -29,27 +28,8 @@ impl CommandHandler for PrivacyHandler {
         "privacy"
     }
 
-    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
-        Ok(r#"**Bread Coop AI** (Private & Verifiable)
-
-**TEE Commands:**
-- !verify <challenge> - Get TEE attestation with your challenge
-- !clear - Clear conversation history
-- !models - List available AI models
-
-**Command Menus**
-- !privacy - Show this message
-- !help - Show feature menu
-
-**Verification:**
-`!verify my-random-text` to get cryptographic proof this bot runs in a TEE. Your challenge is embedded in the TDX quote, proving the attestation was generated fresh for you.
-
-**Privacy:**
-Your messages are end-to-end encrypted via Signal, processed in a verified TEE (Intel TDX), and sent to NEAR AI Cloud's private inference (NVIDIA GPU TEE).
-
-Voice transcription runs locally in the TEE (Whisper). Translation uses NEAR AI on text only.
-
-Neither the bot operator nor NEAR AI can read your messages."#
-            .into())
+    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+        let language = menu_language_for_message(message, &self.group_prefs);
+        Ok(privacy_menu(language).into())
     }
 }

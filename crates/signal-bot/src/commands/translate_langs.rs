@@ -1,4 +1,4 @@
-//! `!translate-langs` — list supported translation languages.
+//! `!list-langs` — list supported translation languages.
 
 use crate::commands::translate_lang::{format_language_list, ALL_LANGUAGES};
 use crate::commands::CommandHandler;
@@ -23,7 +23,7 @@ impl Default for TranslateLangsHandler {
 #[async_trait]
 impl CommandHandler for TranslateLangsHandler {
     fn trigger(&self) -> Option<&str> {
-        Some("!translate-langs")
+        Some("!list-langs")
     }
 
     fn label(&self) -> &'static str {

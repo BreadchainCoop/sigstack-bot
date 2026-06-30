@@ -1,5 +1,6 @@
 //! `!translate` — quote-reply translation via NEAR AI.
 
+use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -127,9 +128,8 @@ impl CommandHandler for TranslateHandler {
     fn matches(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
         text.starts_with("!translate")
-            && !text.starts_with("!translate-all")
-            && !text.starts_with("!translate-off")
-            && !text.starts_with("!translate-langs")
+            && !is_translate_on_or_off_command(text)
+            && !text.starts_with("!list-langs")
     }
 
     fn handles_own_reply(&self) -> bool {
@@ -155,7 +155,7 @@ impl CommandHandler for TranslateHandler {
             Some(lang) => lang,
             None => {
                 let msg = format!(
-                    "Unknown language: {lang_token}. Use !translate-langs for supported codes."
+                    "Unknown language: {lang_token}. Use !list-langs for supported codes."
                 );
                 self.send_reply(message, None, &msg).await?;
                 return Ok(String::new());
@@ -260,7 +260,7 @@ mod tests {
 
         let mut msg = BotMessage {
             source: "+1".into(),
-            text: "!translate-all es en".into(),
+            text: "!translate-on es en".into(),
             timestamp: 0,
             message_timestamp: 0,
             is_group: true,
@@ -271,7 +271,10 @@ mod tests {
         };
         assert!(!handler.matches(&msg));
 
-        msg.text = "!translate-langs".into();
+        msg.text = "!translation-on".into();
+        assert!(!handler.matches(&msg));
+
+        msg.text = "!list-langs".into();
         assert!(!handler.matches(&msg));
 
         msg.text = "!translate es".into();

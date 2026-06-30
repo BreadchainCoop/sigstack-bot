@@ -1,0 +1,27 @@
+[
+  {
+    "envelope": {
+      "source": "+14155551234",
+      "sourceNumber": "+14155551234",
+      "timestamp": 1719000005000,
+      "dataMessage": {
+        "timestamp": 1719000005000,
+        "message": "!transcribe",
+        "attachments": [],
+        "quote": {
+          "id": 1719000000000,
+          "authorNumber": "+14155559876",
+          "text": null,
+          "attachments": [
+            {
+              "contentType": "audio/aac",
+              "id": "root-audio-id",
+              "size": 2048
+            }
+          ]
+        }
+      }
+    },
+    "account": "+573107677679"
+  }
+]

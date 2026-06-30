@@ -398,4 +398,29 @@ mod tests {
         assert_eq!(audio.id, "pwtcq-example-voice-id");
         assert!(audio.content_type.starts_with("audio/"));
     }
+
+    #[test]
+    fn test_bot_message_from_voice_quote_without_attachment_metadata() {
+        let fixture = include_str!(
+            "../../../docs/spikes/fixtures/voice-with-quote-reply-no-attachment.json"
+        );
+        let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
+        let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
+
+        let quote = bot_msg.quote.as_ref().unwrap();
+        assert_eq!(quote.id, 1719000000000);
+        assert!(quote.audio_attachment.is_none());
+    }
+
+    #[test]
+    fn test_quoted_attachment_id_at_root() {
+        let fixture = include_str!(
+            "../../../docs/spikes/fixtures/voice-with-quote-reply-root-id.json"
+        );
+        let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
+        let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
+        let audio = bot_msg.quote.as_ref().unwrap().audio_attachment.as_ref().unwrap();
+        assert_eq!(audio.id, "root-audio-id");
+        assert_eq!(audio.content_type, "audio/aac");
+    }
 }

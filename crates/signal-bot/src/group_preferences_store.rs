@@ -1,6 +1,7 @@
-//! Per-group bot preferences (transcription + auto-translate), TEE-encrypted at rest.
+//! Per-group bot preferences (transcription, auto-translate, menu language), TEE-encrypted at rest.
 
 use crate::commands::translate_lang::{resolve_language, Language};
+use crate::menu_language::MenuLanguage;
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Key, Nonce,
@@ -70,6 +71,8 @@ struct GroupPreference {
     transcribe_enabled: bool,
     #[serde(default)]
     translate: Option<GroupTranslateMode>,
+    #[serde(default)]
+    menu_language: MenuLanguage,
 }
 
 impl Default for GroupPreference {
@@ -77,13 +80,16 @@ impl Default for GroupPreference {
         Self {
             transcribe_enabled: true,
             translate: None,
+            menu_language: MenuLanguage::En,
         }
     }
 }
 
 impl GroupPreference {
     fn is_default(&self) -> bool {
-        self.transcribe_enabled && self.translate.is_none()
+        self.transcribe_enabled
+            && self.translate.is_none()
+            && self.menu_language == MenuLanguage::En
     }
 }
 
@@ -190,6 +196,29 @@ impl GroupPreferencesStore {
             let mut groups = self.groups.write().unwrap();
             let entry = groups.entry(group_id.to_string()).or_default();
             entry.transcribe_enabled = enabled;
+            if entry.is_default() {
+                groups.remove(group_id);
+            }
+        }
+        self.schedule_persist();
+    }
+
+    // --- Menu language (per group) ---
+
+    pub fn get_menu_language(&self, group_id: &str) -> MenuLanguage {
+        self.groups
+            .read()
+            .unwrap()
+            .get(group_id)
+            .map(|p| p.menu_language)
+            .unwrap_or_default()
+    }
+
+    pub fn set_menu_language(self: &Arc<Self>, group_id: &str, language: MenuLanguage) {
+        {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.entry(group_id.to_string()).or_default();
+            entry.menu_language = language;
             if entry.is_default() {
                 groups.remove(group_id);
             }
@@ -474,6 +503,25 @@ mod tests {
         assert!(store.is_transcribe_enabled(gid));
     }
 
+    #[test]
+    fn menu_language_defaults_english() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        assert_eq!(
+            store.get_menu_language("group.new"),
+            MenuLanguage::En
+        );
+    }
+
+    #[test]
+    fn menu_language_toggle() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let gid = "group.lang";
+        store.set_menu_language(gid, MenuLanguage::Es);
+        assert_eq!(store.get_menu_language(gid), MenuLanguage::Es);
+        store.set_menu_language(gid, MenuLanguage::En);
+        assert_eq!(store.get_menu_language(gid), MenuLanguage::En);
+    }
+
     #[tokio::test]
     async fn encrypted_round_trip() {
         let dir = tempdir().unwrap();
@@ -488,11 +536,16 @@ mod tests {
         );
         store.set("group.one".into(), mode);
         store.set_transcribe_enabled("group.two", false);
+        store.set_menu_language("group.three", MenuLanguage::Es);
         store.persist_now().await.unwrap();
 
         let store2 =
             GroupPreferencesStore::with_test_key(DstackClient::new("/x"), path, key, 30).await;
         assert!(store2.is_active("group.one"));
         assert!(!store2.is_transcribe_enabled("group.two"));
+        assert_eq!(
+            store2.get_menu_language("group.three"),
+            MenuLanguage::Es
+        );
     }
 }

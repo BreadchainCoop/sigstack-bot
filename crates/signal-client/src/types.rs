@@ -86,6 +86,10 @@ pub struct QuotedAttachment {
     #[serde(rename = "contentType")]
     pub content_type: Option<String>,
     pub filename: Option<String>,
+    pub id: Option<String>,
+    pub size: Option<i64>,
+    #[serde(rename = "uploadTimestamp")]
+    pub upload_timestamp: Option<i64>,
     pub thumbnail: Option<Attachment>,
 }
 
@@ -225,20 +229,37 @@ impl BotMessage {
 
 fn quoted_audio_attachment(quote: &Quote) -> Option<Attachment> {
     for quoted in &quote.attachments {
-        if quoted
-            .content_type
-            .as_deref()
-            .is_some_and(|ct| ct.starts_with("audio/"))
-        {
-            if let Some(thumb) = &quoted.thumbnail {
-                return Some(thumb.clone());
-            }
-        }
-        if let Some(thumb) = &quoted.thumbnail {
-            if thumb.content_type.starts_with("audio/") {
-                return Some(thumb.clone());
-            }
+        if let Some(audio) = quoted_attachment_as_audio(quoted) {
+            return Some(audio);
         }
     }
+    None
+}
+
+fn quoted_attachment_as_audio(quoted: &QuotedAttachment) -> Option<Attachment> {
+    if let Some(thumb) = &quoted.thumbnail {
+        if thumb.content_type.starts_with("audio/") && !thumb.id.is_empty() {
+            return Some(thumb.clone());
+        }
+    }
+
+    if let Some(id) = &quoted.id {
+        if id.is_empty() {
+            return None;
+        }
+        let content_type = quoted
+            .content_type
+            .as_deref()
+            .filter(|ct| ct.starts_with("audio/"))
+            .unwrap_or("audio/ogg");
+        return Some(Attachment {
+            content_type: content_type.to_string(),
+            filename: quoted.filename.clone(),
+            id: id.clone(),
+            size: quoted.size,
+            upload_timestamp: quoted.upload_timestamp,
+        });
+    }
+
     None
 }

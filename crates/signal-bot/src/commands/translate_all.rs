@@ -87,7 +87,7 @@ impl TranslateAllHandler {
             Some(l) => l,
             None => {
                 return Ok(format!(
-                    "Unknown language: {token_a}. Use !translate-langs for supported codes."
+                    "Unknown language: {token_a}. Use !list-langs for supported codes."
                 ));
             }
         };
@@ -95,7 +95,7 @@ impl TranslateAllHandler {
             Some(l) => l,
             None => {
                 return Ok(format!(
-                    "Unknown language: {token_b}. Use !translate-langs for supported codes."
+                    "Unknown language: {token_b}. Use !list-langs for supported codes."
                 ));
             }
         };

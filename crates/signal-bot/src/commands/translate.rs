@@ -129,7 +129,7 @@ impl CommandHandler for TranslateHandler {
         text.starts_with("!translate")
             && !text.starts_with("!translate-on")
             && !text.starts_with("!translate-off")
-            && !text.starts_with("!translate-langs")
+            && !text.starts_with("!list-langs")
     }
 
     fn handles_own_reply(&self) -> bool {
@@ -155,7 +155,7 @@ impl CommandHandler for TranslateHandler {
             Some(lang) => lang,
             None => {
                 let msg = format!(
-                    "Unknown language: {lang_token}. Use !translate-langs for supported codes."
+                    "Unknown language: {lang_token}. Use !list-langs for supported codes."
                 );
                 self.send_reply(message, None, &msg).await?;
                 return Ok(String::new());
@@ -271,7 +271,7 @@ mod tests {
         };
         assert!(!handler.matches(&msg));
 
-        msg.text = "!translate-langs".into();
+        msg.text = "!list-langs".into();
         assert!(!handler.matches(&msg));
 
         msg.text = "!translate es".into();

@@ -52,7 +52,7 @@ This extends the existing text bot without replacing it — text chat, tools, an
 | `!translate-on` text replies | **Translation only** (Option A) | Original text already visible; less noise in busy groups |
 | `!translate-on` voice replies | **Transcript + translation** in one quote-reply | Serves native readers and non-native understanding |
 | Audio / transcript cache | **None** — no TTL | Transcripts posted to chat are the source of truth for `!translate` |
-| Language discovery | `!translate-langs` (full catalog), `!translate-langs-common` (top 12) | Separate from `!translate-on` error message |
+| Language discovery | `!list-langs` (full catalog), `!list-langs-common` (top 12) | Separate from `!translate-on` error message |
 | Whisper model (PoC) | **`small`** | Balance accuracy vs CVM RAM |
 | x402 billing | **Deferred** until feature complete | — |
 | `!help` menu | **Update** when voice/translate commands ship | Users discover features via existing `!help` command |
@@ -304,7 +304,7 @@ pub struct TranslateAllHandler {
 - Exactly **two** languages (ISO 639-1 or names): `!translate-on es en`
 - **One active mode per group** — calling again replaces the pair; `!translate-off` disables
 - Bare `!translate-on` (no langs): `Please specify languages to translate between. !translate-on en es`
-- `!translate-langs` — full supported language catalog; `!translate-langs-common` — top 12 by speakers
+- `!list-langs` — full supported language catalog; `!list-langs-common` — top 12 by speakers
 - Does not replace `!translate` for one-off quote-reply translation
 - Consider rate limiting / max messages per minute to avoid NEAR AI spam in busy groups
 
@@ -407,8 +407,8 @@ Works on **any quoted text** — not only bot transcripts.
 | `!translate-off` | `Group translate disabled` |
 | 1:1 DM (bot + one user) | `!translate-on is only available in group chats` |
 | Bare `!translate-on` | `Please specify languages to translate between. !translate-on en es` |
-| `!translate-langs` | Full supported language catalog |
-| `!translate-langs-common` | Top 12 languages by speakers (e.g. en, zh, hi, es, fr, ar, bn, pt, ru, ja, de, ko) |
+| `!list-langs` | Full supported language catalog |
+| `!list-langs-common` | Top 12 languages by speakers (e.g. en, zh, hi, es, fr, ar, bn, pt, ru, ja, de, ko) |
 | Subsequent messages in group | Quote-reply original with translation when lang matches pair |
 
 **Example thread** (`!translate-on es en` in a 3-member group: María, John, bot):
@@ -436,8 +436,8 @@ In a **DM**, send a message to chat with AI. In **groups**, use `!ask <question>
 - !translate <lang> — Quote-reply a message to translate it
 - !translate-on <lang1> <lang2> — Group only: auto-translate between two languages
 - !translate-off — Disable group auto-translate
-- !translate-langs — List all supported languages
-- !translate-langs-common — List top 12 languages by speakers
+- !list-langs — List all supported languages
+- !list-langs-common — List top 12 languages by speakers
 
 **AI chat (groups):**
 - !ask <question> — Ask the AI in a group (bot ignores unprompted group text)
@@ -495,7 +495,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 | `crates/signal-bot/src/commands/translate.rs` | **New** — `!translate` quote-reply handler |
 | `crates/signal-bot/src/commands/translate_all.rs` | **New** — `!translate-on` group mode |
 | `crates/signal-bot/src/group_translate_store.rs` | **New** — per-group lang pair state |
-| `crates/signal-bot/src/commands/translate_langs.rs` | **New** — `!translate-langs`, `!translate-langs-common` |
+| `crates/signal-bot/src/commands/translate_langs.rs` | **New** — `!list-langs`, `!list-langs-common` |
 | `crates/signal-bot/src/commands/ask.rs` | **New** — `!ask` opt-in group chat handler |
 | `crates/signal-bot/src/commands/chat.rs` | **Modify** — skip default handler in groups |
 | `crates/signal-bot/src/commands/help.rs` | **Modify** — list voice + translate + `!ask` in `!help` output |
@@ -560,7 +560,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 
 - [x] Parse Signal quote metadata on `BotMessage` (Phase 1 — `QuotedMessage` on receive)
 - [x] Implement `TranslateHandler` (NEAR AI on quoted text; quote-reply to target message)
-- [x] Implement `TranslateLangsHandler` (`!translate-langs`, `!translate-langs-common`)
+- [x] Implement `TranslateLangsHandler` (`!list-langs`, `!list-langs-common`)
 - [ ] Group + DM translate tests — manual
 
 ### Phase 5: `!translate-on` (group auto-translate)

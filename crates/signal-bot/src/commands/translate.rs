@@ -1,5 +1,6 @@
 //! `!translate` — quote-reply translation via NEAR AI.
 
+use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -127,8 +128,7 @@ impl CommandHandler for TranslateHandler {
     fn matches(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
         text.starts_with("!translate")
-            && !text.starts_with("!translate-on")
-            && !text.starts_with("!translate-off")
+            && !is_translate_on_or_off_command(text)
             && !text.starts_with("!list-langs")
     }
 
@@ -269,6 +269,9 @@ mod tests {
             attachments: vec![],
             quote: None,
         };
+        assert!(!handler.matches(&msg));
+
+        msg.text = "!translation-on".into();
         assert!(!handler.matches(&msg));
 
         msg.text = "!list-langs".into();

@@ -33,9 +33,9 @@ impl CommandHandler for PrivacyHandler {
         Ok(r#"**Bread Coop AI** (Private & Verifiable)
 
 **TEE Commands:**
+- !models - List AI models
+- !clear - Clear chat history
 - !verify <challenge> - Get TEE attestation with your challenge
-- !clear - Clear conversation history
-- !models - List available AI models
 
 **Command Menus**
 - !privacy - Show this message

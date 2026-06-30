@@ -1,4 +1,4 @@
-//! Shared translation helpers for `!translate` and `!translate-all`.
+//! Shared translation helpers for `!translate` and `!translate-on`.
 
 use crate::commands::translate_lang::Language;
 use crate::group_preferences_store::GroupTranslateMode;
@@ -8,7 +8,7 @@ use whatlang::Lang;
 
 const MIN_DETECT_CONFIDENCE: f64 = 0.2;
 
-/// Resolve source/target languages for `!translate-all` on a voice note.
+/// Resolve source/target languages for `!translate-on` on a voice note.
 pub fn resolve_translate_all_voice_pair(
     mode: &GroupTranslateMode,
     whisper_lang: Option<&str>,
@@ -123,7 +123,7 @@ fn casual_language_hints(text: &str) -> Vec<&'static str> {
     hints
 }
 
-/// Detect ISO 639-1 language code from text (for `!translate-all` text messages).
+/// Detect ISO 639-1 language code from text (for `!translate-on` text messages).
 pub fn detect_text_language(text: &str) -> Option<String> {
     let info = whatlang::detect(text)?;
     if info.confidence() < MIN_DETECT_CONFIDENCE {

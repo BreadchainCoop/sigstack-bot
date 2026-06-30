@@ -127,7 +127,7 @@ impl CommandHandler for TranslateHandler {
     fn matches(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
         text.starts_with("!translate")
-            && !text.starts_with("!translate-all")
+            && !text.starts_with("!translate-on")
             && !text.starts_with("!translate-off")
             && !text.starts_with("!translate-langs")
     }
@@ -260,7 +260,7 @@ mod tests {
 
         let mut msg = BotMessage {
             source: "+1".into(),
-            text: "!translate-all es en".into(),
+            text: "!translate-on es en".into(),
             timestamp: 0,
             message_timestamp: 0,
             is_group: true,

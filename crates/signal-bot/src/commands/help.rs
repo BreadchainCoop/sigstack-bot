@@ -29,21 +29,21 @@ impl CommandHandler for HelpHandler {
         Ok(r#"**Bread Coop AI** (Private & Verifiable)
 
 **Voice:**
-- !transcribe — Quote-reply a voice message to transcribe it
-- !transcribe-on — auto-transcribe voice to text
-- !transcribe-off — turn off auto-transcription
+- !transcribe — Quote-reply per msg
+- !transcribe-on
+- !transcribe-off
 
 **Translation:**
-- !translate <lang> — Quote-reply a message to translate it
-- !translate-all <lang1> <lang2> — Group only: auto-translate between two languages
-- !translate-off — Disable group auto-translate
-- !translate-langs — List supported languages
+- !list-langs — Supported languages
+- !translate <lang> — Quote-reply per msg
+- !translate-on <lang1> <lang2>
+- !translate-off
 
 **AI chat:**
-- !ask <question> — Ask the AI anything
+- !ask <question> — Chat w/ AI
 
 **Command Menus**
-- !privacy — Show privacy & security menu
+- !privacy — Show privacy menu
 - !help — Show this menu"#
             .into())
     }

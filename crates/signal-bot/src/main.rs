@@ -268,7 +268,7 @@ async fn main() -> AppResult<()> {
             signal.clone(),
         )));
         info!(
-            "Group auto-translate enabled: !translate-all, !translate-off (max {}/min)",
+            "Group auto-translate enabled: !translate-on, !translate-off (max {}/min)",
             config.translate_all.max_messages_per_minute
         );
     }

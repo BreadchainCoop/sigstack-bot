@@ -13,14 +13,14 @@ Add **voice note transcription** to Signal Bot TEE: users send Signal voice mess
 
 Transcription runs **locally in the compose stack** (Whisper), not via NEAR AI, so audio never leaves the enclave as raw media. Translation sends **text only** to NEAR AI (existing HTTPS path).
 
-This extends the existing text bot without replacing it — text chat, tools, and `!verify` continue to work in **DMs**. In **groups**, the bot stays quiet unless a user invokes an explicit command, sends a voice note (transcription), or `!translate-all` is active (see Phase 6).
+This extends the existing text bot without replacing it — text chat, tools, and `!verify` continue to work in **DMs**. In **groups**, the bot stays quiet unless a user invokes an explicit command, sends a voice note (transcription), or `!translate-on` is active (see Phase 6).
 
 ## Goals
 
 1. **Implicit transcription** — any voice note to the bot (DM) or in a group where the bot is a member triggers Whisper; **no `!transcribe` command**
 2. Transcribe audio **inside the CVM** using **Whisper** (default: `small` or `base` model)
 3. **`!translate <lang>`** — user **quotes/replies** to a specific message; bot translates that message's text
-4. **`!translate-all <lang1> <lang2>`** — **group only** (Signal group chats, including minimal 3-member groups: two users + bot); one-time setup per group; auto-translate subsequent messages between the two languages
+4. **`!translate-on <lang1> <lang2>`** — **group only** (Signal group chats, including minimal 3-member groups: two users + bot); one-time setup per group; auto-translate subsequent messages between the two languages
 5. Keep **Signal CLI + bot + Whisper in the same attested compose file** (same privacy model as today)
 6. Support **local dev stack** (`docker-compose.yaml`) and **Phala production** (`phala-compose.yaml`)
 7. **Group discipline** — no unprompted AI replies in group chats; general LLM use via `!ask <text>`
@@ -31,7 +31,7 @@ This extends the existing text bot without replacing it — text chat, tools, an
 - Real-time streaming transcription
 - Speaker diarization
 - Replacing NEAR AI for general chat
-- Auto-translate in groups without `!translate-all` (only paired-lang mode when enabled)
+- Auto-translate in groups without `!translate-on` (only paired-lang mode when enabled)
 - LibreTranslate sidecar (deferred; NEAR AI for translate in v1)
 - Video / image attachments
 - On-device Whisper on user's phone
@@ -47,12 +47,12 @@ This extends the existing text bot without replacing it — text chat, tools, an
 | Whisper runtime (Phase 0) | **`ghcr.io/ggerganov/whisper.cpp:main`** → `whisper-server` on :9000 | CPU-only; no Python; `/inference` multipart API |
 | NEAR AI role | **Translation** for non-English targets and text; **not** for `*→English` voice when Whisper can translate | See [Whisper translation limits](#whisper-translation-limits) |
 | Translation UX (`!translate`) | **Quote-reply** to target message | User picks which message and target language |
-| Translation UX (`!translate-all`) | **Group-only** (`groupId`); minimal **3-member** groups (user₁ + user₂ + bot) OK; `!translate-all <lang1> <lang2>`; disable via `!translate-off` | Not 1:1 DMs; 2 humans + bot = practical bilingual chat pattern |
+| Translation UX (`!translate-on`) | **Group-only** (`groupId`); minimal **3-member** groups (user₁ + user₂ + bot) OK; `!translate-on <lang1> <lang2>`; disable via `!translate-off` | Not 1:1 DMs; 2 humans + bot = practical bilingual chat pattern |
 | Reply threading | **All bot outputs quote-reply** the message being transcribed/translated | Links translation to original sender (bot is always the reply author) |
-| `!translate-all` text replies | **Translation only** (Option A) | Original text already visible; less noise in busy groups |
-| `!translate-all` voice replies | **Transcript + translation** in one quote-reply | Serves native readers and non-native understanding |
+| `!translate-on` text replies | **Translation only** (Option A) | Original text already visible; less noise in busy groups |
+| `!translate-on` voice replies | **Transcript + translation** in one quote-reply | Serves native readers and non-native understanding |
 | Audio / transcript cache | **None** — no TTL | Transcripts posted to chat are the source of truth for `!translate` |
-| Language discovery | `!translate-langs` (full catalog), `!translate-langs-common` (top 12) | Separate from `!translate-all` error message |
+| Language discovery | `!translate-langs` (full catalog), `!translate-langs-common` (top 12) | Separate from `!translate-on` error message |
 | Whisper model (PoC) | **`small`** | Balance accuracy vs CVM RAM |
 | x402 billing | **Deferred** until feature complete | — |
 | `!help` menu | **Update** when voice/translate commands ship | Users discover features via existing `!help` command |
@@ -82,11 +82,11 @@ Sources: [OpenAI Speech-to-text](https://developers.openai.com/api/docs/guides/s
 | Scenario | Backend |
 |----------|---------|
 | Voice note → transcript in original language | Whisper `transcribe` |
-| Voice note → **English** text (incl. `!translate-all` with `en` in pair) | Whisper `translate` — **no NEAR AI** |
+| Voice note → **English** text (incl. `!translate-on` with `en` in pair) | Whisper `translate` — **no NEAR AI** |
 | Voice note → non-English (e.g. Spanish) | Whisper `transcribe` → NEAR AI (or future LibreTranslate) |
 | Text `!translate` → English | NEAR AI (quoted text only; no audio to re-process) |
 | Text `!translate` → non-English | NEAR AI |
-| `!translate-all` text message | Detect language → if in pair, translate to other lang via **NEAR AI**; quote-reply original with **translation only** |
+| `!translate-on` text message | Detect language → if in pair, translate to other lang via **NEAR AI**; quote-reply original with **translation only** |
 
 **Model note:** Use a **multilingual** Whisper model (`small`, `medium`, `large`) — not `.en`-only or `turbo` variants for translation ([whisper docs](https://pypi.org/project/openai-whisper/)).
 
@@ -145,12 +145,12 @@ NEAR AI: "Translate to {lang}: {text}"
 Quote-reply with: {translated text}
 ```
 
-**`!translate-all` flow** (group-only; persistent until disabled):
+**`!translate-on` flow** (group-only; persistent until disabled):
 
-> **Nuance:** Signal treats 1:1 chats and groups differently. `!translate-all` requires a **group** (`groupId` on the envelope). The smallest valid case is often a **3-member group** (user₁, user₂, bot) — effectively a bilingual conversation with the bot added for transcription/translation, but not a true 1:1 DM. Rejected in bot-only DMs (bot + single user).
+> **Nuance:** Signal treats 1:1 chats and groups differently. `!translate-on` requires a **group** (`groupId` on the envelope). The smallest valid case is often a **3-member group** (user₁, user₂, bot) — effectively a bilingual conversation with the bot added for transcription/translation, but not a true 1:1 DM. Rejected in bot-only DMs (bot + single user).
 
 ```
-User in group: !translate-all es en   (once)
+User in group: !translate-on es en   (once)
         ↓
 Store GroupTranslateMode { group_id, lang_a: es, lang_b: en }
         ↓
@@ -167,7 +167,7 @@ Quote-reply original message:
 
 Disable: `!translate-off` (clears group mode).
 
-> Spike Phase 0: confirm Signal quote JSON; pick text language detector for `!translate-all`.
+> Spike Phase 0: confirm Signal quote JSON; pick text language detector for `!translate-on`.
 
 ### New / Modified Components
 
@@ -276,7 +276,7 @@ pub struct TranslateHandler {
 - All targets via **NEAR AI** on quoted text (no audio cache; user may quote bot's transcript)
 - Subject to NEAR AI billing / timeout / credits when NEAR path is used
 
-### 4. `TranslateAllHandler` (`!translate-all <lang1> <lang2>`)
+### 4. `TranslateAllHandler` (`!translate-on <lang1> <lang2>`)
 
 ```rust
 // crates/signal-bot/src/commands/translate_all.rs (sketch)
@@ -288,7 +288,7 @@ pub struct TranslateAllHandler {
 }
 
 // Setup command (group only):
-//   !translate-all es en
+//   !translate-on es en
 //   !translate-off
 // Stores bidirectional pair for group_id until cleared or bot restart
 
@@ -300,10 +300,10 @@ pub struct TranslateAllHandler {
 ```
 
 **Requirements:**
-- **Groups only** — must have Signal `groupId` (includes minimal 3-member groups: two humans + bot). Reject true 1:1 DMs: `!translate-all is only available in group chats`
-- Exactly **two** languages (ISO 639-1 or names): `!translate-all es en`
+- **Groups only** — must have Signal `groupId` (includes minimal 3-member groups: two humans + bot). Reject true 1:1 DMs: `!translate-on is only available in group chats`
+- Exactly **two** languages (ISO 639-1 or names): `!translate-on es en`
 - **One active mode per group** — calling again replaces the pair; `!translate-off` disables
-- Bare `!translate-all` (no langs): `Please specify languages to translate between. !translate-all en es`
+- Bare `!translate-on` (no langs): `Please specify languages to translate between. !translate-on en es`
 - `!translate-langs` — full supported language catalog; `!translate-langs-common` — top 12 by speakers
 - Does not replace `!translate` for one-off quote-reply translation
 - Consider rate limiting / max messages per minute to avoid NEAR AI spam in busy groups
@@ -378,11 +378,11 @@ All bot outputs **quote-reply** the original message (DM or group).
 | **Group** | Any voice note in group (bot is member) | `📝 Transcript:\n{text}` |
 | Any | Voice note too long | Quote-reply: `Voice note too long (max 5 min). Send a shorter clip.` |
 | Any | Whisper error | Quote-reply: `Could not transcribe voice note. Try again later.` |
-| **Group** + `!translate-all es en` active | Spanish voice note | `📝 (es) {transcript}\n🇺🇸 (en) {English}` — Whisper translate for English leg |
-| **Group** + `!translate-all es en` active | English voice note | `📝 (en) {transcript}\n🇪🇸 (es) {Spanish}` — transcribe + NEAR AI |
-| **Group** + `!translate-all es en` active | Spanish text | `🇺🇸 {English}` only (translation; original visible above) |
+| **Group** + `!translate-on es en` active | Spanish voice note | `📝 (es) {transcript}\n🇺🇸 (en) {English}` — Whisper translate for English leg |
+| **Group** + `!translate-on es en` active | English voice note | `📝 (en) {transcript}\n🇪🇸 (es) {Spanish}` — transcribe + NEAR AI |
+| **Group** + `!translate-on es en` active | Spanish text | `🇺🇸 {English}` only (translation; original visible above) |
 | **DM** | Text message (not a command) | Chat handler (free-text AI), same as before |
-| **Group** | Text message (not a command) | **Ignored** unless `!translate-all` intercepts or user sends `!ask <text>` |
+| **Group** | Text message (not a command) | **Ignored** unless `!translate-on` intercepts or user sends `!ask <text>` |
 | **Group** | `!ask What is the capital of France?` | NEAR AI reply (same tool/credit path as DM chat) |
 
 There is **no `!transcribe` command**. Sending a voice note *is* the request.
@@ -397,21 +397,21 @@ There is **no `!transcribe` command**. Sending a voice note *is* the request.
 
 Works on **any quoted text** — not only bot transcripts.
 
-### Group auto-translate (`!translate-all`)
+### Group auto-translate (`!translate-on`)
 
 **Scope:** Any Signal **group chat** where the bot is a member — from large channels down to a **3-person group** (user₁ + user₂ + bot). That minimal group is the intended pattern for two people who want continuous bidirectional translation: it behaves like a shared DM with the bot in the middle, but Signal delivers it as group messages. **Not** supported in a true 1:1 DM (only the bot and one user).
 
 | Input | Output |
 |-------|--------|
-| `!translate-all es en` (in group) | `Group translate enabled: español ↔ English` |
+| `!translate-on es en` (in group) | `Group translate enabled: español ↔ English` |
 | `!translate-off` | `Group translate disabled` |
-| 1:1 DM (bot + one user) | `!translate-all is only available in group chats` |
-| Bare `!translate-all` | `Please specify languages to translate between. !translate-all en es` |
+| 1:1 DM (bot + one user) | `!translate-on is only available in group chats` |
+| Bare `!translate-on` | `Please specify languages to translate between. !translate-on en es` |
 | `!translate-langs` | Full supported language catalog |
 | `!translate-langs-common` | Top 12 languages by speakers (e.g. en, zh, hi, es, fr, ar, bn, pt, ru, ja, de, ko) |
 | Subsequent messages in group | Quote-reply original with translation when lang matches pair |
 
-**Example thread** (`!translate-all es en` in a 3-member group: María, John, bot):
+**Example thread** (`!translate-on es en` in a 3-member group: María, John, bot):
 
 ```
 María:  [voice note]
@@ -434,7 +434,7 @@ In a **DM**, send a message to chat with AI. In **groups**, use `!ask <question>
 **Voice & translation:**
 - Send a voice note — auto-transcribed (no command needed)
 - !translate <lang> — Quote-reply a message to translate it
-- !translate-all <lang1> <lang2> — Group only: auto-translate between two languages
+- !translate-on <lang1> <lang2> — Group only: auto-translate between two languages
 - !translate-off — Disable group auto-translate
 - !translate-langs — List all supported languages
 - !translate-langs-common — List top 12 languages by speakers
@@ -493,7 +493,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 | `crates/signal-bot/src/config.rs` | `WhisperConfig` |
 | `crates/signal-bot/src/commands/voice.rs` | **Modify** — remove progress message (Phase 6) |
 | `crates/signal-bot/src/commands/translate.rs` | **New** — `!translate` quote-reply handler |
-| `crates/signal-bot/src/commands/translate_all.rs` | **New** — `!translate-all` group mode |
+| `crates/signal-bot/src/commands/translate_all.rs` | **New** — `!translate-on` group mode |
 | `crates/signal-bot/src/group_translate_store.rs` | **New** — per-group lang pair state |
 | `crates/signal-bot/src/commands/translate_langs.rs` | **New** — `!translate-langs`, `!translate-langs-common` |
 | `crates/signal-bot/src/commands/ask.rs` | **New** — `!ask` opt-in group chat handler |
@@ -515,8 +515,8 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 - [ ] Local: DM voice note → transcript
 - [ ] Local: group voice note → transcript in group
 - [ ] Local: quote-reply `!translate es` on bot transcript → NEAR AI translation
-- [ ] Local: `!translate-all es en` → Spanish voice → English via Whisper
-- [ ] Local: `!translate-all es en` → English text → Spanish via NEAR AI
+- [ ] Local: `!translate-on es en` → Spanish voice → English via Whisper
+- [ ] Local: `!translate-on es en` → English text → Spanish via NEAR AI
 - [ ] Local: `!translate` without quote → helpful error
 - [ ] Local: `!help` lists voice note behavior and all translate commands
 - [ ] Regression: DM free-text chat and `!verify` unchanged
@@ -563,7 +563,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 - [x] Implement `TranslateLangsHandler` (`!translate-langs`, `!translate-langs-common`)
 - [ ] Group + DM translate tests — manual
 
-### Phase 5: `!translate-all` (group auto-translate)
+### Phase 5: `!translate-on` (group auto-translate)
 
 - [x] `GroupTranslateStore` (in-memory per group)
 - [x] `TranslateAllHandler` setup/teardown commands
@@ -578,7 +578,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 Manual testing (Phases 3–5) surfaced three UX issues: progress-message bloat, unsolicited group AI replies, and no explicit opt-in for general chat in groups.
 
 - [ ] **Remove voice progress message** — delete `🎤 Transcribing...` send in `VoiceHandler`; go straight to Whisper + quote-reply with `📝 Transcript:` (or translate-all bilingual format)
-- [ ] **Silence `ChatHandler` in groups** — default handler must not match when `message.is_group`; unprompted group text is ignored (commands, voice, and `!translate-all` intercept unchanged)
+- [ ] **Silence `ChatHandler` in groups** — default handler must not match when `message.is_group`; unprompted group text is ignored (commands, voice, and `!translate-on` intercept unchanged)
 - [ ] **Add `AskHandler` (`!ask <text>`)** — explicit opt-in for NEAR AI chat in groups; reuse `ChatHandler` conversation/credit/tool logic (extract shared `handle_chat` helper or delegate from `AskHandler`)
 - [ ] **DM behavior unchanged** — free-text messages in 1:1 chats still route to `ChatHandler` without `!ask`
 - [ ] **Update `!help`** — document group vs DM chat rules and `!ask`

@@ -1,4 +1,4 @@
-//! `!translate-all` / `!translate-off` — group auto-translate mode.
+//! `!translate-on` / `!translate-off` — group auto-translate mode.
 
 use crate::commands::translate_lang::resolve_language;
 use crate::commands::translate_service::{
@@ -14,8 +14,8 @@ use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
 const BARE_COMMAND_MSG: &str =
-    "Please specify languages to translate between. !translate-all en es";
-const GROUP_ONLY_MSG: &str = "!translate-all is only available in group chats";
+    "Please specify languages to translate between. !translate-on en es";
+const GROUP_ONLY_MSG: &str = "!translate-on is only available in group chats";
 
 pub struct TranslateAllHandler {
     store: Arc<GroupPreferencesStore>,
@@ -38,7 +38,7 @@ impl TranslateAllHandler {
 
     fn is_command(text: &str) -> bool {
         let text = text.trim();
-        text.starts_with("!translate-all") || text == "!translate-off"
+        text.starts_with("!translate-on") || text == "!translate-off"
     }
 
     fn is_text_intercept(message: &BotMessage) -> bool {
@@ -50,7 +50,7 @@ impl TranslateAllHandler {
     }
 
     fn parse_lang_pair(text: &str) -> Option<(&str, &str)> {
-        let rest = text.trim().strip_prefix("!translate-all")?.trim();
+        let rest = text.trim().strip_prefix("!translate-on")?.trim();
         let mut parts = rest.split_whitespace();
         let a = parts.next()?;
         let b = parts.next()?;
@@ -74,7 +74,7 @@ impl TranslateAllHandler {
         };
 
         let text = message.text.trim();
-        if text == "!translate-all" {
+        if text == "!translate-on" {
             return Ok(BARE_COMMAND_MSG.into());
         }
 
@@ -101,7 +101,7 @@ impl TranslateAllHandler {
         };
 
         if lang_a.code == lang_b.code {
-            return Ok("Choose two different languages. Example: !translate-all es en".into());
+            return Ok("Choose two different languages. Example: !translate-on es en".into());
         }
 
         let mode = GroupTranslateMode::new(lang_a, lang_b);
@@ -241,11 +241,11 @@ mod tests {
     #[test]
     fn parse_lang_pair_from_command() {
         assert_eq!(
-            TranslateAllHandler::parse_lang_pair("!translate-all es en"),
+            TranslateAllHandler::parse_lang_pair("!translate-on es en"),
             Some(("es", "en"))
         );
-        assert!(TranslateAllHandler::parse_lang_pair("!translate-all").is_none());
-        assert!(TranslateAllHandler::parse_lang_pair("!translate-all es en fr").is_none());
+        assert!(TranslateAllHandler::parse_lang_pair("!translate-on").is_none());
+        assert!(TranslateAllHandler::parse_lang_pair("!translate-on es en fr").is_none());
     }
 
     #[test]

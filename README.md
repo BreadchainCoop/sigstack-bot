@@ -27,6 +27,9 @@ This project implements a Signal bot that runs inside a Dstack-powered TEE (Inte
 - In-memory conversation storage (no external persistence)
 - Group chat support with shared conversation context
 - OpenAI-compatible API integration
+- Tool use (web search, weather, calculator) and **Poa DAO task tools** — read an
+  org's projects/tasks and, for authorized operators, create and manage tasks
+  on-chain with a TEE-derived wallet ([docs/poa-integration.md](docs/poa-integration.md))
 
 ## Bot Commands
 
@@ -60,6 +63,34 @@ Alice: "My favorite color is blue"
 Bob: "What's Alice's favorite color?"
 Bot: "Alice mentioned her favorite color is blue"
 ```
+
+## Poa DAO Tools
+
+When `TOOLS__POA__ENABLED=true`, the bot can operate a [Poa](https://github.com/poa-box)
+DAO org's task board. Ask it things like "what open tasks are there?" or "create a
+5 PT task in the Docs project to fix the changelog".
+
+- **Read tools** (everyone): projects, tasks, proposals, wallet info — backed by
+  the Poa subgraph.
+- **Write tools** (allowlisted operators only), signed by a wallet **derived
+  inside the TEE** (no key leaves the enclave):
+  - *task authoring*: create / update / assign / complete / reject / cancel task
+  - *participation*: claim / submit / apply — the bot does work and **earns** PT
+  - *governance*: create non-executable polls, vote
+
+Extra safety on top of the allowlist:
+
+- **Confirmation** — value-moving actions (`poa_complete_task`, which mints a
+  payout) are staged and require a deterministic `!poa-confirm <code>` reply from
+  the same sender; the LLM cannot self-confirm.
+- **Board steward** — an optional background loop posts a digest of expired /
+  at-risk claims to a Signal group (read-only; never sends transactions).
+
+Writes are gated by `TOOLS__POA__ENABLE_WRITES` plus a
+`TOOLS__POA__AUTHORIZED_SENDERS` allowlist, and the chain enforces that the bot's
+wallet holds the right TaskManager permission. Full setup — including how to grant
+the wallet project-manager rights on the Poa side — is in
+[docs/poa-integration.md](docs/poa-integration.md).
 
 ## Verification
 

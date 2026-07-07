@@ -60,6 +60,184 @@ fn create_tool_registry(config: &signal_bot::config::ToolsConfig) -> ToolRegistr
     registry
 }
 
+/// Register Poa protocol tools (read + gated write) into the registry.
+///
+/// The wallet is either loaded from a configured hex private key or, preferably,
+/// derived inside the TEE via dstack so no key material ever leaves the enclave.
+/// Write tools are only registered when writes are explicitly enabled; their
+/// per-sender execution gating lives in the chat handler.
+async fn register_poa_tools(
+    registry: &mut ToolRegistry,
+    config: &signal_bot::config::PoaConfig,
+    dstack: &DstackClient,
+    confirm: Arc<tools::ConfirmationStore>,
+) -> Option<Arc<poa_tools::PoaClient>> {
+    if !config.enabled {
+        return None;
+    }
+
+    let (Some(rpc_url), Some(subgraph_url), Some(task_manager)) = (
+        config.rpc_url.as_ref(),
+        config.subgraph_url.as_ref(),
+        config.task_manager.as_ref(),
+    ) else {
+        warn!("Poa tools enabled but TOOLS__POA__RPC_URL / SUBGRAPH_URL / TASK_MANAGER not all set - skipping");
+        return None;
+    };
+
+    let client_config = match poa_tools::PoaClientConfig::parse(
+        rpc_url,
+        subgraph_url,
+        task_manager,
+        config.network_name.clone(),
+    )
+    .and_then(|c| c.with_voting_contract(config.voting_contract.as_deref()))
+    {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Poa tools misconfigured: {} - skipping", e);
+            return None;
+        }
+    };
+
+    // Resolve the wallet: explicit hex key, else TEE-derived key.
+    let client = if let Some(hex_key) = config.private_key.as_ref() {
+        info!("Poa wallet loaded from configured private key");
+        poa_tools::PoaClient::from_hex_key(client_config, hex_key)
+    } else {
+        match dstack.derive_key(&config.derive_key_path, None).await {
+            Ok(key_bytes) => {
+                info!(
+                    "Poa wallet derived from TEE (path: {})",
+                    config.derive_key_path
+                );
+                poa_tools::PoaClient::from_key_bytes(client_config, &key_bytes)
+            }
+            Err(e) => {
+                error!("Failed to derive Poa wallet from TEE: {} - skipping", e);
+                return None;
+            }
+        }
+    };
+
+    let client = match client {
+        Ok(c) => Arc::new(c),
+        Err(e) => {
+            error!("Failed to initialize Poa client: {} - skipping", e);
+            return None;
+        }
+    };
+
+    info!(
+        "Poa wallet address: {} (grant this address project-manager rights on-chain)",
+        client.address()
+    );
+
+    let tools = poa_tools::all_tools(client.clone(), confirm);
+    let mut read_count = 0;
+    let mut write_count = 0;
+    for tool in tools {
+        if tool.requires_authorization() {
+            // Skip write tools entirely unless writes are explicitly enabled.
+            if !config.enable_writes {
+                continue;
+            }
+            write_count += 1;
+        } else {
+            read_count += 1;
+        }
+        registry.register(tool);
+    }
+
+    let senders = config.authorized_sender_list();
+    let writes_state = if config.enable_writes {
+        "enabled"
+    } else {
+        "disabled"
+    };
+    info!(
+        "Registered Poa tools: {} read, {} write (writes {}, {} authorized sender(s))",
+        read_count,
+        write_count,
+        writes_state,
+        senders.len()
+    );
+    if config.enable_writes && senders.is_empty() {
+        warn!("Poa writes enabled but TOOLS__POA__AUTHORIZED_SENDERS is empty - no one can invoke write tools");
+    }
+
+    Some(client)
+}
+
+/// Background loop: periodically scan the Poa board and post a steward digest.
+fn spawn_poa_steward(
+    config: &signal_bot::config::PoaConfig,
+    client: Arc<poa_tools::PoaClient>,
+    signal: Arc<SignalClient>,
+) {
+    if !config.steward_enabled {
+        return;
+    }
+    let Some(target) = config.steward_target.clone() else {
+        warn!("Poa steward enabled but TOOLS__POA__STEWARD_TARGET not set - skipping");
+        return;
+    };
+
+    let interval = std::time::Duration::from_secs(config.steward_interval_secs.max(60));
+    let warn_window = config.steward_warn_window_secs;
+    let quiet_when_empty = config.steward_quiet_when_empty;
+    let from_override = config.steward_from.clone();
+
+    tokio::spawn(async move {
+        info!(
+            "Poa steward running every {}s, posting to {}",
+            interval.as_secs(),
+            target
+        );
+        let mut ticker = tokio::time::interval(interval);
+        loop {
+            ticker.tick().await;
+
+            let tasks = match client.list_tasks(None, None).await {
+                Ok(t) => t,
+                Err(e) => {
+                    warn!("Poa steward scan failed: {}", e);
+                    continue;
+                }
+            };
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let report = poa_tools::steward::scan(&tasks, now, warn_window);
+            if quiet_when_empty && report.is_empty() {
+                debug!("Poa steward: nothing to report");
+                continue;
+            }
+
+            // Resolve the sending account: explicit override, else first account.
+            let from = match &from_override {
+                Some(f) => Some(f.clone()),
+                None => match signal.list_accounts().await {
+                    Ok(accts) => accts.into_iter().next(),
+                    Err(e) => {
+                        warn!("Poa steward: cannot list accounts: {}", e);
+                        None
+                    }
+                },
+            };
+            let Some(from) = from else {
+                warn!("Poa steward: no sending account available");
+                continue;
+            };
+
+            if let Err(e) = signal.send(&from, &target, &report.render()).await {
+                warn!("Poa steward: failed to post digest: {}", e);
+            }
+        }
+    });
+}
+
 #[tokio::main]
 async fn main() -> AppResult<()> {
     // Load configuration
@@ -93,8 +271,30 @@ async fn main() -> AppResult<()> {
             .context("Failed to create Signal client")?,
     );
 
+    // Shared confirmation store for value-moving tool calls (Poa complete_task).
+    let confirm_store = Arc::new(tools::ConfirmationStore::new(
+        std::time::Duration::from_secs(config.tools.poa.confirm_ttl_secs),
+    ));
+
     // Create tool registry based on config
-    let tool_registry = Arc::new(create_tool_registry(&config.tools));
+    let mut tool_registry = create_tool_registry(&config.tools);
+    let poa_client = if config.tools.enabled {
+        register_poa_tools(
+            &mut tool_registry,
+            &config.tools.poa,
+            &dstack,
+            confirm_store.clone(),
+        )
+        .await
+    } else {
+        None
+    };
+    let tool_registry = Arc::new(tool_registry);
+
+    // Autonomous board steward (posts digests to a Signal target).
+    if let Some(ref client) = poa_client {
+        spawn_poa_steward(&config.tools.poa, client.clone(), signal.clone());
+    }
 
     // Initialize payment system
     let credit_store = if config.payments.enabled {
@@ -215,8 +415,23 @@ async fn main() -> AppResult<()> {
             config.bot.github_repo.clone(),
         )
     };
+    // Attach the Poa write-tool authorization gate (shared with !poa-confirm).
+    let poa_authorization = signal_bot::commands::ToolAuthorization::new(
+        config.tools.poa.enable_writes,
+        config.tools.poa.authorized_sender_list(),
+    );
+    let chat = chat.with_tool_authorization(poa_authorization.clone());
 
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+
+    // Deterministic confirmation step for value-moving Poa actions.
+    if config.tools.poa.enabled && config.tools.poa.enable_writes {
+        handlers.push(Box::new(signal_bot::commands::PoaConfirmHandler::new(
+            tool_registry.clone(),
+            confirm_store.clone(),
+            poa_authorization,
+        )));
+    }
 
     let group_prefs = GroupPreferencesStore::open(
         dstack.clone(),

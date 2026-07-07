@@ -1,12 +1,14 @@
 //! Tool use system for Signal bot.
 
+mod confirm;
 mod error;
-mod types;
-mod registry;
 mod executor;
+mod registry;
+mod types;
 pub mod builtin;
 
+pub use confirm::{ConfirmationStore, PendingAction};
 pub use error::ToolError;
-pub use types::*;
-pub use registry::ToolRegistry;
 pub use executor::ToolExecutor;
+pub use registry::ToolRegistry;
+pub use types::*;

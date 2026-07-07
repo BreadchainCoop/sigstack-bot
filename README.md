@@ -70,12 +70,21 @@ When `TOOLS__POA__ENABLED=true`, the bot can operate a [Poa](https://github.com/
 DAO org's task board. Ask it things like "what open tasks are there?" or "create a
 5 PT task in the Docs project to fix the changelog".
 
-- **Read tools** (everyone): `poa_list_projects`, `poa_list_tasks`, `poa_get_task`,
-  `poa_wallet_info` — backed by the Poa subgraph.
-- **Write tools** (allowlisted operators only): `poa_create_task`,
-  `poa_update_task`, `poa_assign_task`, `poa_complete_task`, `poa_reject_task`,
-  `poa_cancel_task` — on-chain calls to the org's `TaskManager`, signed by a
-  wallet **derived inside the TEE** (no key leaves the enclave).
+- **Read tools** (everyone): projects, tasks, proposals, wallet info — backed by
+  the Poa subgraph.
+- **Write tools** (allowlisted operators only), signed by a wallet **derived
+  inside the TEE** (no key leaves the enclave):
+  - *task authoring*: create / update / assign / complete / reject / cancel task
+  - *participation*: claim / submit / apply — the bot does work and **earns** PT
+  - *governance*: create non-executable polls, vote
+
+Extra safety on top of the allowlist:
+
+- **Confirmation** — value-moving actions (`poa_complete_task`, which mints a
+  payout) are staged and require a deterministic `!poa-confirm <code>` reply from
+  the same sender; the LLM cannot self-confirm.
+- **Board steward** — an optional background loop posts a digest of expired /
+  at-risk claims to a Signal group (read-only; never sends transactions).
 
 Writes are gated by `TOOLS__POA__ENABLE_WRITES` plus a
 `TOOLS__POA__AUTHORIZED_SENDERS` allowlist, and the chain enforces that the bot's

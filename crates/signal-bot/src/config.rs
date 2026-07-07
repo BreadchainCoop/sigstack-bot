@@ -181,6 +181,39 @@ pub struct PoaConfig {
     /// Comma/space-separated Signal sender ids (phone numbers) allowed to use
     /// write tools. Empty means no one — writes stay effectively read-only.
     pub authorized_senders: Option<String>,
+
+    /// HybridVoting proxy address (0x…) — required for governance tools.
+    pub voting_contract: Option<String>,
+
+    /// Seconds a staged value-moving action (e.g. complete_task) stays
+    /// confirmable via `!poa-confirm`.
+    #[serde(default = "default_poa_confirm_ttl")]
+    pub confirm_ttl_secs: u64,
+
+    /// Autonomous board steward: periodically post a digest of expired/at-risk
+    /// claims to a Signal target. Off by default.
+    #[serde(default)]
+    pub steward_enabled: bool,
+
+    /// Signal target (group id or number) for steward digests.
+    pub steward_target: Option<String>,
+
+    /// Bot account (registered number) to send steward digests from. If unset,
+    /// the first registered account is used.
+    pub steward_from: Option<String>,
+
+    /// Steward scan interval in seconds (default 6h).
+    #[serde(default = "default_poa_steward_interval")]
+    pub steward_interval_secs: u64,
+
+    /// A claim counts as "at risk" if it expires within this many seconds
+    /// (default 24h).
+    #[serde(default = "default_poa_steward_warn")]
+    pub steward_warn_window_secs: u64,
+
+    /// Suppress steward posts when there is nothing to report.
+    #[serde(default = "default_true")]
+    pub steward_quiet_when_empty: bool,
 }
 
 impl Default for PoaConfig {
@@ -195,6 +228,14 @@ impl Default for PoaConfig {
             derive_key_path: default_poa_derive_path(),
             enable_writes: false,
             authorized_senders: None,
+            voting_contract: None,
+            confirm_ttl_secs: default_poa_confirm_ttl(),
+            steward_enabled: false,
+            steward_target: None,
+            steward_from: None,
+            steward_interval_secs: default_poa_steward_interval(),
+            steward_warn_window_secs: default_poa_steward_warn(),
+            steward_quiet_when_empty: true,
         }
     }
 }
@@ -505,6 +546,18 @@ fn default_poa_network() -> String {
 
 fn default_poa_derive_path() -> String {
     "poa-tools/task-manager-wallet".into()
+}
+
+fn default_poa_confirm_ttl() -> u64 {
+    300
+}
+
+fn default_poa_steward_interval() -> u64 {
+    6 * 60 * 60
+}
+
+fn default_poa_steward_warn() -> u64 {
+    24 * 60 * 60
 }
 
 fn default_whisper_service() -> String {

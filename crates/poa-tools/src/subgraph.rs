@@ -223,6 +223,52 @@ impl PoaClient {
             .and_then(|a| a.first())
             .map(task_from_json))
     }
+
+    /// List governance proposals for the configured HybridVoting contract.
+    pub async fn list_proposals(&self) -> Result<Vec<ProposalInfo>, PoaError> {
+        let voting = self.require_voting()?;
+        let where_clause = json!({ "hybridVoting": format!("{:#x}", voting).to_lowercase() });
+        let query = "query($where: Proposal_filter!) { \
+            proposals(first: 50, orderBy: proposalId, orderDirection: desc, where: $where) { \
+                proposalId title numOptions status startTimestamp endTimestamp winningOption \
+            } }";
+        let data = self
+            .subgraph_query(query, json!({ "where": where_clause }))
+            .await?;
+
+        Ok(data
+            .get("proposals")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .map(proposal_from_json)
+            .collect())
+    }
+}
+
+/// A governance proposal row from the subgraph.
+#[derive(Debug, Clone)]
+pub struct ProposalInfo {
+    pub proposal_id: String,
+    pub title: String,
+    pub num_options: i64,
+    pub status: String,
+    pub start_timestamp: String,
+    pub end_timestamp: String,
+    pub winning_option: Option<String>,
+}
+
+fn proposal_from_json(p: &Value) -> ProposalInfo {
+    ProposalInfo {
+        proposal_id: str_field(p, "proposalId"),
+        title: str_field(p, "title"),
+        num_options: p.get("numOptions").and_then(Value::as_i64).unwrap_or(0),
+        status: str_field(p, "status"),
+        start_timestamp: str_field(p, "startTimestamp"),
+        end_timestamp: str_field(p, "endTimestamp"),
+        winning_option: opt_str_field(p, "winningOption"),
+    }
 }
 
 #[cfg(test)]
@@ -239,6 +285,7 @@ mod tests {
             PoaClientConfig {
                 rpc_url: "http://localhost:1".into(),
                 subgraph_url,
+                voting_contract: None,
                 task_manager: "0x00000000000000000000000000000000000000aa"
                     .parse()
                     .unwrap(),

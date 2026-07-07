@@ -77,6 +77,22 @@ impl ToolResult {
     }
 }
 
+/// Context passed to a tool at execution time.
+///
+/// Carries who is asking and whether a prior confirmation step has cleared, so
+/// tools can implement per-sender behavior (allowlists, two-step confirmation)
+/// without the trait leaking bot internals.
+#[derive(Debug, Clone, Default)]
+pub struct ToolContext {
+    /// Signal sender id (phone number) of the human driving this turn.
+    pub sender: String,
+    /// Whether the sender is authorized for privileged tools.
+    pub authorized: bool,
+    /// Whether a required confirmation has already been satisfied for this call
+    /// (set true when re-dispatched by the `!poa-confirm` flow).
+    pub confirmed: bool,
+}
+
 /// Trait for implementing tools.
 #[async_trait]
 pub trait Tool: Send + Sync {
@@ -89,6 +105,18 @@ pub trait Tool: Send + Sync {
     /// Execute the tool with JSON arguments.
     async fn execute(&self, arguments: &str) -> Result<String, ToolError>;
 
+    /// Execute with execution context (sender, authorization, confirmation).
+    ///
+    /// Defaults to ignoring the context and calling [`Tool::execute`]. Tools
+    /// that need the sender or a confirmation gate override this.
+    async fn execute_ctx(
+        &self,
+        arguments: &str,
+        _ctx: &ToolContext,
+    ) -> Result<String, ToolError> {
+        self.execute(arguments).await
+    }
+
     /// Whether this tool performs a privileged/state-changing action that must
     /// only be offered to and executed for authorized senders.
     ///
@@ -97,6 +125,14 @@ pub trait Tool: Send + Sync {
     /// the bot then filters them by its sender allowlist before offering them
     /// to the model or running them.
     fn requires_authorization(&self) -> bool {
+        false
+    }
+
+    /// Whether this tool must be confirmed via a second, deterministic step
+    /// before it actually runs (e.g. value-moving actions like minting a
+    /// payout). The bot mediates the confirmation; the tool sees `confirmed`
+    /// on the [`ToolContext`].
+    fn requires_confirmation(&self) -> bool {
         false
     }
 

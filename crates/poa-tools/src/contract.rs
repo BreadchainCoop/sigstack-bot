@@ -40,6 +40,32 @@ sol! {
         function completeTask(uint256 id) external;
         function rejectTask(uint256 id, bytes32 rejectionHash) external;
         function cancelTask(uint256 id) external;
+
+        // Participation (the bot doing work itself).
+        function claimTask(uint256 id) external;
+        function submitTask(uint256 id, bytes32 submissionHash) external;
+        function applyForTask(uint256 id, bytes32 applicationHash) external;
+    }
+
+    #[sol(rpc)]
+    interface IHybridVoting {
+        // Non-executable poll when every batch is empty.
+        function createProposal(
+            bytes title,
+            bytes32 descriptionHash,
+            uint32 minutesDuration,
+            uint8 numOptions,
+            Call[][] batches,
+            uint256[] hatIds
+        ) external;
+
+        function vote(uint256 id, uint8[] idxs, uint8[] weights) external;
+    }
+
+    struct Call {
+        address target;
+        uint256 value;
+        bytes data;
     }
 }
 
@@ -178,5 +204,77 @@ impl PoaClient {
     pub(crate) async fn cancel_task(&self, task_id: U256) -> Result<TxOutcome, PoaError> {
         let tm = self.task_manager();
         send_tx!(self, "cancelTask", tm.cancelTask(task_id))
+    }
+
+    pub(crate) async fn claim_task(&self, task_id: U256) -> Result<TxOutcome, PoaError> {
+        let tm = self.task_manager();
+        send_tx!(self, "claimTask", tm.claimTask(task_id))
+    }
+
+    pub(crate) async fn submit_task(
+        &self,
+        task_id: U256,
+        submission_hash: B256,
+    ) -> Result<TxOutcome, PoaError> {
+        let tm = self.task_manager();
+        send_tx!(self, "submitTask", tm.submitTask(task_id, submission_hash))
+    }
+
+    pub(crate) async fn apply_for_task(
+        &self,
+        task_id: U256,
+        application_hash: B256,
+    ) -> Result<TxOutcome, PoaError> {
+        let tm = self.task_manager();
+        send_tx!(
+            self,
+            "applyForTask",
+            tm.applyForTask(task_id, application_hash)
+        )
+    }
+
+    fn voting(
+        &self,
+        addr: Address,
+    ) -> IHybridVoting::IHybridVotingInstance<impl alloy::providers::Provider + Clone> {
+        IHybridVoting::new(addr, self.provider())
+    }
+
+    /// Create a non-executable governance poll (all batches empty).
+    pub(crate) async fn create_poll(
+        &self,
+        voting: Address,
+        title: String,
+        description_hash: B256,
+        minutes_duration: u32,
+        num_options: u8,
+    ) -> Result<TxOutcome, PoaError> {
+        let v = self.voting(voting);
+        // One empty Call batch per option => a poll with no on-chain effects.
+        let batches: Vec<Vec<Call>> = (0..num_options).map(|_| Vec::new()).collect();
+        let hat_ids: Vec<U256> = Vec::new();
+        send_tx!(
+            self,
+            "createProposal",
+            v.createProposal(
+                Bytes::from(title.into_bytes()),
+                description_hash,
+                minutes_duration,
+                num_options,
+                batches,
+                hat_ids,
+            )
+        )
+    }
+
+    pub(crate) async fn vote(
+        &self,
+        voting: Address,
+        proposal_id: U256,
+        idxs: Vec<u8>,
+        weights: Vec<u8>,
+    ) -> Result<TxOutcome, PoaError> {
+        let v = self.voting(voting);
+        send_tx!(self, "vote", v.vote(proposal_id, idxs, weights))
     }
 }

@@ -216,6 +216,14 @@ impl ChatHandler {
         if tools_authorized {
             info!("Sender is authorized for privileged tools");
         }
+        // Context passed to every tool call this turn. `confirmed` is always
+        // false here — confirmed re-dispatch happens via the `!poa-confirm`
+        // command handler, not through normal chat.
+        let tool_ctx = tools::ToolContext {
+            sender: message.source.clone(),
+            authorized: tools_authorized,
+            confirmed: false,
+        };
 
         if message.is_group {
             info!(
@@ -373,7 +381,7 @@ impl ChatHandler {
                         },
                     };
 
-                    let result = self.tool_executor.execute_authorized(&tools_call, tools_authorized).await;
+                    let result = self.tool_executor.execute_ctx(&tools_call, &tool_ctx).await;
                     let result_content = if result.success {
                         debug!("Tool {} succeeded: {}...", tool_call.function.name, &result.content[..result.content.len().min(100)]);
                         result.content

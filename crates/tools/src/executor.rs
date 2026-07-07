@@ -52,8 +52,25 @@ impl ToolExecutor {
     /// [`crate::Tool::requires_authorization`] is refused before execution as a
     /// defense-in-depth backstop to the offer-time filtering in the registry.
     pub async fn execute_authorized(&self, tool_call: &ToolCall, authorized: bool) -> ToolResult {
+        let ctx = crate::ToolContext {
+            authorized,
+            ..Default::default()
+        };
+        self.execute_ctx(tool_call, &ctx).await
+    }
+
+    /// Execute a tool call with full execution context.
+    ///
+    /// This is the primary entry point: it enforces the authorization backstop
+    /// and passes the [`crate::ToolContext`] through to the tool so it can apply
+    /// per-sender behavior (e.g. two-step confirmation).
+    pub async fn execute_ctx(
+        &self,
+        tool_call: &ToolCall,
+        ctx: &crate::ToolContext,
+    ) -> ToolResult {
         let tool_name = &tool_call.function.name;
-        info!(tool = %tool_name, authorized, "Executing tool");
+        info!(tool = %tool_name, authorized = ctx.authorized, confirmed = ctx.confirmed, "Executing tool");
 
         // Get the tool
         let tool = match self.registry.get_tool(tool_name) {
@@ -69,7 +86,7 @@ impl ToolExecutor {
 
         // Authorization backstop: never run a privileged tool for an
         // unauthorized caller, even if it was somehow offered.
-        if tool.requires_authorization() && !authorized {
+        if tool.requires_authorization() && !ctx.authorized {
             warn!(tool = %tool_name, "Refused privileged tool for unauthorized sender");
             return ToolResult::error(
                 &tool_call.id,
@@ -85,7 +102,7 @@ impl ToolExecutor {
         // Execute with timeout
         let result = timeout(
             Duration::from_secs(timeout_secs),
-            tool.execute(&tool_call.function.arguments),
+            tool.execute_ctx(&tool_call.function.arguments, ctx),
         )
         .await;
 

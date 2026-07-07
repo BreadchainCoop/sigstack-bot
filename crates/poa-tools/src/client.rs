@@ -36,6 +36,8 @@ pub struct PoaClientConfig {
     pub subgraph_url: String,
     /// Address of the org's TaskManager proxy.
     pub task_manager: Address,
+    /// Optional address of the org's HybridVoting proxy (governance tools).
+    pub voting_contract: Option<Address>,
     /// Human-readable network name shown to users (e.g. "gnosis").
     pub network_name: String,
 }
@@ -56,8 +58,21 @@ impl PoaClientConfig {
             rpc_url: rpc_url.into(),
             subgraph_url: subgraph_url.into(),
             task_manager,
+            voting_contract: None,
             network_name: network_name.into(),
         })
+    }
+
+    /// Set the HybridVoting contract address (parsed from a string).
+    pub fn with_voting_contract(mut self, addr: Option<&str>) -> Result<Self, PoaError> {
+        self.voting_contract = match addr.map(str::trim).filter(|s| !s.is_empty()) {
+            Some(a) => Some(
+                a.parse()
+                    .map_err(|e| PoaError::Config(format!("invalid voting address: {}", e)))?,
+            ),
+            None => None,
+        };
+        Ok(self)
     }
 }
 
@@ -114,6 +129,16 @@ impl PoaClient {
             signer,
             http: reqwest::Client::new(),
             rpc_url,
+        })
+    }
+
+    /// The configured HybridVoting address, or a config error if governance
+    /// tools are used without one set.
+    pub(crate) fn require_voting(&self) -> Result<Address, PoaError> {
+        self.config.voting_contract.ok_or_else(|| {
+            PoaError::Config(
+                "governance tools need TOOLS__POA__VOTING_CONTRACT to be set".to_string(),
+            )
         })
     }
 

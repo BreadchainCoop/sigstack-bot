@@ -6,49 +6,15 @@
 //! tool here returns `requires_authorization() == true` so the bot only offers
 //! and executes them for allowlisted Signal senders.
 
-use crate::client::{PoaClient, PoaError};
+use crate::client::PoaClient;
+use crate::common::{map_err, parse_address, parse_b32, parse_metadata_hash, parse_task_id};
 use crate::contract::{CreateTaskParams, UpdateTaskParams};
 use crate::units::parse_pt;
 use alloy::primitives::{Address, B256, U256};
 use async_trait::async_trait;
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use tools::{FunctionDefinition, Tool, ToolDefinition, ToolError};
-
-fn map_err(e: PoaError) -> ToolError {
-    match e {
-        PoaError::InvalidArguments(m) => ToolError::InvalidArguments(m),
-        other => ToolError::ExternalService(other.to_string()),
-    }
-}
-
-/// Parse a 0x-prefixed bytes32 (project id, metadata hash, etc).
-fn parse_b32(s: &str, field: &str) -> Result<B256, ToolError> {
-    s.parse::<B256>().map_err(|_| {
-        ToolError::InvalidArguments(format!("invalid {} (expected 0x + 64 hex): {}", field, s))
-    })
-}
-
-/// Parse a metadata hash: accept a 0x bytes32 directly, or hash an arbitrary
-/// string with sha256 as a deterministic fallback so the model can pass a plain
-/// description when it has no IPFS CID.
-fn parse_metadata_hash(s: &str) -> B256 {
-    if let Ok(h) = s.parse::<B256>() {
-        return h;
-    }
-    let digest = Sha256::digest(s.as_bytes());
-    B256::from_slice(&digest)
-}
-
-fn parse_address(s: &str, field: &str) -> Result<Address, ToolError> {
-    s.parse::<Address>()
-        .map_err(|_| ToolError::InvalidArguments(format!("invalid {} address: {}", field, s)))
-}
-
-fn parse_task_id(id: u64) -> U256 {
-    U256::from(id)
-}
+use tools::{FunctionDefinition, Tool, ToolContext, ToolDefinition, ToolError};
 
 // ─────────────────────────── create_task ───────────────────────────
 
@@ -341,14 +307,16 @@ struct TaskIdArg {
     task_id: u64,
 }
 
-/// Approve a submitted task (mints payout).
+/// Approve a submitted task (mints payout). Requires two-step confirmation
+/// because it moves value (mints PT + transfers any bounty).
 pub struct PoaCompleteTaskTool {
     client: Arc<PoaClient>,
+    confirm: Arc<tools::ConfirmationStore>,
 }
 
 impl PoaCompleteTaskTool {
-    pub fn new(client: Arc<PoaClient>) -> Self {
-        Self { client }
+    pub fn new(client: Arc<PoaClient>, confirm: Arc<tools::ConfirmationStore>) -> Self {
+        Self { client, confirm }
     }
 }
 
@@ -361,7 +329,8 @@ impl Tool for PoaCompleteTaskTool {
                 name: "poa_complete_task".into(),
                 description: "Approve a SUBMITTED task: mints the participation-token payout to \
                               the claimer and transfers any bounty. Requires REVIEW rights. This \
-                              moves tokens — confirm with the user first."
+                              moves value, so it is staged and the operator must reply \
+                              `!poa-confirm <code>` before it executes."
                     .into(),
                 parameters: serde_json::json!({
                     "type": "object",
@@ -382,12 +351,18 @@ impl Tool for PoaCompleteTaskTool {
         true
     }
 
+    fn requires_confirmation(&self) -> bool {
+        true
+    }
+
     fn timeout_override(&self) -> Option<u64> {
         // On-chain writes must be mined + confirmed; allow more than the 10s default.
         Some(90)
     }
 
     async fn execute(&self, arguments: &str) -> Result<String, ToolError> {
+        // Direct execute (no context) always runs — used only by the confirm
+        // handler, which has already validated the second step.
         let args: TaskIdArg = serde_json::from_str(arguments)
             .map_err(|e| ToolError::InvalidArguments(e.to_string()))?;
         let outcome = self
@@ -398,6 +373,45 @@ impl Tool for PoaCompleteTaskTool {
         Ok(format!(
             "Completed task #{} (payout minted). Transaction {} confirmed.",
             args.task_id, outcome.hash
+        ))
+    }
+
+    async fn execute_ctx(&self, arguments: &str, ctx: &ToolContext) -> Result<String, ToolError> {
+        if ctx.confirmed {
+            return self.execute(arguments).await;
+        }
+
+        let args: TaskIdArg = serde_json::from_str(arguments)
+            .map_err(|e| ToolError::InvalidArguments(e.to_string()))?;
+
+        // Enrich the confirmation prompt with what will actually be paid out.
+        let summary = match self.client.get_task(args.task_id).await {
+            Ok(Some(t)) => format!(
+                "Approve task #{} \"{}\": mint {} PT to {}{}",
+                args.task_id,
+                t.title,
+                crate::units::format_pt(&t.payout),
+                t.assignee_username
+                    .as_deref()
+                    .or(t.assignee.as_deref())
+                    .unwrap_or("the claimer"),
+                if t.bounty_token != "0x0000000000000000000000000000000000000000"
+                    && !t.bounty_token.is_empty()
+                {
+                    format!(" plus bounty {} of {}", t.bounty_payout, t.bounty_token)
+                } else {
+                    String::new()
+                }
+            ),
+            _ => format!("Approve task #{} and mint its payout", args.task_id),
+        };
+
+        let code = self
+            .confirm
+            .stage(&ctx.sender, self.name(), arguments, &summary);
+        Ok(format!(
+            "⚠️ {}.\nThis moves value. Reply `!poa-confirm {}` to execute (expires shortly).",
+            summary, code
         ))
     }
 }

@@ -49,10 +49,48 @@ Write tools (only offered to / executed for allowlisted senders, and only when
 | `poa_reject_task` | `rejectTask` | PM or `REVIEW` hat |
 | `poa_cancel_task` | `cancelTask` | PM or `CREATE` hat |
 
+Participation tools — the bot doing work itself (and *earning* PT when its work
+is approved):
+
+| Tool | On-chain call | Permission the wallet needs |
+|------|---------------|-----------------------------|
+| `poa_claim_task` | `claimTask` | `CLAIM` hat |
+| `poa_submit_task` | `submitTask` | be the current claimer |
+| `poa_apply_for_task` | `applyForTask` | `CLAIM` hat (application-gated tasks) |
+
+Governance tools:
+
+| Tool | Kind | Permission the wallet needs |
+|------|------|-----------------------------|
+| `poa_list_proposals` | read (subgraph) | — |
+| `poa_create_poll` | `createProposal` (non-executable) | proposal-creator hat |
+| `poa_vote` | `vote` | voting-class hat |
+
+`poa_create_poll` deliberately only creates **non-executable polls** (every
+option maps to an empty on-chain batch). The bot surfaces a decision for the
+members to vote on; it never authors arbitrary executable calls.
+
 Payouts are participation tokens and are given as decimals (`"5"`, `"2.5"`) — the
 tool converts to 18-decimal wei. Metadata/rejection text is accepted either as a
 `0x`-prefixed bytes32 (e.g. an IPFS CID digest) or as free text, which is
 sha256-hashed on chain.
+
+### Confirmation for value-moving actions
+
+`poa_complete_task` mints tokens (and transfers any bounty), so it does not run
+on the first call. It **stages** the action and replies with a code; the
+operator must send `!poa-confirm <code>` to execute. The confirmation is a
+deterministic bot command, not an LLM tool call — the model cannot self-confirm,
+and confirmation is only accepted from the same still-authorized sender. Staged
+actions expire after `TOOLS__POA__CONFIRM_TTL_SECS` (default 5 min).
+
+### Autonomous board steward
+
+With `TOOLS__POA__STEWARD_ENABLED=true`, a background loop periodically scans the
+board and posts a digest to a Signal target (`STEWARD_TARGET`): claims whose
+deadline has passed (open to takeover under the v6 takeover rules), claims
+expiring soon, and the count of open tasks. It is **read-only** — it never sends
+transactions, only surfaces what needs attention.
 
 ## Configuration
 
@@ -69,6 +107,13 @@ All keys live under `TOOLS__POA__` (see `.env.example`):
 | `TOOLS__POA__DERIVE_KEY_PATH` | `poa-tools/task-manager-wallet` | dstack derivation path. |
 | `TOOLS__POA__ENABLE_WRITES` | `false` | Enable write tools at all. |
 | `TOOLS__POA__AUTHORIZED_SENDERS` | — | Comma/space-separated Signal ids allowed to write. |
+| `TOOLS__POA__VOTING_CONTRACT` | — | HybridVoting proxy; required for governance tools. |
+| `TOOLS__POA__CONFIRM_TTL_SECS` | `300` | How long a staged value-moving action stays confirmable. |
+| `TOOLS__POA__STEWARD_ENABLED` | `false` | Run the board steward digest loop. |
+| `TOOLS__POA__STEWARD_TARGET` | — | Signal group/number to post digests to. |
+| `TOOLS__POA__STEWARD_FROM` | — | Sending account (defaults to first registered). |
+| `TOOLS__POA__STEWARD_INTERVAL_SECS` | `21600` | Scan/post interval (6h). |
+| `TOOLS__POA__STEWARD_WARN_WINDOW_SECS` | `86400` | "At risk" if a claim expires within this window (24h). |
 
 Poa governance orgs live on **Arbitrum**; test orgs (KUBI, Test6, …) on
 **Gnosis**. Point `RPC_URL` + `SUBGRAPH_URL` at the chain your org is on. Subgraph

@@ -88,4 +88,22 @@ pub trait Tool: Send + Sync {
 
     /// Execute the tool with JSON arguments.
     async fn execute(&self, arguments: &str) -> Result<String, ToolError>;
+
+    /// Whether this tool performs a privileged/state-changing action that must
+    /// only be offered to and executed for authorized senders.
+    ///
+    /// Read-only tools return `false` (the default). Tools that move funds or
+    /// mutate on-chain / external state (e.g. Poa task writes) return `true`;
+    /// the bot then filters them by its sender allowlist before offering them
+    /// to the model or running them.
+    fn requires_authorization(&self) -> bool {
+        false
+    }
+
+    /// Optional per-tool execution timeout in seconds, overriding the executor
+    /// default. On-chain writes need longer than typical HTTP tools because the
+    /// call has to be mined and confirmed.
+    fn timeout_override(&self) -> Option<u64> {
+        None
+    }
 }

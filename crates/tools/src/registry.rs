@@ -52,6 +52,20 @@ impl ToolRegistry {
             .collect()
     }
 
+    /// Get definitions for enabled tools, filtered by caller authorization.
+    ///
+    /// When `authorized` is false, tools reporting
+    /// [`Tool::requires_authorization`] are omitted so the model is never even
+    /// offered a privileged tool for an unauthorized sender.
+    pub fn get_definitions_authorized(&self, authorized: bool) -> Vec<ToolDefinition> {
+        self.tools
+            .iter()
+            .filter(|(name, _)| self.enabled.contains(*name))
+            .filter(|(_, tool)| authorized || !tool.requires_authorization())
+            .map(|(_, tool)| tool.definition())
+            .collect()
+    }
+
     /// Get a tool by name (only if enabled).
     pub fn get_tool(&self, name: &str) -> Option<Arc<dyn Tool>> {
         if self.enabled.contains(name) {

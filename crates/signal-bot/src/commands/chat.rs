@@ -9,12 +9,37 @@ use near_ai_client::{
     ToolDefinition as NearToolDefinition,
 };
 use signal_client::{BotMessage, SignalClient};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tools::{FunctionCall as ToolsFunctionCall, ToolCall as ToolsToolCall, ToolExecutor, ToolRegistry};
 use tracing::{debug, error, info, instrument, warn};
 use x402_payments::{
     calculate_credits, estimate_credits, CreditStore, PricingConfig, TokenUsage, UsageRecord,
 };
+
+/// Authorization gate for privileged (state-changing) tools such as Poa writes.
+#[derive(Clone, Default)]
+pub struct ToolAuthorization {
+    /// Whether privileged tools are offered/executed at all.
+    writes_enabled: bool,
+    /// Signal sender ids allowed to invoke privileged tools.
+    authorized_senders: Arc<HashSet<String>>,
+}
+
+impl ToolAuthorization {
+    /// Build from a writes flag and an allowlist of sender ids.
+    pub fn new(writes_enabled: bool, senders: Vec<String>) -> Self {
+        Self {
+            writes_enabled,
+            authorized_senders: Arc::new(senders.into_iter().collect()),
+        }
+    }
+
+    /// Whether the given Signal sender may use privileged tools.
+    pub fn is_authorized(&self, sender: &str) -> bool {
+        self.writes_enabled && self.authorized_senders.contains(sender)
+    }
+}
 
 #[derive(Clone)]
 pub struct ChatHandler {
@@ -33,6 +58,8 @@ pub struct ChatHandler {
     credit_store: Option<Arc<CreditStore>>,
     /// Pricing configuration.
     pricing_config: PricingConfig,
+    /// Gate for privileged tools (Poa writes).
+    tool_authorization: ToolAuthorization,
 }
 
 impl ChatHandler {
@@ -58,7 +85,14 @@ impl ChatHandler {
             github_repo,
             credit_store: None,
             pricing_config: PricingConfig::default(),
+            tool_authorization: ToolAuthorization::default(),
         }
+    }
+
+    /// Set the authorization gate for privileged tools (builder-style).
+    pub fn with_tool_authorization(mut self, authorization: ToolAuthorization) -> Self {
+        self.tool_authorization = authorization;
+        self
     }
 
     /// Create a new ChatHandler with payment integration.
@@ -86,6 +120,7 @@ impl ChatHandler {
             github_repo,
             credit_store: Some(credit_store),
             pricing_config,
+            tool_authorization: ToolAuthorization::default(),
         }
     }
 
@@ -175,6 +210,13 @@ impl ChatHandler {
         // For credits, use the sender's phone number (not group ID)
         let user_id = &message.source;
 
+        // Authorization for privileged tools (Poa writes) keys off the actual
+        // human sender, never the group id.
+        let tools_authorized = self.tool_authorization.is_authorized(&message.source);
+        if tools_authorized {
+            info!("Sender is authorized for privileged tools");
+        }
+
         if message.is_group {
             info!(
                 "Group chat from {} in {}: {}...",
@@ -208,8 +250,9 @@ impl ChatHandler {
             .add_message(conversation_id, "user", user_text, Some(&self.system_prompt))
             .await?;
 
-        // Get tool definitions and convert to NEAR AI format
-        let tool_defs = self.tool_registry.get_definitions();
+        // Get tool definitions and convert to NEAR AI format. Privileged tools
+        // are only offered to authorized senders.
+        let tool_defs = self.tool_registry.get_definitions_authorized(tools_authorized);
         let near_tools: Vec<NearToolDefinition> = tool_defs
             .into_iter()
             .map(|d| NearToolDefinition {
@@ -330,7 +373,7 @@ impl ChatHandler {
                         },
                     };
 
-                    let result = self.tool_executor.execute(&tools_call).await;
+                    let result = self.tool_executor.execute_authorized(&tools_call, tools_authorized).await;
                     let result_content = if result.success {
                         debug!("Tool {} succeeded: {}...", tool_call.function.name, &result.content[..result.content.len().min(100)]);
                         result.content

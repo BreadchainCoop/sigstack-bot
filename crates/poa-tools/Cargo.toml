@@ -1,0 +1,45 @@
+[package]
+name = "poa-tools"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Poa (proof-of-authority DAO protocol) tools for signal-bot-tee: query orgs via subgraph and update TaskManager on-chain"
+
+[dependencies]
+tools = { path = "../tools" }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# HTTP client (subgraph queries)
+reqwest = { version = "0.11", features = ["json"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Hashing (rejection/metadata hashes)
+sha2 = { workspace = true }
+
+# EVM support via Alloy (same version as x402-payments)
+alloy = { version = "1.1", features = [
+    "contract",
+    "network",
+    "provider-http",
+    "rpc-types",
+    "signer-local",
+    "sol-types",
+] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+wiremock = "0.5"

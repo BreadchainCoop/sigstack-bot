@@ -60,6 +60,110 @@ fn create_tool_registry(config: &signal_bot::config::ToolsConfig) -> ToolRegistr
     registry
 }
 
+/// Register Poa protocol tools (read + gated write) into the registry.
+///
+/// The wallet is either loaded from a configured hex private key or, preferably,
+/// derived inside the TEE via dstack so no key material ever leaves the enclave.
+/// Write tools are only registered when writes are explicitly enabled; their
+/// per-sender execution gating lives in the chat handler.
+async fn register_poa_tools(
+    registry: &mut ToolRegistry,
+    config: &signal_bot::config::PoaConfig,
+    dstack: &DstackClient,
+) {
+    if !config.enabled {
+        return;
+    }
+
+    let (Some(rpc_url), Some(subgraph_url), Some(task_manager)) = (
+        config.rpc_url.as_ref(),
+        config.subgraph_url.as_ref(),
+        config.task_manager.as_ref(),
+    ) else {
+        warn!("Poa tools enabled but TOOLS__POA__RPC_URL / SUBGRAPH_URL / TASK_MANAGER not all set - skipping");
+        return;
+    };
+
+    let client_config = match poa_tools::PoaClientConfig::parse(
+        rpc_url,
+        subgraph_url,
+        task_manager,
+        config.network_name.clone(),
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Poa tools misconfigured: {} - skipping", e);
+            return;
+        }
+    };
+
+    // Resolve the wallet: explicit hex key, else TEE-derived key.
+    let client = if let Some(hex_key) = config.private_key.as_ref() {
+        info!("Poa wallet loaded from configured private key");
+        poa_tools::PoaClient::from_hex_key(client_config, hex_key)
+    } else {
+        match dstack.derive_key(&config.derive_key_path, None).await {
+            Ok(key_bytes) => {
+                info!(
+                    "Poa wallet derived from TEE (path: {})",
+                    config.derive_key_path
+                );
+                poa_tools::PoaClient::from_key_bytes(client_config, &key_bytes)
+            }
+            Err(e) => {
+                error!("Failed to derive Poa wallet from TEE: {} - skipping", e);
+                return;
+            }
+        }
+    };
+
+    let client = match client {
+        Ok(c) => Arc::new(c),
+        Err(e) => {
+            error!("Failed to initialize Poa client: {} - skipping", e);
+            return;
+        }
+    };
+
+    info!(
+        "Poa wallet address: {} (grant this address project-manager rights on-chain)",
+        client.address()
+    );
+
+    let tools = poa_tools::all_tools(client);
+    let mut read_count = 0;
+    let mut write_count = 0;
+    for tool in tools {
+        if tool.requires_authorization() {
+            // Skip write tools entirely unless writes are explicitly enabled.
+            if !config.enable_writes {
+                continue;
+            }
+            write_count += 1;
+        } else {
+            read_count += 1;
+        }
+        registry.register(tool);
+    }
+
+    let senders = config.authorized_sender_list();
+    let writes_state = if config.enable_writes {
+        "enabled"
+    } else {
+        "disabled"
+    };
+    info!(
+        "Registered Poa tools: {} read, {} write (writes {}, {} authorized sender(s))",
+        read_count,
+        write_count,
+        writes_state,
+        senders.len()
+    );
+    if config.enable_writes && senders.is_empty() {
+        warn!("Poa writes enabled but TOOLS__POA__AUTHORIZED_SENDERS is empty - no one can invoke write tools");
+    }
+}
+
 #[tokio::main]
 async fn main() -> AppResult<()> {
     // Load configuration
@@ -94,7 +198,11 @@ async fn main() -> AppResult<()> {
     );
 
     // Create tool registry based on config
-    let tool_registry = Arc::new(create_tool_registry(&config.tools));
+    let mut tool_registry = create_tool_registry(&config.tools);
+    if config.tools.enabled {
+        register_poa_tools(&mut tool_registry, &config.tools.poa, &dstack).await;
+    }
+    let tool_registry = Arc::new(tool_registry);
 
     // Initialize payment system
     let credit_store = if config.payments.enabled {
@@ -215,6 +323,11 @@ async fn main() -> AppResult<()> {
             config.bot.github_repo.clone(),
         )
     };
+    // Attach the Poa write-tool authorization gate.
+    let chat = chat.with_tool_authorization(signal_bot::commands::ToolAuthorization::new(
+        config.tools.poa.enable_writes,
+        config.tools.poa.authorized_sender_list(),
+    ));
 
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
 

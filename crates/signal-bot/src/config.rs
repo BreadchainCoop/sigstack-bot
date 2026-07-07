@@ -134,6 +134,90 @@ pub struct ToolsConfig {
     /// Calculator tool configuration
     #[serde(default)]
     pub calculator: CalculatorConfig,
+
+    /// Poa (DAO protocol) tools configuration
+    #[serde(default)]
+    pub poa: PoaConfig,
+}
+
+/// Configuration for the Poa protocol tool suite.
+///
+/// Read tools (list/get) are offered to everyone when `enabled`. Write tools
+/// (create/update/assign/complete/reject/cancel task) additionally require
+/// `enable_writes` and are only offered to / executed for Signal senders listed
+/// in `authorized_senders`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PoaConfig {
+    /// Master switch for Poa tools (off by default — opt-in).
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// JSON-RPC endpoint for the chain the org lives on.
+    pub rpc_url: Option<String>,
+
+    /// Poa subgraph GraphQL endpoint for that chain.
+    pub subgraph_url: Option<String>,
+
+    /// TaskManager proxy address (0x…) for the org being managed.
+    pub task_manager: Option<String>,
+
+    /// Human-readable network name shown to users.
+    #[serde(default = "default_poa_network")]
+    pub network_name: String,
+
+    /// Wallet private key (0x hex). If omitted, the wallet is derived from the
+    /// TEE via dstack `derive_key(derive_key_path)` so no key ever leaves the
+    /// enclave. Prefer the derived path in production.
+    pub private_key: Option<String>,
+
+    /// dstack key-derivation path used when `private_key` is not set.
+    #[serde(default = "default_poa_derive_path")]
+    pub derive_key_path: String,
+
+    /// Whether to offer state-changing write tools at all (off by default).
+    #[serde(default)]
+    pub enable_writes: bool,
+
+    /// Comma/space-separated Signal sender ids (phone numbers) allowed to use
+    /// write tools. Empty means no one — writes stay effectively read-only.
+    pub authorized_senders: Option<String>,
+}
+
+impl Default for PoaConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            rpc_url: None,
+            subgraph_url: None,
+            task_manager: None,
+            network_name: default_poa_network(),
+            private_key: None,
+            derive_key_path: default_poa_derive_path(),
+            enable_writes: false,
+            authorized_senders: None,
+        }
+    }
+}
+
+impl PoaConfig {
+    /// Parse `authorized_senders` into a set of trimmed sender ids.
+    pub fn authorized_sender_list(&self) -> Vec<String> {
+        self.authorized_senders
+            .as_deref()
+            .map(|s| {
+                s.split([',', ' ', '\n', '\t'])
+                    .map(str::trim)
+                    .filter(|p| !p.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Whether a given Signal sender may invoke Poa write tools.
+    pub fn is_authorized(&self, sender: &str) -> bool {
+        self.enable_writes && self.authorized_sender_list().iter().any(|s| s == sender)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -252,6 +336,7 @@ impl Default for ToolsConfig {
             web_search: WebSearchConfig::default(),
             weather: WeatherConfig::default(),
             calculator: CalculatorConfig::default(),
+            poa: PoaConfig::default(),
         }
     }
 }
@@ -412,6 +497,14 @@ fn default_max_tool_calls() -> usize {
 
 fn default_search_results() -> usize {
     5
+}
+
+fn default_poa_network() -> String {
+    "gnosis".into()
+}
+
+fn default_poa_derive_path() -> String {
+    "poa-tools/task-manager-wallet".into()
 }
 
 fn default_whisper_service() -> String {

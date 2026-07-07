@@ -22,7 +22,7 @@ mod voice;
 
 pub use ask::AskHandler;
 pub use balance::BalanceHandler;
-pub use chat::ChatHandler;
+pub use chat::{ChatHandler, ToolAuthorization};
 pub use clear::ClearHandler;
 pub use deposit::DepositHandler;
 pub use help::HelpHandler;

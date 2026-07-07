@@ -190,10 +190,14 @@ async fn pump_events(read_half: OwnedReadHalf, bot_id: &str, tx: &mpsc::Sender<I
             }
         };
 
-        // Registration ack / other id-correlated responses.
+        // An error frame is a failed `handler.register` (the only id-correlated
+        // request this agent sends). The connection will never deliver events,
+        // so treat it as a connection failure: return so the supervisor clears
+        // the published write half and reconnects after a backoff, rather than
+        // blocking forever on a dead registration.
         if let Some(err) = msg.get("error") {
-            warn!(error = %err, "Pacto daemon returned an error frame");
-            continue;
+            warn!(error = %err, "Pacto daemon rejected registration; reconnecting");
+            return false;
         }
         match msg.get("method").and_then(Value::as_str) {
             Some("agent.event") => {

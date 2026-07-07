@@ -5,19 +5,12 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixListener;
 
 async fn read_frame<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> Value {
     let mut line = String::new();
     reader.read_line(&mut line).await.unwrap();
     serde_json::from_str(line.trim()).unwrap()
-}
-
-async fn write_frame(stream: &mut UnixStream, msg: &Value) {
-    let mut line = serde_json::to_string(msg).unwrap();
-    line.push('\n');
-    stream.write_all(line.as_bytes()).await.unwrap();
-    stream.flush().await.unwrap();
 }
 
 fn socket_path(dir: &tempfile::TempDir) -> PathBuf {
@@ -177,5 +170,69 @@ async fn reconnects_and_reregisters_after_daemon_restart() {
 
     // Keep the agent alive until the inbound arrives.
     drop(agent);
+    second.await.unwrap();
+}
+
+#[tokio::test]
+async fn registration_error_triggers_reconnect() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = socket_path(&dir);
+
+    // First daemon: reject the registration with a JSON-RPC error frame.
+    let listener = UnixListener::bind(&path).unwrap();
+    let (_agent, mut inbound) = PactoAgent::spawn(&path, "test-bot", Duration::from_millis(50));
+
+    let first = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        let (read, mut write) = stream.into_split();
+        let mut reader = BufReader::new(read);
+        let register = read_frame(&mut reader).await;
+        assert_eq!(register["method"], "handler.register");
+        let err = json!({
+            "jsonrpc": "2.0",
+            "id": register["id"],
+            "error": {"code": -32602, "message": "unknown bot"},
+        });
+        let mut line = serde_json::to_string(&err).unwrap();
+        line.push('\n');
+        write.write_all(line.as_bytes()).await.unwrap();
+        write.flush().await.unwrap();
+        // Hold briefly so the agent observes the error before we drop.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    });
+    first.await.unwrap();
+    let _ = std::fs::remove_file(&path);
+
+    // Second daemon: the agent must reconnect and re-register despite the prior
+    // registration error, then deliver an event.
+    let listener = UnixListener::bind(&path).unwrap();
+    let second = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        let (read, mut write) = stream.into_split();
+        let mut reader = BufReader::new(read);
+        let register = read_frame(&mut reader).await;
+        assert_eq!(register["method"], "handler.register");
+        let ack = json!({
+            "jsonrpc": "2.0", "id": register["id"],
+            "result": {"handler_id": "h", "reconnect_token": "t", "registered_events": ["dm_received"]},
+        });
+        let mut line = serde_json::to_string(&ack).unwrap();
+        line.push('\n');
+        write.write_all(line.as_bytes()).await.unwrap();
+        write.flush().await.unwrap();
+
+        let ev = agent_event("evt-ok", "npub1ok", "recovered");
+        let mut evline = serde_json::to_string(&ev).unwrap();
+        evline.push('\n');
+        write.write_all(evline.as_bytes()).await.unwrap();
+        write.flush().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    });
+
+    let dm = tokio::time::timeout(Duration::from_secs(5), inbound.recv())
+        .await
+        .expect("timed out; agent did not reconnect after a registration error")
+        .expect("inbound channel closed");
+    assert_eq!(dm.event_id, "evt-ok");
     second.await.unwrap();
 }

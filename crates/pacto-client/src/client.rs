@@ -82,9 +82,20 @@ impl PactoClient {
         } else if let Some(conn) = guard.as_mut() {
             match self.call(conn, method, params.clone()).await {
                 Ok(result) => return Ok(result),
-                Err(e @ (PactoError::Io(_) | PactoError::Timeout(_))) => {
-                    warn!("Pacto daemon connection stale ({e}), reconnecting");
+                // A connection drop (EOF / broken pipe, e.g. the daemon
+                // restarted) means the request never completed, so it is safe
+                // to reconnect and retry it once below.
+                Err(PactoError::Io(e)) => {
+                    warn!("Pacto daemon connection dropped ({e}), reconnecting");
                     *guard = Some(self.connect_and_register().await?);
+                }
+                // A timeout is ambiguous: the daemon may have already acted on
+                // a non-idempotent call (agent.send_dm publishes a DM), so we
+                // must NOT silently retry and risk sending twice. Tear down the
+                // connection so the next call starts clean, and surface the error.
+                Err(e @ PactoError::Timeout(_)) => {
+                    *guard = None;
+                    return Err(e);
                 }
                 Err(e) => return Err(e),
             }

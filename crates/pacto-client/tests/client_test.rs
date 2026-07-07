@@ -199,6 +199,35 @@ async fn reconnects_after_daemon_restart() {
 }
 
 #[tokio::test]
+async fn timeout_does_not_resend_nonidempotent_dm() {
+    // A timeout is ambiguous: the daemon may already have published the DM.
+    // The client must surface the timeout and NOT silently retry (which would
+    // send the DM twice). It must also tear the connection down.
+    let dir = tempfile::tempdir().unwrap();
+    let path = socket_path(&dir);
+    let daemon = MockDaemon::bind(&path);
+
+    let server = tokio::spawn(async move {
+        let mut stream = daemon.accept_registered().await;
+        // Receive the send_dm but deliberately never respond.
+        let send = read_frame(&mut stream).await;
+        assert_eq!(send["method"], "agent.send_dm");
+        // After the client times out it should close the connection rather than
+        // resend: the next read must be EOF (0 bytes), not a second frame.
+        let mut line = String::new();
+        let n = stream.read_line(&mut line).await.unwrap();
+        (n, line)
+    });
+
+    let client = PactoClient::new(&path, "test-bot", Duration::from_millis(200));
+    let err = client.send_dm("npub1recipient", "once").await.unwrap_err();
+    assert!(matches!(err, PactoError::Timeout(_)), "expected Timeout, got {err:?}");
+
+    let (n, second) = server.await.unwrap();
+    assert_eq!(n, 0, "client resent after a timeout; got a second frame: {second}");
+}
+
+#[tokio::test]
 async fn missing_socket_is_a_clear_error() {
     let dir = tempfile::tempdir().unwrap();
     let path = socket_path(&dir);

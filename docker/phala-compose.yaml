@@ -72,6 +72,8 @@ services:
       # Pacto messaging — set PACTO_ENABLED=true and uncomment the
       # pacto-bot-api service below to activate
       - PACTO__ENABLED=${PACTO_ENABLED:-false}
+      # Inbound DM agent: Pacto users get AI chat + commands (parity with Signal)
+      - PACTO__AGENT_ENABLED=${PACTO_AGENT_ENABLED:-true}
       - PACTO__SOCKET_PATH=/var/run/pacto/pacto-bot-api.sock
       - PACTO__BOT_ID=${PACTO_BOT_ID:-sigstack}
       - PACTO__DEFAULT_RECIPIENT=${PACTO_DEFAULT_RECIPIENT:-}

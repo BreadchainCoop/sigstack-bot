@@ -493,40 +493,76 @@ crates/tools/
 
 The tool system uses OpenAI-compatible function calling schema, which NEAR AI supports.
 
-## Pacto Messaging (!pact)
+## Pacto Messaging (!pact + two-way DM agent)
 
-The bot can send encrypted DMs into [Pacto](https://github.com/covenant-gov/pacto-app)
-via a co-located [pacto-bot-api](https://github.com/covenant-gov/pacto-bot-api)
+The bot bridges [Pacto](https://github.com/covenant-gov/pacto-app) in **both
+directions** via a co-located [pacto-bot-api](https://github.com/covenant-gov/pacto-bot-api)
 daemon. Disabled by default.
+
+- **Outbound** (`!pact`): a Signal user sends an encrypted DM into Pacto.
+- **Inbound** (DM agent): a Pacto user DMs the bot and gets the *same*
+  experience a Signal DM user gets — AI chat (with tools), `!verify`, `!clear`,
+  `!models`, `!help`, `!privacy`, `!list-langs`, and AI-driven translation.
+
+### Feature parity ceiling
+
+Pacto parity covers the full **DM** experience. It does **not** cover Signal's
+group or voice features, because the daemon only delivers `dm_received` events —
+it exposes neither inbound MLS **group messages** nor **audio attachments** to
+handlers (`parse_event_type` accepts only `dm_received` / `mls_welcome_received`).
+So group translation and voice transcription for Pacto are blocked upstream in
+`pacto-bot-api` (its own docs list MLS group participation as a future phase),
+not in this integration. When the daemon gains inbound group/attachment
+delivery, the inbound agent can be extended to feed those into the existing
+translate/transcribe pipelines.
 
 ### Architecture
 
 ```
 [TEE Boundary]
-+--------------------------------------------------------------------+
-|  Signal user --> signal-bot --!pact--> pacto-client                |
-|                                            |                       |
-|                                   [Unix socket, shared volume]     |
-|                                            v                       |
-|                                     pacto-bot-api daemon           |
-|                                  (Nostr keys, NIP-17/44/59)        |
-+--------------------------------------------------------------------+
-                                             |
-                                             v
-                                      Nostr relays --> Pacto users
++----------------------------------------------------------------------+
+|  Signal user --> signal-bot --!pact--> PactoClient (single-flight) -\ |
+|                                                                     | |
+|  Pacto user <--reply-- pacto_agent <== PactoAgent (full-duplex) <===+ |
+|      ^                     |                     |                     |
+|      |              same handlers as       [Unix socket,             |
+|      |            Signal (chat/verify/...)   shared volume]           |
+|      |                                            v                   |
+|      +------------------------------------ pacto-bot-api daemon       |
+|                                          (Nostr keys, NIP-17/44/59)   |
++----------------------------------------------------------------------+
+                                                   |
+                                                   v
+                                            Nostr relays <--> Pacto users
 ```
 
-The `pacto-client` crate speaks JSON-RPC 2.0 (newline-delimited frames) over
-the daemon's Unix socket. On first use it registers as an outbound-only
-handler (`handler.register` with the `SendMessages` capability and no event
-subscriptions), then publishes DMs with `agent.send_dm`. If the daemon
-restarts, the next call reconnects and re-registers transparently.
+The `pacto-client` crate speaks JSON-RPC 2.0 (newline-delimited frames) over the
+daemon's Unix socket and provides two connection models:
+
+- **`PactoClient`** — single-flight request/response for outbound sends
+  (`!pact`) and progress pings. Registers as an outbound-only handler
+  (`SendMessages`, no event subscriptions) and publishes DMs with
+  `agent.send_dm`. Does not retry non-idempotent sends after a timeout.
+- **`PactoAgent`** — a long-lived full-duplex connection that registers for
+  `dm_received` (`ReadMessages` + `SendMessages`), streams inbound DMs, and
+  replies via `handler.response{action:"reply"}` (the daemon auto-addresses the
+  reply to the sender). Auto-reconnects and re-registers if the daemon restarts.
+
+Inbound DMs are turned into a synthetic `signal_client::BotMessage` (author npub
+as `source`, `is_group=false`) and dispatched through the *same* command/AI-chat
+handlers the Signal loop uses, so behavior stays in lockstep. The only transport
+seam is `ProgressSink` (the "🔧 Using ..." pings), implemented for both Signal
+(reply) and Pacto (`send_dm`). Signal-quote `!translate`, voice, and
+group-translate handlers are Signal-specific and are not reused; Pacto users
+translate by asking the AI.
 
 Running the daemon inside the same TEE keeps the bot's Nostr signing key and
 plaintext Pacto messages in protected memory, consistent with the rest of the
 architecture.
 
 ### Commands
+
+Outbound (Signal user → Pacto):
 
 | Command | Description |
 |---------|-------------|
@@ -535,11 +571,15 @@ architecture.
 | `!pact status` | Check daemon reachability and version |
 | `!pact` / `!pact help` | Usage |
 
+Inbound (Pacto user → bot): free-text → AI chat; `!verify`, `!clear`, `!models`,
+`!help`, `!privacy`, `!list-langs`.
+
 ### Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PACTO__ENABLED` | `false` | Master switch for the `!pact` command |
+| `PACTO__ENABLED` | `false` | Master switch for Pacto integration |
+| `PACTO__AGENT_ENABLED` | `true` | Run the inbound DM agent (parity for Pacto users); false = outbound `!pact` only |
 | `PACTO__SOCKET_PATH` | `/var/run/pacto/pacto-bot-api.sock` | Daemon Unix socket path |
 | `PACTO__BOT_ID` | `sigstack` | Bot id from the daemon's `pacto-bot-api.toml` |
 | `PACTO__DEFAULT_RECIPIENT` | (none) | npub used when `!pact` gets no recipient |

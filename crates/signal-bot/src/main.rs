@@ -10,7 +10,8 @@ use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
-use pacto_client::PactoClient;
+use pacto_client::{PactoAgent, PactoClient};
+use signal_bot::pacto_agent;
 use signal_client::{MessageReceiver, SignalClient};
 use whisper_client::WhisperClient;
 use std::path::PathBuf;
@@ -187,6 +188,37 @@ async fn main() -> AppResult<()> {
         info!("Pacto messaging disabled");
         None
     };
+
+    // Inbound Pacto DM agent — gives Pacto users the same DM experience as
+    // Signal users (AI chat + core commands). Outbound `!pact` still works
+    // without it; disable via PACTO__AGENT_ENABLED=false.
+    if let Some(ref pacto) = pacto_client {
+        if config.pacto.agent_enabled {
+            let (agent, inbound) = PactoAgent::spawn(
+                config.pacto.socket_path.clone(),
+                config.pacto.bot_id.clone(),
+                std::time::Duration::from_secs(3),
+            );
+            pacto_agent::spawn(
+                inbound,
+                agent,
+                pacto_agent::PactoAgentDeps {
+                    near_ai: near_ai.clone(),
+                    conversations: conversations.clone(),
+                    tool_registry: tool_registry.clone(),
+                    dstack: dstack.clone(),
+                    pacto_client: pacto.clone(),
+                    system_prompt: config.bot.system_prompt.clone(),
+                    max_tool_calls: config.tools.max_tool_calls,
+                    signal_username: config.bot.signal_username.clone(),
+                    github_repo: config.bot.github_repo.clone(),
+                },
+            );
+            info!("Pacto DM agent enabled: Pacto users get AI chat + commands");
+        } else {
+            info!("Pacto DM agent disabled (outbound !pact only)");
+        }
+    }
 
     let whisper_client = if config.whisper.enabled {
         let whisper = Arc::new(

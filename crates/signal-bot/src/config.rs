@@ -212,9 +212,16 @@ pub struct GroupPreferencesConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PactoConfig {
-    /// Master switch for the `!pact` command (requires a pacto-bot-api daemon)
+    /// Master switch for Pacto integration (requires a pacto-bot-api daemon).
+    /// Enables the `!pact` outbound command for Signal users.
     #[serde(default)]
     pub enabled: bool,
+
+    /// When enabled (and `enabled`), also run the inbound DM agent so Pacto
+    /// users get the full bot experience (AI chat + commands). Set false for
+    /// outbound-only (`!pact`) deployments.
+    #[serde(default = "default_true")]
+    pub agent_enabled: bool,
 
     /// pacto-bot-api daemon Unix socket path (shared Docker volume in production)
     #[serde(default = "default_pacto_socket")]
@@ -344,6 +351,7 @@ impl Default for PactoConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            agent_enabled: default_true(),
             socket_path: default_pacto_socket(),
             bot_id: default_pacto_bot_id(),
             default_recipient: None,

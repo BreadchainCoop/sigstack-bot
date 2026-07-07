@@ -47,9 +47,15 @@ services:
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
       - GROUP_PREFERENCES__PERSIST=${GROUP_PREFERENCES_PERSIST:-true}
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
+      # Pacto messaging (requires the pacto-bot-api service: --profile pacto)
+      - PACTO__ENABLED=${PACTO_ENABLED:-false}
+      - PACTO__SOCKET_PATH=/var/run/pacto/pacto-bot-api.sock
+      - PACTO__BOT_ID=${PACTO_BOT_ID:-sigstack}
+      - PACTO__DEFAULT_RECIPIENT=${PACTO_DEFAULT_RECIPIENT:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-data:/data
+      - pacto-data:/var/run/pacto
     networks:
       - internal
     depends_on:
@@ -77,6 +83,27 @@ services:
       timeout: 10s
       retries: 5
       start_period: 300s
+    restart: unless-stopped
+
+  # Pacto messaging daemon (https://github.com/covenant-gov/pacto-bot-api).
+  # Opt-in: enable with `docker compose --profile pacto up -d` after copying
+  # pacto-bot-api.toml.example to pacto-bot-api.toml and setting PACTO_BOT_NSEC
+  # (plus PACTO_ENABLED=true on signal-bot).
+  pacto-bot-api:
+    build:
+      # Pinned to a release tag; bump deliberately.
+      context: https://github.com/covenant-gov/pacto-bot-api.git#v0.6.0
+    container_name: pacto-bot-api
+    profiles: ["pacto"]
+    environment:
+      - PACTO_BOT_NSEC=${PACTO_BOT_NSEC}
+      - RUST_LOG=${LOG_LEVEL:-info}
+    volumes:
+      - ./pacto-bot-api.toml:/etc/pacto/pacto-bot-api.toml:ro
+      # Shared with signal-bot: the daemon's Unix socket lives in this volume
+      - pacto-data:/var/lib/pacto-bot-api
+    networks:
+      - internal
     restart: unless-stopped
 
   signal-registration-proxy:
@@ -120,6 +147,8 @@ volumes:
   whisper-models:
     driver: local
   group-prefs-data:
+    driver: local
+  pacto-data:
     driver: local
 
 networks:

@@ -69,13 +69,36 @@ services:
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
       - GROUP_PREFERENCES__PERSIST=true
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
+      # Pacto messaging — set PACTO_ENABLED=true and uncomment the
+      # pacto-bot-api service below to activate
+      - PACTO__ENABLED=${PACTO_ENABLED:-false}
+      - PACTO__SOCKET_PATH=/var/run/pacto/pacto-bot-api.sock
+      - PACTO__BOT_ID=${PACTO_BOT_ID:-sigstack}
+      - PACTO__DEFAULT_RECIPIENT=${PACTO_DEFAULT_RECIPIENT:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-data:/data
+      - pacto-data:/var/run/pacto
     depends_on:
       - signal-api
       - whisper-api
     restart: unless-stopped
+
+  # Pacto messaging daemon (https://github.com/covenant-gov/pacto-bot-api).
+  # Phala cannot bind-mount local files, so build a derived linux/amd64 image
+  # that bakes in /etc/pacto/pacto-bot-api.toml (see docker/Dockerfile.pacto
+  # and docker/pacto-bot-api.toml.example), push it, set PACTO_BOT_API_IMAGE
+  # and the PACTO_BOT_NSEC encrypted secret, then uncomment:
+  #
+  # pacto-bot-api:
+  #   image: ${PACTO_BOT_API_IMAGE}
+  #   container_name: pacto-bot-api
+  #   environment:
+  #     - PACTO_BOT_NSEC=${PACTO_BOT_NSEC}
+  #     - RUST_LOG=${LOG_LEVEL:-info}
+  #   volumes:
+  #     - pacto-data:/var/lib/pacto-bot-api
+  #   restart: unless-stopped
 
   signal-registration-proxy:
     image: ${SIGNAL_PROXY_IMAGE}
@@ -106,4 +129,6 @@ volumes:
   group-prefs-data:
     driver: local
   whisper-models:
+    driver: local
+  pacto-data:
     driver: local

@@ -36,6 +36,7 @@ This project implements a Signal bot that runs inside a Dstack-powered TEE (Inte
 | `!clear` | Clear conversation history |
 | `!models` | List available AI models |
 | `!help` | Show help message |
+| `!pact <npub> <message>` | Send an encrypted DM into Pacto (optional, requires pacto-bot-api daemon) |
 
 Any other message is sent to the AI for a response.
 

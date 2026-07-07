@@ -10,6 +10,7 @@ use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
+use pacto_client::PactoClient;
 use signal_client::{MessageReceiver, SignalClient};
 use whisper_client::WhisperClient;
 use std::path::PathBuf;
@@ -162,6 +163,31 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
+    let pacto_client = if config.pacto.enabled {
+        let pacto = Arc::new(PactoClient::new(
+            &config.pacto.socket_path,
+            config.pacto.bot_id.clone(),
+            config.pacto.timeout,
+        ));
+
+        match pacto.version().await {
+            Ok(v) => info!(
+                "Pacto daemon healthy (v{}) - sending as bot '{}'",
+                v.version,
+                pacto.bot_id()
+            ),
+            Err(e) => warn!(
+                "Pacto daemon not reachable at {} ({e}) - !pact will retry on use",
+                config.pacto.socket_path
+            ),
+        }
+
+        Some(pacto)
+    } else {
+        info!("Pacto messaging disabled");
+        None
+    };
+
     let whisper_client = if config.whisper.enabled {
         let whisper = Arc::new(
             WhisperClient::new(
@@ -298,6 +324,17 @@ async fn main() -> AppResult<()> {
         handlers.push(Box::new(BalanceHandler::new(store.clone())));
         handlers.push(Box::new(DepositHandler::new(config.payments.clone())));
         info!("Payment commands enabled: !balance, !deposit");
+    }
+
+    // Add Pacto messaging if enabled
+    if let Some(ref pacto) = pacto_client {
+        let default_recipient = config
+            .pacto
+            .default_recipient
+            .clone()
+            .filter(|r| !r.trim().is_empty());
+        handlers.push(Box::new(PactHandler::new(pacto.clone(), default_recipient)));
+        info!("Pacto messaging enabled: !pact");
     }
 
     info!("Registered {} command handlers", handlers.len());

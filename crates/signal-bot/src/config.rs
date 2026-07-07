@@ -45,6 +45,10 @@ pub struct Config {
     /// Encrypted persistence for per-group bot preferences
     #[serde(default)]
     pub group_preferences: GroupPreferencesConfig,
+
+    /// Pacto messaging (via pacto-bot-api daemon) configuration
+    #[serde(default)]
+    pub pacto: PactoConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -206,6 +210,29 @@ pub struct GroupPreferencesConfig {
     pub storage_path: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct PactoConfig {
+    /// Master switch for the `!pact` command (requires a pacto-bot-api daemon)
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// pacto-bot-api daemon Unix socket path (shared Docker volume in production)
+    #[serde(default = "default_pacto_socket")]
+    pub socket_path: String,
+
+    /// Bot identity id configured in the daemon's pacto-bot-api.toml
+    #[serde(default = "default_pacto_bot_id")]
+    pub bot_id: String,
+
+    /// Recipient (npub or hex pubkey) used when `!pact` is called without one
+    #[serde(default)]
+    pub default_recipient: Option<String>,
+
+    /// Max time per daemon request
+    #[serde(default = "default_pacto_timeout", with = "humantime_serde")]
+    pub timeout: Duration,
+}
+
 // Default implementations
 impl Default for SignalConfig {
     fn default() -> Self {
@@ -309,6 +336,18 @@ impl Default for GroupPreferencesConfig {
         Self {
             persist: default_true(),
             storage_path: default_group_preferences_path(),
+        }
+    }
+}
+
+impl Default for PactoConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            socket_path: default_pacto_socket(),
+            bot_id: default_pacto_bot_id(),
+            default_recipient: None,
+            timeout: default_pacto_timeout(),
         }
     }
 }
@@ -441,6 +480,18 @@ fn default_translate_all_max_per_minute() -> u32 {
 
 fn default_group_preferences_path() -> String {
     "/data/group_prefs.enc".into()
+}
+
+fn default_pacto_socket() -> String {
+    "/var/run/pacto/pacto-bot-api.sock".into()
+}
+
+fn default_pacto_bot_id() -> String {
+    "sigstack".into()
+}
+
+fn default_pacto_timeout() -> Duration {
+    Duration::from_secs(15)
 }
 
 impl Config {

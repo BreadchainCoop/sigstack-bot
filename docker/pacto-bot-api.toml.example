@@ -1,0 +1,24 @@
+# pacto-bot-api daemon config for the sigstack deployment.
+#
+# Copy to docker/pacto-bot-api.toml (gitignored), fill in the bot identity,
+# and start the daemon with: docker compose --profile pacto up -d
+#
+# Generate a bot identity with:
+#   pacto-bot-admin new sigstack --backend nsec
+# (or: docker compose --profile pacto run --rm pacto-bot-api pacto-bot-admin new sigstack --backend nsec)
+#
+# The nsec is injected via the PACTO_BOT_NSEC environment variable — never
+# write it into this file. For production, prefer a NIP-46 bunker backend.
+
+[daemon]
+data_dir = "/var/lib/pacto-bot-api"
+# The socket lives in the shared Docker volume so signal-bot can reach it.
+socket_path = "/var/lib/pacto-bot-api/pacto-bot-api.sock"
+
+[[bots]]
+# Must match PACTO__BOT_ID on the signal-bot service.
+id = "sigstack"
+npub = "npub1REPLACE_WITH_YOUR_BOT_NPUB"
+signing = { backend = "nsec", nsec = "${PACTO_BOT_NSEC}" }
+relays = ["wss://relay.pacto.chat"]
+capabilities = ["ReadMessages", "SendMessages"]

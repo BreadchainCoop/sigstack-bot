@@ -4586,6 +4586,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pacto-client"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "3.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6073,6 +6085,7 @@ dependencies = [
  "humantime-serde",
  "mockall",
  "near-ai-client",
+ "pacto-client",
  "rand 0.8.5",
  "serde",
  "serde_json",

@@ -200,6 +200,7 @@ crates/
   signal-client/    # Signal CLI REST API client
   signal-registration-proxy/  # Multi-tenant registration service
   tools/            # Tool use system (calculator, weather, web search)
+  pacto-client/     # JSON-RPC client for the pacto-bot-api daemon (!pact)
 web/                # React frontend (Vite + Tailwind, deployed to Vercel)
 docker/             # Docker Compose configs for local and Phala deployment
 ```
@@ -491,6 +492,79 @@ crates/tools/
 ```
 
 The tool system uses OpenAI-compatible function calling schema, which NEAR AI supports.
+
+## Pacto Messaging (!pact)
+
+The bot can send encrypted DMs into [Pacto](https://github.com/covenant-gov/pacto-app)
+via a co-located [pacto-bot-api](https://github.com/covenant-gov/pacto-bot-api)
+daemon. Disabled by default.
+
+### Architecture
+
+```
+[TEE Boundary]
++--------------------------------------------------------------------+
+|  Signal user --> signal-bot --!pact--> pacto-client                |
+|                                            |                       |
+|                                   [Unix socket, shared volume]     |
+|                                            v                       |
+|                                     pacto-bot-api daemon           |
+|                                  (Nostr keys, NIP-17/44/59)        |
++--------------------------------------------------------------------+
+                                             |
+                                             v
+                                      Nostr relays --> Pacto users
+```
+
+The `pacto-client` crate speaks JSON-RPC 2.0 (newline-delimited frames) over
+the daemon's Unix socket. On first use it registers as an outbound-only
+handler (`handler.register` with the `SendMessages` capability and no event
+subscriptions), then publishes DMs with `agent.send_dm`. If the daemon
+restarts, the next call reconnects and re-registers transparently.
+
+Running the daemon inside the same TEE keeps the bot's Nostr signing key and
+plaintext Pacto messages in protected memory, consistent with the rest of the
+architecture.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `!pact <npub> <message>` | DM a Pacto user (npub or 64-char hex pubkey) |
+| `!pact <message>` | DM the configured default recipient |
+| `!pact status` | Check daemon reachability and version |
+| `!pact` / `!pact help` | Usage |
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PACTO__ENABLED` | `false` | Master switch for the `!pact` command |
+| `PACTO__SOCKET_PATH` | `/var/run/pacto/pacto-bot-api.sock` | Daemon Unix socket path |
+| `PACTO__BOT_ID` | `sigstack` | Bot id from the daemon's `pacto-bot-api.toml` |
+| `PACTO__DEFAULT_RECIPIENT` | (none) | npub used when `!pact` gets no recipient |
+| `PACTO__TIMEOUT` | `15s` | Max time per daemon request |
+
+### Local Setup
+
+1. Generate a bot identity: `pacto-bot-admin new sigstack --backend nsec`
+   (prints an npub, an nsec, and a config snippet)
+2. `cp docker/pacto-bot-api.toml.example docker/pacto-bot-api.toml` and set
+   your bot's npub (the file is gitignored)
+3. In `docker/.env` set `PACTO_BOT_NSEC=<nsec-hex>` and `PACTO_ENABLED=true`
+4. Start the stack with the daemon: `docker compose --profile pacto up -d`
+
+The daemon's data dir (including its socket) lives in the `pacto-data` volume,
+mounted read-write into signal-bot at `/var/run/pacto`. Both containers run as
+uid 1000, matching the daemon's 0600 socket permissions.
+
+### Phala Deployment
+
+Phala CVMs cannot bind-mount local files, so bake the daemon config into a
+derived image with `docker/Dockerfile.pacto` (builds the pinned upstream tag
+from source and copies in your `pacto-bot-api.toml`). Push it as linux/amd64,
+set `PACTO_BOT_API_IMAGE` plus the `PACTO_BOT_NSEC` encrypted secret, and
+uncomment the `pacto-bot-api` service block in `docker/phala-compose.yaml`.
 
 ## Testing
 

@@ -106,6 +106,36 @@ services:
       - internal
     restart: unless-stopped
 
+  # Co-hosted Nostr relay for the Pacto network (nostr-rs-relay, pinned to
+  # the same version as covenant-gov/pacto-dev-env; config baked in from
+  # relay-config.toml). Opt-in: `docker compose --profile relay up -d --build`.
+  # Reachable at ws://localhost:7000 on the host and ws://nostr-relay:8080
+  # inside the compose network (add it to `relays` in pacto-bot-api.toml).
+  # macOS: AirPlay Receiver squats on port 7000 — set RELAY_PORT=7447 (or
+  # disable AirPlay Receiver) if startup fails with "address already in use".
+  nostr-relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.relay
+    container_name: nostr-relay
+    profiles: ["relay"]
+    environment:
+      - RUST_LOG=${LOG_LEVEL:-info}
+    ports:
+      - "${RELAY_PORT:-7000}:8080"
+    volumes:
+      - relay-data:/var/lib/nostr-relay
+    networks:
+      - internal
+    healthcheck:
+      # NIP-11 relay information document
+      test: ["CMD", "curl", "-f", "-H", "Accept: application/nostr+json", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
   signal-registration-proxy:
     build:
       context: ..
@@ -149,6 +179,8 @@ volumes:
   group-prefs-data:
     driver: local
   pacto-data:
+    driver: local
+  relay-data:
     driver: local
 
 networks:

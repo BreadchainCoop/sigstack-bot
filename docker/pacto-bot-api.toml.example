@@ -21,4 +21,7 @@ id = "sigstack"
 npub = "npub1REPLACE_WITH_YOUR_BOT_NPUB"
 signing = { backend = "nsec", nsec = "${PACTO_BOT_NSEC}" }
 relays = ["wss://relay.pacto.chat"]
+# Co-hosting the relay (docker compose --profile relay)? Use the in-network
+# URL, optionally alongside public relays:
+# relays = ["ws://nostr-relay:8080", "wss://relay.pacto.chat"]
 capabilities = ["ReadMessages", "SendMessages"]

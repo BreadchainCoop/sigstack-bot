@@ -100,6 +100,32 @@ services:
   #     - pacto-data:/var/lib/pacto-bot-api
   #   restart: unless-stopped
 
+  # Co-hosted Pacto Nostr relay (nostr-rs-relay; docker/Dockerfile.relay bakes
+  # in docker/relay-config.toml, so policy changes require an image rebuild).
+  # Build & push (linux/amd64), then uncomment this service and the
+  # relay-data volume below:
+  #   docker buildx build --platform linux/amd64 \
+  #     -t YOUR_DOCKERHUB/pacto-nostr-relay:0.9.0 -f docker/Dockerfile.relay --push docker
+  # Pin the image by the pushed sha256 digest (docker buildx imagetools
+  # inspect ...), like signal-api above — only a literal digest makes the
+  # relay binary + policy part of the attested compose_hash; a tag or env-var
+  # reference is not attested.
+  # Public endpoint (TLS terminated by the dstack gateway; the gateway domain
+  # depends on the cluster the CVM runs in — see the Phala dashboard):
+  #   wss://<app-id>-7000.<gateway-domain>.phala.network
+  # The sqlite database lives in relay-data, on the CVM's encrypted disk.
+  #
+  # nostr-relay:
+  #   image: YOUR_DOCKERHUB/pacto-nostr-relay@sha256:REPLACE_WITH_PUSHED_DIGEST
+  #   container_name: nostr-relay
+  #   environment:
+  #     - RUST_LOG=${LOG_LEVEL:-info}
+  #   ports:
+  #     - "7000:8080"
+  #   volumes:
+  #     - relay-data:/var/lib/nostr-relay
+  #   restart: unless-stopped
+
   signal-registration-proxy:
     image: ${SIGNAL_PROXY_IMAGE}
     container_name: signal-registration-proxy
@@ -132,3 +158,6 @@ volumes:
     driver: local
   pacto-data:
     driver: local
+  # Uncomment together with the nostr-relay service above:
+  # relay-data:
+  #   driver: local

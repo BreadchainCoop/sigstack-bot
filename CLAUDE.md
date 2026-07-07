@@ -566,6 +566,88 @@ from source and copies in your `pacto-bot-api.toml`). Push it as linux/amd64,
 set `PACTO_BOT_API_IMAGE` plus the `PACTO_BOT_NSEC` encrypted secret, and
 uncomment the `pacto-bot-api` service block in `docker/phala-compose.yaml`.
 
+## Hosting the Pacto Nostr Relay
+
+The deployment can also host the Pacto network's Nostr relay itself
+([nostr-rs-relay](https://github.com/scsibug/nostr-rs-relay), pinned to the
+same version as
+[pacto-dev-env](https://github.com/covenant-gov/pacto-dev-env)). Opt-in via
+the `relay` compose profile.
+
+Running the relay inside the TEE extends the verifiability story from the bot
+to the relay: the binary is built from a pinned upstream tag and the policy
+(`docker/relay-config.toml`) is baked into the image, so both are
+reproducible and auditable. They become covered by the attested
+`compose_hash` once the image reference in `docker/phala-compose.yaml` is a
+literal sha256 digest (like the existing `signal-api` service) — a tag or
+env-var reference is not attested. On Phala the sqlite database lives on the
+CVM's encrypted disk.
+
+What the relay stores is not plaintext — Pacto DMs and group messages arrive
+as NIP-59 gift wraps and MLS ciphertexts. The relay still observes connection
+metadata (client IPs, timing, event sizes), which is the standard Nostr trust
+model; running it in the TEE removes the relay *operator* from that picture.
+
+### Local Setup
+
+```bash
+cd docker
+docker compose --profile relay up -d --build
+# together with the Pacto daemon:
+docker compose --profile relay --profile pacto up -d --build
+# teardown (a plain `docker compose down` ignores profiled services):
+docker compose --profile relay down
+```
+
+- Host endpoint: `ws://localhost:7000`; in-network: `ws://nostr-relay:8080`
+- macOS: AirPlay Receiver listens on port 7000 — set `RELAY_PORT=7447` in
+  `docker/.env` (or disable AirPlay Receiver) if the port is taken
+- Point the co-located daemon at it via `relays` in
+  `docker/pacto-bot-api.toml` (see the example file)
+- Events persist in the `relay-data` volume
+- Health check: `curl -H 'Accept: application/nostr+json' localhost:7000`
+  returns the NIP-11 relay information document
+
+### Phala Deployment
+
+1. Build and push the image (the config is baked in, so rebuild after any
+   `relay-config.toml` change):
+   ```bash
+   docker buildx build --platform linux/amd64 \
+     -t YOUR_DOCKERHUB/pacto-nostr-relay:0.9.0 -f docker/Dockerfile.relay --push docker
+   ```
+2. Uncomment the `nostr-relay` service and `relay-data` volume in
+   `docker/phala-compose.yaml`, pin the image by its pushed sha256 digest
+   (`docker buildx imagetools inspect ...`), then redeploy
+3. The relay is served at `wss://<app-id>-7000.<gateway-domain>.phala.network`
+   (the dstack gateway terminates TLS and proxies WebSocket upgrades; the
+   gateway domain depends on the cluster — check the Phala dashboard)
+4. Serving it as `relay.pacto.chat` is more than a DNS record: for custom
+   domains the gateway does TLS *passthrough*, so TLS must terminate inside
+   the CVM — add a [dstack-ingress](https://github.com/Dstack-TEE/dstack-examples/tree/main/custom-domain)
+   service (Cloudflare DNS + certbot) with `TARGET_ENDPOINT` pointing at
+   `nostr-relay:8080`, and keep `relay_url` in `relay-config.toml` in sync
+   before building. Until the domain actually points here, the advertised
+   `relay_url` is aspirational
+
+### Event Kind Policy
+
+`event_kind_allowlist` in `relay-config.toml` ships commented out. The kinds
+Pacto uses today (from pacto-app's nostr-sdk usage: the `stored_event.rs`
+kinds, `Kind::Metadata`, `Kind::GiftWrap`, the kind-9 chat rumor, and
+nostr-sdk 0.43's MLS kinds 443-445) are
+`0, 7, 9, 14, 15, 16, 443, 444, 445, 1059, 30078`. Enable the
+allowlist only after confirming the set with the Pacto team — an over-strict
+allowlist silently breaks clients, and it is spam control, not a security
+boundary.
+
+Note: pacto-dev-env's `relay-config.toml` places `event_kind_allowlist` under
+an `[events]` section (and the sqlite path under `[database] path`), neither
+of which exists in nostr-rs-relay — upstream silently ignores unknown keys,
+so that allowlist has never actually been enforced in the dev environment.
+This repo's config uses the real keys (`[limits] event_kind_allowlist`,
+`[database] data_directory`).
+
 ## Testing
 
 ```bash

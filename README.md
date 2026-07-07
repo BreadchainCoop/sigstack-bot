@@ -27,6 +27,7 @@ This project implements a Signal bot that runs inside a Dstack-powered TEE (Inte
 - In-memory conversation storage (no external persistence)
 - Group chat support with shared conversation context
 - OpenAI-compatible API integration
+- Optional co-hosted Nostr relay for the [Pacto](https://github.com/covenant-gov/pacto-app) network (opt-in `relay` compose profile)
 
 ## Bot Commands
 

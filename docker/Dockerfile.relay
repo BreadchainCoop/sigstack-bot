@@ -1,0 +1,60 @@
+# Co-hosted Pacto Nostr relay (nostr-rs-relay).
+#
+# Pinned to the same upstream version as covenant-gov/pacto-dev-env and built
+# from source (upstream publishes amd64-only images; this builds natively on
+# any platform). relay-config.toml is baked in so the same image works on
+# Phala, where CVMs cannot bind-mount local files, and so the relay policy is
+# part of the attested image.
+#
+# Local use: cd docker && docker compose --profile relay up -d --build
+#
+# Phala build (from the repo root; note the digest it pushes — the service in
+# phala-compose.yaml should pin it so the relay is covered by attestation):
+#   docker buildx build --platform linux/amd64 \
+#     -t YOUR_DOCKERHUB/pacto-nostr-relay:0.9.0 \
+#     -f docker/Dockerfile.relay --push docker
+
+FROM rust:1-bookworm AS builder
+
+ARG NOSTR_RELAY_VERSION=0.9.0
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake git libssl-dev pkg-config protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+RUN git clone --depth 1 --branch "${NOSTR_RELAY_VERSION}" \
+    https://github.com/scsibug/nostr-rs-relay.git . \
+    && cargo build --release
+
+# ---
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system --gid 1000 relay \
+    && useradd --system --uid 1000 --gid relay \
+       --home-dir /var/lib/nostr-relay --shell /sbin/nologin relay
+
+RUN mkdir -p /usr/src/app /var/lib/nostr-relay \
+    && chown -R relay:relay /usr/src/app /var/lib/nostr-relay
+
+# nostr-rs-relay reads config.toml from its working directory
+WORKDIR /usr/src/app
+COPY --from=builder /src/target/release/nostr-rs-relay ./nostr-rs-relay
+COPY --chown=relay:relay relay-config.toml ./config.toml
+
+USER relay
+
+# Without this the relay logs errors only (upstream's Dockerfile sets the same)
+ENV RUST_LOG=info,nostr_rs_relay=info
+
+EXPOSE 8080
+VOLUME ["/var/lib/nostr-relay"]
+
+# Pass --config explicitly: with the implicit cwd lookup, a broken config
+# makes 0.9.0 silently start on upstream defaults (no Pacto policy, sqlite
+# outside the volume) instead of failing fast.
+CMD ["./nostr-rs-relay", "--config", "./config.toml"]

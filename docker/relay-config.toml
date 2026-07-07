@@ -1,0 +1,64 @@
+# nostr-rs-relay configuration for the co-hosted Pacto relay.
+#
+# Baked into the image by docker/Dockerfile.relay so the same artifact runs
+# locally and on Phala (CVMs cannot bind-mount local files), and so the
+# relay's policy is auditable as part of the image. It is covered by TEE
+# attestation once phala-compose.yaml pins the image by sha256 digest (an
+# env-var or tag reference is not attested).
+#
+# Full reference:
+# https://github.com/scsibug/nostr-rs-relay/blob/0.9.0/config.toml
+
+[info]
+relay_url = "wss://relay.pacto.chat"
+name = "Pacto relay"
+description = "Nostr relay for the Pacto network, hosted inside the sigstack Dstack TEE."
+# Administrative contact pubkey (32-byte hex, not npub)
+#pubkey = ""
+#contact = "mailto:contact@example.com"
+
+[database]
+engine = "sqlite"
+# Matches the relay-data volume mount in docker-compose.yaml / phala-compose.yaml
+data_directory = "/var/lib/nostr-relay"
+
+[network]
+address = "0.0.0.0"
+port = 8080
+# Enable if fronted by a proxy that sets this header, so rate limiting and
+# logs see real client IPs instead of the proxy's.
+#remote_ip_header = "x-forwarded-for"
+
+[options]
+# Reject events timestamped more than 30 minutes in the future
+reject_future_seconds = 1800
+
+[limits]
+# Server-wide (not per-connection) event-creation rate limit
+messages_per_sec = 50
+subscriptions_per_min = 60
+
+# Event kinds Pacto uses today, from pacto-app's nostr-sdk usage
+# (stored_event.rs kinds plus Kind::Metadata, Kind::GiftWrap, the kind-9 chat
+# rumor, and nostr-sdk 0.43's MLS kinds): metadata (0), reactions (7),
+# chat (9), NIP-17 DMs / file attachments / edits (14-16), MLS key package /
+# welcome / group message (443-445), gift wraps (1059), NIP-78 app data
+# (30078).
+#
+# Left DISABLED until the full set is confirmed with the Pacto team — an
+# over-strict allowlist silently breaks clients. (pacto-dev-env's
+# relay-config.toml puts this key under [events], which nostr-rs-relay
+# ignores, so it has never actually been enforced there.)
+#event_kind_allowlist = [0, 7, 9, 14, 15, 16, 443, 444, 445, 1059, 30078]
+
+limit_scrapers = false
+
+[authorization]
+# Optional hardening: NIP-42 auth so gift wraps (kind 1059) are delivered
+# only to their authenticated recipients. Requires client support — verify
+# pacto-app handles AUTH before enabling. Also note NIP-42 challenges use
+# relay_url above: it must match the URL clients actually connect to, so
+# leave this off until relay.pacto.chat really points at this deployment
+# (until then the advertised relay_url is aspirational).
+#nip42_auth = true
+#nip42_dms = true

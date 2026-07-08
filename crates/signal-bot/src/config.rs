@@ -57,6 +57,11 @@ pub struct SignalConfig {
     #[serde(default = "default_signal_service")]
     pub service_url: String,
 
+    /// The bot's own Signal number (E.164). Needed to send proactively, e.g.
+    /// relaying a Pacto user's message to a Signal user.
+    #[serde(default)]
+    pub phone_number: Option<String>,
+
     /// Poll interval for messages
     #[serde(default = "default_poll_interval", with = "humantime_serde")]
     pub poll_interval: Duration,
@@ -235,6 +240,18 @@ pub struct PactoConfig {
     #[serde(default)]
     pub default_recipient: Option<String>,
 
+    /// Allow Pacto users to DM Signal users via `!signal <number> <message>`.
+    /// Off by default — this can relay to arbitrary Signal numbers, so it is
+    /// gated by an allowlist (see `signal_relay_allowlist`).
+    #[serde(default)]
+    pub signal_relay_enabled: bool,
+
+    /// Comma-separated E.164 numbers a Pacto user may reach via `!signal`.
+    /// Empty = deny all (the safe default); `*` = allow any number (open relay,
+    /// abuse risk — use deliberately).
+    #[serde(default)]
+    pub signal_relay_allowlist: String,
+
     /// Max time per daemon request
     #[serde(default = "default_pacto_timeout", with = "humantime_serde")]
     pub timeout: Duration,
@@ -245,6 +262,7 @@ impl Default for SignalConfig {
     fn default() -> Self {
         Self {
             service_url: default_signal_service(),
+            phone_number: None,
             poll_interval: default_poll_interval(),
         }
     }
@@ -355,6 +373,8 @@ impl Default for PactoConfig {
             socket_path: default_pacto_socket(),
             bot_id: default_pacto_bot_id(),
             default_recipient: None,
+            signal_relay_enabled: false,
+            signal_relay_allowlist: String::new(),
             timeout: default_pacto_timeout(),
         }
     }

@@ -503,6 +503,8 @@ daemon. Disabled by default.
 - **Inbound** (DM agent): a Pacto user DMs the bot and gets the *same*
   experience a Signal DM user gets — AI chat (with tools), `!verify`, `!clear`,
   `!models`, `!help`, `!privacy`, `!list-langs`, and AI-driven translation.
+- **Cross-network relay** (`!signal`, optional): a Pacto user DMs a Signal user
+  through the bot. Off by default and allowlist-gated (see below).
 
 ### Feature parity ceiling
 
@@ -574,6 +576,23 @@ Outbound (Signal user → Pacto):
 Inbound (Pacto user → bot): free-text → AI chat; `!verify`, `!clear`, `!models`,
 `!help`, `!privacy`, `!list-langs`.
 
+Cross-network (Pacto user → Signal user), when enabled:
+
+| Command | Description |
+|---------|-------------|
+| `!signal <+number> <message>` | DM a Signal user (allowlist-gated) |
+
+The relayed Signal message is prefixed with the sender's Pacto npub, so the
+Signal recipient knows who it's from and can reply with `!pact <npub> <message>`
+— closing the loop without any stateful session mapping.
+
+**Abuse surface (why it's gated):** unlike the other directions, `!signal`
+lets an anonymous Pacto npub reach arbitrary Signal numbers, i.e. an open relay
+if left unguarded. It is therefore off by default, requires the bot's own
+`SIGNAL__PHONE_NUMBER`, and an explicit allowlist of reachable recipients
+(empty allowlist = deny all; `*` = allow any, opt-in open relay). A per-sender
+rate limit is a sensible future addition.
+
 ### Configuration
 
 | Variable | Default | Description |
@@ -583,6 +602,9 @@ Inbound (Pacto user → bot): free-text → AI chat; `!verify`, `!clear`, `!mode
 | `PACTO__SOCKET_PATH` | `/var/run/pacto/pacto-bot-api.sock` | Daemon Unix socket path |
 | `PACTO__BOT_ID` | `sigstack` | Bot id from the daemon's `pacto-bot-api.toml` |
 | `PACTO__DEFAULT_RECIPIENT` | (none) | npub used when `!pact` gets no recipient |
+| `PACTO__SIGNAL_RELAY_ENABLED` | `false` | Enable `!signal` (Pacto user → Signal user) |
+| `PACTO__SIGNAL_RELAY_ALLOWLIST` | (empty) | Comma-separated E.164 numbers reachable via `!signal`; empty = deny all, `*` = any |
+| `SIGNAL__PHONE_NUMBER` | (none) | Bot's own Signal number; required for `!signal` |
 | `PACTO__TIMEOUT` | `15s` | Max time per daemon request |
 
 ### Local Setup

@@ -41,6 +41,8 @@ This project implements a Signal bot that runs inside a Dstack-powered TEE (Inte
 When Pacto is enabled, the bot also works **the other way**: Pacto users can DM
 the bot directly and get the same DM experience Signal users get (AI chat with
 tools, `!verify`, `!clear`, `!models`, `!help`, `!privacy`, `!list-langs`).
+Pacto users can also DM Signal users through the bot with `!signal <+number>
+<message>` — an optional, off-by-default, allowlist-gated cross-network relay.
 Group and voice features are Signal-only (the Pacto daemon does not yet deliver
 inbound group messages or audio). See `CLAUDE.md` → "Pacto Messaging".
 

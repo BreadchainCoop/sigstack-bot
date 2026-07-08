@@ -199,6 +199,44 @@ async fn main() -> AppResult<()> {
                 config.pacto.bot_id.clone(),
                 std::time::Duration::from_secs(3),
             );
+
+            // Optional Pacto→Signal relay (!signal). Requires the bot's own
+            // Signal number and an allowlist of reachable recipients.
+            let signal_relay = if config.pacto.signal_relay_enabled {
+                match &config.signal.phone_number {
+                    Some(from_number) => {
+                        let allowlist: Vec<String> = config
+                            .pacto
+                            .signal_relay_allowlist
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(String::from)
+                            .collect();
+                        if allowlist.is_empty() {
+                            warn!(
+                                "Pacto→Signal relay enabled but allowlist is empty - all \
+                                 recipients will be denied (set PACTO__SIGNAL_RELAY_ALLOWLIST)"
+                            );
+                        }
+                        Some(pacto_agent::SignalRelay {
+                            signal: signal.clone(),
+                            from_number: from_number.clone(),
+                            allowlist,
+                        })
+                    }
+                    None => {
+                        warn!(
+                            "Pacto→Signal relay enabled but SIGNAL__PHONE_NUMBER is not set - \
+                             disabling !signal"
+                        );
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
             pacto_agent::spawn(
                 inbound,
                 agent,
@@ -212,6 +250,7 @@ async fn main() -> AppResult<()> {
                     max_tool_calls: config.tools.max_tool_calls,
                     signal_username: config.bot.signal_username.clone(),
                     github_repo: config.bot.github_repo.clone(),
+                    signal_relay,
                 },
             );
             info!("Pacto DM agent enabled: Pacto users get AI chat + commands");

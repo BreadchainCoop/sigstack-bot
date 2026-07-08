@@ -15,15 +15,15 @@
 //! daemon gains inbound group/attachment delivery.
 
 use crate::commands::{
-    ChatHandler, ClearHandler, CommandHandler, ModelsHandler, ProgressSink, TranslateLangsHandler,
-    VerifyHandler,
+    ChatHandler, ClearHandler, CommandHandler, ModelsHandler, ProgressSink, SignalRelayHandler,
+    TranslateLangsHandler, VerifyHandler,
 };
 use async_trait::async_trait;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
 use pacto_client::{InboundDm, PactoAgent, PactoClient};
-use signal_client::BotMessage;
+use signal_client::{BotMessage, SignalClient};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tools::ToolRegistry;
@@ -41,6 +41,17 @@ pub struct PactoAgentDeps {
     pub max_tool_calls: usize,
     pub signal_username: Option<String>,
     pub github_repo: Option<String>,
+    /// Optional `!signal` relay (Pacto user → Signal user). `None` disables it.
+    pub signal_relay: Option<SignalRelay>,
+}
+
+/// Configuration for the `!signal` relay handler.
+pub struct SignalRelay {
+    pub signal: Arc<SignalClient>,
+    /// The bot's own Signal number (E.164) to send from.
+    pub from_number: String,
+    /// Permitted recipient numbers, or `["*"]` for any.
+    pub allowlist: Vec<String>,
 }
 
 /// Spawn the inbound Pacto DM loop. Returns immediately; the loop runs until the
@@ -68,15 +79,29 @@ fn build_handlers(deps: PactoAgentDeps) -> Vec<Box<dyn CommandHandler>> {
     // Command handlers first, AI chat (default) last — same precedence as the
     // Signal dispatch loop. Only transport-clean handlers are reused; voice,
     // group-translate, and Signal-quote `!translate` are Signal-specific.
-    vec![
+    let relay_enabled = deps.signal_relay.is_some();
+    let mut handlers: Vec<Box<dyn CommandHandler>> = vec![
         Box::new(VerifyHandler::new(deps.dstack)),
         Box::new(ClearHandler::new(deps.conversations)),
         Box::new(ModelsHandler::new(deps.near_ai)),
-        Box::new(PactoHelpHandler),
+        Box::new(PactoHelpHandler { relay_enabled }),
         Box::new(PactoPrivacyHandler),
         Box::new(TranslateLangsHandler::new()),
-        Box::new(chat),
-    ]
+    ];
+
+    // Optional: let Pacto users DM Signal users via `!signal` (allowlist-gated).
+    if let Some(relay) = deps.signal_relay {
+        handlers.push(Box::new(SignalRelayHandler::new(
+            relay.signal,
+            relay.from_number,
+            relay.allowlist,
+        )));
+        info!("Pacto→Signal relay enabled: !signal");
+    }
+
+    // AI chat is the default (matches non-command free text), so it goes last.
+    handlers.push(Box::new(chat));
+    handlers
 }
 
 async fn run(
@@ -158,7 +183,10 @@ impl ProgressSink for PactoProgress {
 }
 
 /// Pacto-accurate `!help` (omits Signal-only voice/group features).
-struct PactoHelpHandler;
+struct PactoHelpHandler {
+    /// Whether the `!signal` relay is active (so help only lists it when usable).
+    relay_enabled: bool,
+}
 
 #[async_trait]
 impl CommandHandler for PactoHelpHandler {
@@ -171,7 +199,11 @@ impl CommandHandler for PactoHelpHandler {
     }
 
     async fn execute(&self, _message: &BotMessage) -> crate::error::AppResult<String> {
-        Ok(PACTO_HELP.to_string())
+        let mut help = PACTO_HELP.to_string();
+        if self.relay_enabled {
+            help.push_str("\n- !signal <+number> <message> — DM a Signal user");
+        }
+        Ok(help)
     }
 }
 
@@ -242,6 +274,7 @@ mod tests {
             max_tool_calls: 5,
             signal_username: None,
             github_repo: None,
+            signal_relay: None,
         })
     }
 

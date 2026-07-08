@@ -54,6 +54,9 @@ services:
       - PACTO__SOCKET_PATH=/var/run/pacto/pacto-bot-api.sock
       - PACTO__BOT_ID=${PACTO_BOT_ID:-sigstack}
       - PACTO__DEFAULT_RECIPIENT=${PACTO_DEFAULT_RECIPIENT:-}
+      # Pacto→Signal relay (!signal): off by default, allowlist-gated
+      - PACTO__SIGNAL_RELAY_ENABLED=${PACTO_SIGNAL_RELAY_ENABLED:-false}
+      - PACTO__SIGNAL_RELAY_ALLOWLIST=${PACTO_SIGNAL_RELAY_ALLOWLIST:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-data:/data

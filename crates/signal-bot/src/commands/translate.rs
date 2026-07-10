@@ -129,6 +129,7 @@ impl CommandHandler for TranslateHandler {
         let text = message.text.trim();
         text.starts_with("!translate")
             && !is_translate_on_or_off_command(text)
+            && !text.starts_with("!translate-me")
             && !text.starts_with("!list-langs")
     }
 

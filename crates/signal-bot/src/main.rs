@@ -271,8 +271,16 @@ async fn main() -> AppResult<()> {
             near_ai.clone(),
             signal.clone(),
         )));
+        // Per-user opt-in translation. Registered after TranslateAllHandler so
+        // group-wide mode (when active) still takes precedence, and before
+        // TranslateHandler so `!translate-me` isn't captured by `!translate`.
+        handlers.push(Box::new(TranslateMeHandler::new(
+            group_prefs.clone(),
+            near_ai.clone(),
+            signal.clone(),
+        )));
         info!(
-            "Group auto-translate enabled: !translate-on, !translate-off (max {}/min)",
+            "Group auto-translate enabled: !translate-on, !translate-off, !translate-me (max {}/min)",
             config.translate_all.max_messages_per_minute
         );
     }

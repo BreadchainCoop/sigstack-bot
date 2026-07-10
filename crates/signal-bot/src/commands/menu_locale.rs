@@ -41,6 +41,8 @@ const HELP_EN: &str = r#"**Bread Coop AI** (Private & Verifiable)
 - !translate <lang> — Quote-reply per msg
 - !translate-on <lang1> <lang2>
 - !translate-off
+- !translate-me on <lang> — Translate only my msgs
+- !translate-me off
 
 **AI chat:**
 - !ask <question> — Chat w/ AI
@@ -65,6 +67,8 @@ const HELP_ES: &str = r#"**Bread Coop AI** (Privado y verificable)
 - !translate <lang> — Responder citando un mensaje
 - !translate-on <lang1> <lang2> — Traducción automática
 - !translate-off — Desactivar traducción automática
+- !translate-me on <lang> — Traducir solo mis mensajes
+- !translate-me off — Desactivar
 
 **Chat con IA:**
 - !ask <pregunta> — Pregunta a la IA

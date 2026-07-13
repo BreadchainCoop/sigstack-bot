@@ -44,7 +44,12 @@ impl TranslateMeHandler {
 
     fn is_command(text: &str) -> bool {
         let text = text.trim();
-        COMMAND_PREFIXES.iter().any(|prefix| text == *prefix || text.starts_with(&format!("{prefix} ")))
+        COMMAND_PREFIXES.iter().any(|prefix| {
+            text == *prefix
+                || text
+                    .strip_prefix(prefix)
+                    .map_or(false, |rest| rest.starts_with(' '))
+        })
     }
 
     fn is_text_intercept(message: &BotMessage) -> bool {

@@ -200,6 +200,7 @@ crates/
   signal-client/    # Signal CLI REST API client
   signal-registration-proxy/  # Multi-tenant registration service
   tools/            # Tool use system (calculator, weather, web search)
+  pacto-client/     # JSON-RPC client for the pacto-bot-api daemon (!pact)
 web/                # React frontend (Vite + Tailwind, deployed to Vercel)
 docker/             # Docker Compose configs for local and Phala deployment
 ```
@@ -491,6 +492,141 @@ crates/tools/
 ```
 
 The tool system uses OpenAI-compatible function calling schema, which NEAR AI supports.
+
+## Pacto Messaging (!pact + two-way DM agent)
+
+The bot bridges [Pacto](https://github.com/covenant-gov/pacto-app) in **both
+directions** via a co-located [pacto-bot-api](https://github.com/covenant-gov/pacto-bot-api)
+daemon. Disabled by default.
+
+- **Outbound** (`!pact`): a Signal user sends an encrypted DM into Pacto.
+- **Inbound** (DM agent): a Pacto user DMs the bot and gets the *same*
+  experience a Signal DM user gets — AI chat (with tools), `!verify`, `!clear`,
+  `!models`, `!help`, `!privacy`, `!list-langs`, and AI-driven translation.
+- **Cross-network relay** (`!signal`, optional): a Pacto user DMs a Signal user
+  through the bot. Off by default and allowlist-gated (see below).
+
+### Feature parity ceiling
+
+Pacto parity covers the full **DM** experience. It does **not** cover Signal's
+group or voice features, because the daemon only delivers `dm_received` events —
+it exposes neither inbound MLS **group messages** nor **audio attachments** to
+handlers (`parse_event_type` accepts only `dm_received` / `mls_welcome_received`).
+So group translation and voice transcription for Pacto are blocked upstream in
+`pacto-bot-api` (its own docs list MLS group participation as a future phase),
+not in this integration. When the daemon gains inbound group/attachment
+delivery, the inbound agent can be extended to feed those into the existing
+translate/transcribe pipelines.
+
+### Architecture
+
+```
+[TEE Boundary]
++----------------------------------------------------------------------+
+|  Signal user --> signal-bot --!pact--> PactoClient (single-flight) -\ |
+|                                                                     | |
+|  Pacto user <--reply-- pacto_agent <== PactoAgent (full-duplex) <===+ |
+|      ^                     |                     |                     |
+|      |              same handlers as       [Unix socket,             |
+|      |            Signal (chat/verify/...)   shared volume]           |
+|      |                                            v                   |
+|      +------------------------------------ pacto-bot-api daemon       |
+|                                          (Nostr keys, NIP-17/44/59)   |
++----------------------------------------------------------------------+
+                                                   |
+                                                   v
+                                            Nostr relays <--> Pacto users
+```
+
+The `pacto-client` crate speaks JSON-RPC 2.0 (newline-delimited frames) over the
+daemon's Unix socket and provides two connection models:
+
+- **`PactoClient`** — single-flight request/response for outbound sends
+  (`!pact`) and progress pings. Registers as an outbound-only handler
+  (`SendMessages`, no event subscriptions) and publishes DMs with
+  `agent.send_dm`. Does not retry non-idempotent sends after a timeout.
+- **`PactoAgent`** — a long-lived full-duplex connection that registers for
+  `dm_received` (`ReadMessages` + `SendMessages`), streams inbound DMs, and
+  replies via `handler.response{action:"reply"}` (the daemon auto-addresses the
+  reply to the sender). Auto-reconnects and re-registers if the daemon restarts.
+
+Inbound DMs are turned into a synthetic `signal_client::BotMessage` (author npub
+as `source`, `is_group=false`) and dispatched through the *same* command/AI-chat
+handlers the Signal loop uses, so behavior stays in lockstep. The only transport
+seam is `ProgressSink` (the "🔧 Using ..." pings), implemented for both Signal
+(reply) and Pacto (`send_dm`). Signal-quote `!translate`, voice, and
+group-translate handlers are Signal-specific and are not reused; Pacto users
+translate by asking the AI.
+
+Running the daemon inside the same TEE keeps the bot's Nostr signing key and
+plaintext Pacto messages in protected memory, consistent with the rest of the
+architecture.
+
+### Commands
+
+Outbound (Signal user → Pacto):
+
+| Command | Description |
+|---------|-------------|
+| `!pact <npub> <message>` | DM a Pacto user (npub or 64-char hex pubkey) |
+| `!pact <message>` | DM the configured default recipient |
+| `!pact status` | Check daemon reachability and version |
+| `!pact` / `!pact help` | Usage |
+
+Inbound (Pacto user → bot): free-text → AI chat; `!verify`, `!clear`, `!models`,
+`!help`, `!privacy`, `!list-langs`.
+
+Cross-network (Pacto user → Signal user), when enabled:
+
+| Command | Description |
+|---------|-------------|
+| `!signal <+number> <message>` | DM a Signal user (allowlist-gated) |
+
+The relayed Signal message is prefixed with the sender's Pacto npub, so the
+Signal recipient knows who it's from and can reply with `!pact <npub> <message>`
+— closing the loop without any stateful session mapping.
+
+**Abuse surface (why it's gated):** unlike the other directions, `!signal`
+lets an anonymous Pacto npub reach arbitrary Signal numbers, i.e. an open relay
+if left unguarded. It is therefore off by default, requires the bot's own
+`SIGNAL__PHONE_NUMBER`, and an explicit allowlist of reachable recipients
+(empty allowlist = deny all; `*` = allow any, opt-in open relay). A per-sender
+rate limit is a sensible future addition.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PACTO__ENABLED` | `false` | Master switch for Pacto integration |
+| `PACTO__AGENT_ENABLED` | `true` | Run the inbound DM agent (parity for Pacto users); false = outbound `!pact` only |
+| `PACTO__SOCKET_PATH` | `/var/run/pacto/pacto-bot-api.sock` | Daemon Unix socket path |
+| `PACTO__BOT_ID` | `sigstack` | Bot id from the daemon's `pacto-bot-api.toml` |
+| `PACTO__DEFAULT_RECIPIENT` | (none) | npub used when `!pact` gets no recipient |
+| `PACTO__SIGNAL_RELAY_ENABLED` | `false` | Enable `!signal` (Pacto user → Signal user) |
+| `PACTO__SIGNAL_RELAY_ALLOWLIST` | (empty) | Comma-separated E.164 numbers reachable via `!signal`; empty = deny all, `*` = any |
+| `SIGNAL__PHONE_NUMBER` | (none) | Bot's own Signal number; required for `!signal` |
+| `PACTO__TIMEOUT` | `15s` | Max time per daemon request |
+
+### Local Setup
+
+1. Generate a bot identity: `pacto-bot-admin new sigstack --backend nsec`
+   (prints an npub, an nsec, and a config snippet)
+2. `cp docker/pacto-bot-api.toml.example docker/pacto-bot-api.toml` and set
+   your bot's npub (the file is gitignored)
+3. In `docker/.env` set `PACTO_BOT_NSEC=<nsec-hex>` and `PACTO_ENABLED=true`
+4. Start the stack with the daemon: `docker compose --profile pacto up -d`
+
+The daemon's data dir (including its socket) lives in the `pacto-data` volume,
+mounted read-write into signal-bot at `/var/run/pacto`. Both containers run as
+uid 1000, matching the daemon's 0600 socket permissions.
+
+### Phala Deployment
+
+Phala CVMs cannot bind-mount local files, so bake the daemon config into a
+derived image with `docker/Dockerfile.pacto` (builds the pinned upstream tag
+from source and copies in your `pacto-bot-api.toml`). Push it as linux/amd64,
+set `PACTO_BOT_API_IMAGE` plus the `PACTO_BOT_NSEC` encrypted secret, and
+uncomment the `pacto-bot-api` service block in `docker/phala-compose.yaml`.
 
 ## Testing
 

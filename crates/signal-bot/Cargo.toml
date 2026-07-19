@@ -16,6 +16,7 @@ signal-client = { path = "../signal-client" }
 tools = { path = "../tools" }
 whisper-client = { path = "../whisper-client" }
 x402-payments = { path = "../x402-payments" }
+pacto-client = { path = "../pacto-client" }
 
 # Workspace dependencies
 tokio.workspace = true

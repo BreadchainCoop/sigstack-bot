@@ -45,6 +45,10 @@ pub struct Config {
     /// Encrypted persistence for per-group bot preferences
     #[serde(default)]
     pub group_preferences: GroupPreferencesConfig,
+
+    /// Pacto messaging (via pacto-bot-api daemon) configuration
+    #[serde(default)]
+    pub pacto: PactoConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -52,6 +56,11 @@ pub struct SignalConfig {
     /// Signal CLI REST API endpoint
     #[serde(default = "default_signal_service")]
     pub service_url: String,
+
+    /// The bot's own Signal number (E.164). Needed to send proactively, e.g.
+    /// relaying a Pacto user's message to a Signal user.
+    #[serde(default)]
+    pub phone_number: Option<String>,
 
     /// Poll interval for messages
     #[serde(default = "default_poll_interval", with = "humantime_serde")]
@@ -206,11 +215,54 @@ pub struct GroupPreferencesConfig {
     pub storage_path: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct PactoConfig {
+    /// Master switch for Pacto integration (requires a pacto-bot-api daemon).
+    /// Enables the `!pact` outbound command for Signal users.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// When enabled (and `enabled`), also run the inbound DM agent so Pacto
+    /// users get the full bot experience (AI chat + commands). Set false for
+    /// outbound-only (`!pact`) deployments.
+    #[serde(default = "default_true")]
+    pub agent_enabled: bool,
+
+    /// pacto-bot-api daemon Unix socket path (shared Docker volume in production)
+    #[serde(default = "default_pacto_socket")]
+    pub socket_path: String,
+
+    /// Bot identity id configured in the daemon's pacto-bot-api.toml
+    #[serde(default = "default_pacto_bot_id")]
+    pub bot_id: String,
+
+    /// Recipient (npub or hex pubkey) used when `!pact` is called without one
+    #[serde(default)]
+    pub default_recipient: Option<String>,
+
+    /// Allow Pacto users to DM Signal users via `!signal <number> <message>`.
+    /// Off by default — this can relay to arbitrary Signal numbers, so it is
+    /// gated by an allowlist (see `signal_relay_allowlist`).
+    #[serde(default)]
+    pub signal_relay_enabled: bool,
+
+    /// Comma-separated E.164 numbers a Pacto user may reach via `!signal`.
+    /// Empty = deny all (the safe default); `*` = allow any number (open relay,
+    /// abuse risk — use deliberately).
+    #[serde(default)]
+    pub signal_relay_allowlist: String,
+
+    /// Max time per daemon request
+    #[serde(default = "default_pacto_timeout", with = "humantime_serde")]
+    pub timeout: Duration,
+}
+
 // Default implementations
 impl Default for SignalConfig {
     fn default() -> Self {
         Self {
             service_url: default_signal_service(),
+            phone_number: None,
             poll_interval: default_poll_interval(),
         }
     }
@@ -309,6 +361,21 @@ impl Default for GroupPreferencesConfig {
         Self {
             persist: default_true(),
             storage_path: default_group_preferences_path(),
+        }
+    }
+}
+
+impl Default for PactoConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            agent_enabled: default_true(),
+            socket_path: default_pacto_socket(),
+            bot_id: default_pacto_bot_id(),
+            default_recipient: None,
+            signal_relay_enabled: false,
+            signal_relay_allowlist: String::new(),
+            timeout: default_pacto_timeout(),
         }
     }
 }
@@ -441,6 +508,18 @@ fn default_translate_all_max_per_minute() -> u32 {
 
 fn default_group_preferences_path() -> String {
     "/data/group_prefs.enc".into()
+}
+
+fn default_pacto_socket() -> String {
+    "/var/run/pacto/pacto-bot-api.sock".into()
+}
+
+fn default_pacto_bot_id() -> String {
+    "sigstack".into()
+}
+
+fn default_pacto_timeout() -> Duration {
+    Duration::from_secs(15)
 }
 
 impl Config {

@@ -8,6 +8,9 @@
 docker/.env
 **/secrets/
 
+# Per-deployment Pacto daemon config (copy from pacto-bot-api.toml.example)
+docker/pacto-bot-api.toml
+
 # IDE
 .idea/
 .vscode/

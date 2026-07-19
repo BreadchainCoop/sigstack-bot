@@ -22,6 +22,9 @@ pub enum AppError {
 
     #[error("Whisper error: {0}")]
     Whisper(#[from] whisper_client::WhisperError),
+
+    #[error("Pacto error: {0}")]
+    Pacto(#[from] pacto_client::PactoError),
 }
 
 /// Result type alias for application errors.

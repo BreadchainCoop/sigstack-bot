@@ -48,6 +48,8 @@ services:
     container_name: signal-bot
     environment:
       - SIGNAL__SERVICE_URL=http://signal-api:8080
+      # Bot's own Signal number — required for the Pacto→Signal !signal relay
+      - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE:-}
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}
       - NEAR_AI__BASE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
       - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V3.1}
@@ -69,13 +71,41 @@ services:
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
       - GROUP_PREFERENCES__PERSIST=true
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
+      # Pacto messaging — set PACTO_ENABLED=true and uncomment the
+      # pacto-bot-api service below to activate
+      - PACTO__ENABLED=${PACTO_ENABLED:-false}
+      # Inbound DM agent: Pacto users get AI chat + commands (parity with Signal)
+      - PACTO__AGENT_ENABLED=${PACTO_AGENT_ENABLED:-true}
+      - PACTO__SOCKET_PATH=/var/run/pacto/pacto-bot-api.sock
+      - PACTO__BOT_ID=${PACTO_BOT_ID:-sigstack}
+      - PACTO__DEFAULT_RECIPIENT=${PACTO_DEFAULT_RECIPIENT:-}
+      # Pacto→Signal relay (!signal): off by default, allowlist-gated
+      - PACTO__SIGNAL_RELAY_ENABLED=${PACTO_SIGNAL_RELAY_ENABLED:-false}
+      - PACTO__SIGNAL_RELAY_ALLOWLIST=${PACTO_SIGNAL_RELAY_ALLOWLIST:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-data:/data
+      - pacto-data:/var/run/pacto
     depends_on:
       - signal-api
       - whisper-api
     restart: unless-stopped
+
+  # Pacto messaging daemon (https://github.com/covenant-gov/pacto-bot-api).
+  # Phala cannot bind-mount local files, so build a derived linux/amd64 image
+  # that bakes in /etc/pacto/pacto-bot-api.toml (see docker/Dockerfile.pacto
+  # and docker/pacto-bot-api.toml.example), push it, set PACTO_BOT_API_IMAGE
+  # and the PACTO_BOT_NSEC encrypted secret, then uncomment:
+  #
+  # pacto-bot-api:
+  #   image: ${PACTO_BOT_API_IMAGE}
+  #   container_name: pacto-bot-api
+  #   environment:
+  #     - PACTO_BOT_NSEC=${PACTO_BOT_NSEC}
+  #     - RUST_LOG=${LOG_LEVEL:-info}
+  #   volumes:
+  #     - pacto-data:/var/lib/pacto-bot-api
+  #   restart: unless-stopped
 
   signal-registration-proxy:
     image: ${SIGNAL_PROXY_IMAGE}
@@ -106,4 +136,6 @@ volumes:
   group-prefs-data:
     driver: local
   whisper-models:
+    driver: local
+  pacto-data:
     driver: local

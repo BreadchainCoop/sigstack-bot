@@ -1,0 +1,44 @@
+# Derived pacto-bot-api image for Phala deployment.
+#
+# Phala CVMs cannot bind-mount local files, so the daemon config is baked in.
+# The nsec is NOT baked in — it stays in the PACTO_BOT_NSEC encrypted secret,
+# which the config references via ${PACTO_BOT_NSEC}.
+#
+# Build (from the docker/ directory, after copying pacto-bot-api.toml.example
+# to pacto-bot-api.toml and filling in your bot's npub):
+#   docker buildx build --platform linux/amd64 \
+#     -t YOUR_DOCKERHUB/pacto-bot-api:v0.6.0 \
+#     -f Dockerfile.pacto --push .
+
+# Upstream publishes no container image yet, so the base is built from the
+# pinned source tag using the upstream Dockerfile.
+FROM rust:1.96-bookworm AS builder
+ARG PACTO_VERSION=v0.6.0
+RUN git clone --depth 1 --branch ${PACTO_VERSION} \
+    https://github.com/covenant-gov/pacto-bot-api /usr/src/pacto-bot-api
+WORKDIR /usr/src/pacto-bot-api
+RUN cargo build --release --bins
+
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system --gid 1000 pacto \
+    && useradd --system --uid 1000 --gid pacto \
+       --home-dir /var/lib/pacto-bot-api --shell /sbin/nologin pacto
+
+RUN mkdir -p /etc/pacto /var/lib/pacto-bot-api \
+    && chown -R pacto:pacto /etc/pacto /var/lib/pacto-bot-api
+
+COPY --from=builder /usr/src/pacto-bot-api/target/release/pacto-bot-api /usr/local/bin/
+COPY --from=builder /usr/src/pacto-bot-api/target/release/pacto-bot-admin /usr/local/bin/
+COPY --chown=pacto:pacto pacto-bot-api.toml /etc/pacto/pacto-bot-api.toml
+
+USER pacto
+WORKDIR /var/lib/pacto-bot-api
+
+VOLUME ["/var/lib/pacto-bot-api"]
+
+CMD ["pacto-bot-api", "--config", "/etc/pacto/pacto-bot-api.toml", "--data-dir", "/var/lib/pacto-bot-api"]

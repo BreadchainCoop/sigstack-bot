@@ -1,6 +1,7 @@
 //! Chat command - proxies messages to NEAR AI.
 
 use crate::commands::CommandHandler;
+use crate::commands::progress::ProgressSink;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use conversation_store::{ConversationStore, StoredToolCall};
@@ -8,7 +9,7 @@ use near_ai_client::{
     FunctionDefinitionApi, Message, NearAiClient, NearAiError, Role,
     ToolDefinition as NearToolDefinition,
 };
-use signal_client::{BotMessage, SignalClient};
+use signal_client::BotMessage;
 use std::sync::Arc;
 use tools::{FunctionCall as ToolsFunctionCall, ToolCall as ToolsToolCall, ToolExecutor, ToolRegistry};
 use tracing::{debug, error, info, instrument, warn};
@@ -20,7 +21,7 @@ use x402_payments::{
 pub struct ChatHandler {
     near_ai: Arc<NearAiClient>,
     conversations: Arc<ConversationStore>,
-    signal_client: Arc<SignalClient>,
+    progress: Arc<dyn ProgressSink>,
     tool_executor: Arc<ToolExecutor>,
     tool_registry: Arc<ToolRegistry>,
     system_prompt: String,
@@ -39,7 +40,7 @@ impl ChatHandler {
     pub fn new(
         near_ai: Arc<NearAiClient>,
         conversations: Arc<ConversationStore>,
-        signal_client: Arc<SignalClient>,
+        progress: Arc<dyn ProgressSink>,
         tool_registry: Arc<ToolRegistry>,
         system_prompt: String,
         max_tool_iterations: usize,
@@ -49,7 +50,7 @@ impl ChatHandler {
         Self {
             near_ai,
             conversations,
-            signal_client,
+            progress,
             tool_executor: Arc::new(ToolExecutor::new(tool_registry.clone())),
             tool_registry,
             system_prompt,
@@ -65,7 +66,7 @@ impl ChatHandler {
     pub fn with_payments(
         near_ai: Arc<NearAiClient>,
         conversations: Arc<ConversationStore>,
-        signal_client: Arc<SignalClient>,
+        progress: Arc<dyn ProgressSink>,
         tool_registry: Arc<ToolRegistry>,
         system_prompt: String,
         max_tool_iterations: usize,
@@ -77,7 +78,7 @@ impl ChatHandler {
         Self {
             near_ai,
             conversations,
-            signal_client,
+            progress,
             tool_executor: Arc::new(ToolExecutor::new(tool_registry.clone())),
             tool_registry,
             system_prompt,
@@ -310,15 +311,9 @@ impl ChatHandler {
 
                 // Execute each tool call
                 for tool_call in tool_calls {
-                    // Send progress message
+                    // Send progress message (best-effort, transport-agnostic)
                     let progress_msg = format!("🔧 Using {}...", tool_call.function.name);
-                    if let Err(e) = self
-                        .signal_client
-                        .reply(message, &progress_msg)
-                        .await
-                    {
-                        warn!("Failed to send progress message: {}", e);
-                    }
+                    self.progress.notify(message, &progress_msg).await;
 
                     // Convert to tools crate format and execute
                     let tools_call = ToolsToolCall {
@@ -433,7 +428,7 @@ impl CommandHandler for ChatHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use signal_client::BotMessage;
+    use signal_client::{BotMessage, SignalClient};
     use std::time::Duration;
     use tools::ToolRegistry;
 
@@ -460,7 +455,7 @@ mod tests {
         let handler = ChatHandler::new(
             Arc::new(NearAiClient::new("key", "http://localhost", "model", Duration::from_secs(30)).unwrap()),
             Arc::new(ConversationStore::new(50, Duration::from_secs(3600))),
-            Arc::new(SignalClient::new("http://localhost").unwrap()),
+            Arc::new(SignalClient::new("http://localhost").unwrap()) as Arc<dyn ProgressSink>,
             Arc::new(ToolRegistry::new()),
             String::new(),
             5,
@@ -475,7 +470,7 @@ mod tests {
         let handler = ChatHandler::new(
             Arc::new(NearAiClient::new("key", "http://localhost", "model", Duration::from_secs(30)).unwrap()),
             Arc::new(ConversationStore::new(50, Duration::from_secs(3600))),
-            Arc::new(SignalClient::new("http://localhost").unwrap()),
+            Arc::new(SignalClient::new("http://localhost").unwrap()) as Arc<dyn ProgressSink>,
             Arc::new(ToolRegistry::new()),
             String::new(),
             5,

@@ -10,6 +10,8 @@ use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
+use pacto_client::{PactoAgent, PactoClient};
+use signal_bot::pacto_agent;
 use signal_client::{MessageReceiver, SignalClient};
 use whisper_client::WhisperClient;
 use std::path::PathBuf;
@@ -162,6 +164,101 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
+    let pacto_client = if config.pacto.enabled {
+        let pacto = Arc::new(PactoClient::new(
+            &config.pacto.socket_path,
+            config.pacto.bot_id.clone(),
+            config.pacto.timeout,
+        ));
+
+        match pacto.version().await {
+            Ok(v) => info!(
+                "Pacto daemon healthy (v{}) - sending as bot '{}'",
+                v.version,
+                pacto.bot_id()
+            ),
+            Err(e) => warn!(
+                "Pacto daemon not reachable at {} ({e}) - !pact will retry on use",
+                config.pacto.socket_path
+            ),
+        }
+
+        Some(pacto)
+    } else {
+        info!("Pacto messaging disabled");
+        None
+    };
+
+    // Inbound Pacto DM agent — gives Pacto users the same DM experience as
+    // Signal users (AI chat + core commands). Outbound `!pact` still works
+    // without it; disable via PACTO__AGENT_ENABLED=false.
+    if let Some(ref pacto) = pacto_client {
+        if config.pacto.agent_enabled {
+            let (agent, inbound) = PactoAgent::spawn(
+                config.pacto.socket_path.clone(),
+                config.pacto.bot_id.clone(),
+                std::time::Duration::from_secs(3),
+            );
+
+            // Optional Pacto→Signal relay (!signal). Requires the bot's own
+            // Signal number and an allowlist of reachable recipients.
+            let signal_relay = if config.pacto.signal_relay_enabled {
+                match &config.signal.phone_number {
+                    Some(from_number) => {
+                        let allowlist: Vec<String> = config
+                            .pacto
+                            .signal_relay_allowlist
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(String::from)
+                            .collect();
+                        if allowlist.is_empty() {
+                            warn!(
+                                "Pacto→Signal relay enabled but allowlist is empty - all \
+                                 recipients will be denied (set PACTO__SIGNAL_RELAY_ALLOWLIST)"
+                            );
+                        }
+                        Some(pacto_agent::SignalRelay {
+                            signal: signal.clone(),
+                            from_number: from_number.clone(),
+                            allowlist,
+                        })
+                    }
+                    None => {
+                        warn!(
+                            "Pacto→Signal relay enabled but SIGNAL__PHONE_NUMBER is not set - \
+                             disabling !signal"
+                        );
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            pacto_agent::spawn(
+                inbound,
+                agent,
+                pacto_agent::PactoAgentDeps {
+                    near_ai: near_ai.clone(),
+                    conversations: conversations.clone(),
+                    tool_registry: tool_registry.clone(),
+                    dstack: dstack.clone(),
+                    pacto_client: pacto.clone(),
+                    system_prompt: config.bot.system_prompt.clone(),
+                    max_tool_calls: config.tools.max_tool_calls,
+                    signal_username: config.bot.signal_username.clone(),
+                    github_repo: config.bot.github_repo.clone(),
+                    signal_relay,
+                },
+            );
+            info!("Pacto DM agent enabled: Pacto users get AI chat + commands");
+        } else {
+            info!("Pacto DM agent disabled (outbound !pact only)");
+        }
+    }
+
     let whisper_client = if config.whisper.enabled {
         let whisper = Arc::new(
             WhisperClient::new(
@@ -306,6 +403,17 @@ async fn main() -> AppResult<()> {
         handlers.push(Box::new(BalanceHandler::new(store.clone())));
         handlers.push(Box::new(DepositHandler::new(config.payments.clone())));
         info!("Payment commands enabled: !balance, !deposit");
+    }
+
+    // Add Pacto messaging if enabled
+    if let Some(ref pacto) = pacto_client {
+        let default_recipient = config
+            .pacto
+            .default_recipient
+            .clone()
+            .filter(|r| !r.trim().is_empty());
+        handlers.push(Box::new(PactHandler::new(pacto.clone(), default_recipient)));
+        info!("Pacto messaging enabled: !pact");
     }
 
     info!("Registered {} command handlers", handlers.len());

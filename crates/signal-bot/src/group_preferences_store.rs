@@ -73,6 +73,9 @@ struct GroupPreference {
     translate: Option<GroupTranslateMode>,
     #[serde(default)]
     menu_language: MenuLanguage,
+    /// Per-user opt-in translation: sender id -> target language code.
+    #[serde(default)]
+    user_translate: HashMap<String, String>,
 }
 
 impl Default for GroupPreference {
@@ -81,6 +84,7 @@ impl Default for GroupPreference {
             transcribe_enabled: true,
             translate: None,
             menu_language: MenuLanguage::En,
+            user_translate: HashMap::new(),
         }
     }
 }
@@ -90,6 +94,7 @@ impl GroupPreference {
         self.transcribe_enabled
             && self.translate.is_none()
             && self.menu_language == MenuLanguage::En
+            && self.user_translate.is_empty()
     }
 }
 
@@ -269,6 +274,53 @@ impl GroupPreferencesStore {
         };
         self.schedule_persist();
         had_translate
+    }
+
+    // --- Per-user opt-in translate (per group + sender) ---
+
+    /// Target language code the given user opted into for this group, if any.
+    pub fn get_user_translate(&self, group_id: &str, user: &str) -> Option<String> {
+        self.groups
+            .read()
+            .unwrap()
+            .get(group_id)
+            .and_then(|p| p.user_translate.get(user).cloned())
+    }
+
+    /// Whether this specific user has opted into translation in this group.
+    pub fn is_user_translate_active(&self, group_id: &str, user: &str) -> bool {
+        self.groups
+            .read()
+            .unwrap()
+            .get(group_id)
+            .is_some_and(|p| p.user_translate.contains_key(user))
+    }
+
+    /// Enable per-user translation for `user` in `group_id`, targeting `lang_code`.
+    pub fn set_user_translate(self: &Arc<Self>, group_id: &str, user: &str, lang_code: String) {
+        {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.entry(group_id.to_string()).or_default();
+            entry.user_translate.insert(user.to_string(), lang_code);
+        }
+        self.schedule_persist();
+    }
+
+    /// Disable per-user translation for `user`; returns true if it was active.
+    pub fn clear_user_translate(self: &Arc<Self>, group_id: &str, user: &str) -> bool {
+        let removed = {
+            let mut groups = self.groups.write().unwrap();
+            let Some(entry) = groups.get_mut(group_id) else {
+                return false;
+            };
+            let removed = entry.user_translate.remove(user).is_some();
+            if entry.is_default() {
+                groups.remove(group_id);
+            }
+            removed
+        };
+        self.schedule_persist();
+        removed
     }
 
     /// Returns false when the group exceeded `max_per_minute` in the rolling window.

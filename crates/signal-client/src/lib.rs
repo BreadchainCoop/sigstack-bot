@@ -13,7 +13,7 @@ pub use types::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{body_json, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     async fn create_test_client(mock_server: &MockServer) -> SignalClient {
@@ -173,6 +173,7 @@ mod tests {
             envelope: Envelope {
                 source: "+14155551234".into(),
                 source_number: Some("+14155551234".into()),
+                source_uuid: None,
                 source_name: Some("Test User".into()),
                 timestamp: 1677652288000,
                 data_message: Some(DataMessage {
@@ -203,6 +204,7 @@ mod tests {
             envelope: Envelope {
                 source: "+14155551234".into(),
                 source_number: Some("+14155551234".into()),
+                source_uuid: None,
                 source_name: Some("Test User".into()),
                 timestamp: 1677652288000,
                 data_message: Some(DataMessage {
@@ -237,6 +239,7 @@ mod tests {
             envelope: Envelope {
                 source: "+14155551234".into(),
                 source_number: None,
+                source_uuid: None,
                 source_name: None,
                 timestamp: 1677652288000,
                 data_message: None,
@@ -278,11 +281,14 @@ mod tests {
         let client = create_test_client(&mock_server).await;
         let original = BotMessage {
             source: "+14155551234".into(),
+            source_number: None,
+            source_name: None,
             text: "Hola".into(),
             timestamp: 1677652288000,
             message_timestamp: 1677652287000,
             is_group: false,
             group_id: None,
+            group_name: None,
             receiving_account: "+15555555555".into(),
             attachments: vec![],
             quote: None,
@@ -313,11 +319,14 @@ mod tests {
         let client = create_test_client(&mock_server).await;
         let message = BotMessage {
             source: "+14155551234".into(),
+            source_number: None,
+            source_name: None,
             text: "hi".into(),
             timestamp: 1,
             message_timestamp: 1,
             is_group: true,
             group_id: Some("MB3b+ZC/9JkmyJS0J6dOpgyboKNYVkp134P7l547Pk8=".into()),
+            group_name: None,
             receiving_account: "+15555555555".into(),
             attachments: vec![],
             quote: None,
@@ -422,5 +431,136 @@ mod tests {
         let audio = bot_msg.quote.as_ref().unwrap().audio_attachment.as_ref().unwrap();
         assert_eq!(audio.id, "root-audio-id");
         assert_eq!(audio.content_type, "audio/aac");
+    }
+
+    #[tokio::test]
+    async fn test_create_group() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .and(body_json(serde_json::json!({
+                "name": "BAM Spanish",
+                "members": ["+14155551234"],
+                "description": "Spanish sidecar"
+            })))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "id": "group.sidecarEs=="
+            })))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                "name": "BAM Spanish",
+                "id": "group.sidecarEs==",
+                "internal_id": "es-internal-id"
+            }])))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let group = client
+            .create_group(
+                "+15555555555",
+                "BAM Spanish",
+                vec!["+14155551234".into()],
+                Some("Spanish sidecar"),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(group.id, "group.sidecarEs==");
+        assert_eq!(group.internal_id, "es-internal-id");
+    }
+
+    #[tokio::test]
+    async fn test_add_and_remove_members() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path(
+                "/v1/groups/%2B15555555555/group.sidecarEs%3D%3D/members",
+            ))
+            .and(body_json(serde_json::json!({
+                "members": ["+14155559876"]
+            })))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("DELETE"))
+            .and(path(
+                "/v1/groups/%2B15555555555/group.sidecarEs%3D%3D/members",
+            ))
+            .and(body_json(serde_json::json!({
+                "members": ["+14155559876"]
+            })))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        client
+            .add_members(
+                "+15555555555",
+                "group.sidecarEs==",
+                vec!["+14155559876".into()],
+            )
+            .await
+            .unwrap();
+        client
+            .remove_members(
+                "+15555555555",
+                "group.sidecarEs==",
+                vec!["+14155559876".into()],
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_create_group_error() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("bad members"))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let err = client
+            .create_group("+15555555555", "BAM English", vec![], None)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("bad members"));
+    }
+
+    #[test]
+    fn test_bot_message_source_fields() {
+        let incoming = IncomingMessage {
+            envelope: Envelope {
+                source: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".into(),
+                source_number: Some("+14155551234".into()),
+                source_uuid: Some("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".into()),
+                source_name: Some("Maria".into()),
+                timestamp: 1,
+                data_message: Some(DataMessage {
+                    message: Some("hola".into()),
+                    timestamp: 1,
+                    group_info: None,
+                    attachments: vec![],
+                    quote: None,
+                }),
+            },
+            account: "+15555555555".into(),
+        };
+        let msg = BotMessage::from_incoming(&incoming).unwrap();
+        assert_eq!(msg.source_name.as_deref(), Some("Maria"));
+        assert_eq!(msg.source_number.as_deref(), Some("+14155551234"));
+        assert_eq!(msg.invite_address().as_deref(), Some("+14155551234"));
+        assert_eq!(msg.display_name(), "Maria");
     }
 }

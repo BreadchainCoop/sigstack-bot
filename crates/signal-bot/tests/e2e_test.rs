@@ -73,11 +73,14 @@ async fn test_bot_chat_e2e() {
     // 5. Simulate Incoming Message
     let incoming = BotMessage {
         source: "+123456789".to_string(),
+            source_number: None,
+            source_name: None,
         text: "Hi there!".to_string(),
         timestamp: 123456789,
         message_timestamp: 123456789,
         is_group: false,
         group_id: None,
+            group_name: None,
         receiving_account: "+987654321".to_string(),
         attachments: vec![],
         quote: None,
@@ -207,11 +210,14 @@ async fn test_bot_tool_use_e2e() {
     // 7. Execute
     let incoming = BotMessage {
         source: "+123456789".to_string(),
+            source_number: None,
+            source_name: None,
         text: "How much is 2+2?".to_string(),
         timestamp: 123456789,
         message_timestamp: 123456789,
         is_group: false,
         group_id: None,
+            group_name: None,
         receiving_account: "+987654321".to_string(),
         attachments: vec![],
         quote: None,

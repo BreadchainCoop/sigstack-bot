@@ -29,56 +29,38 @@ pub fn privacy_menu(language: MenuLanguage) -> &'static str {
     }
 }
 
-const HELP_EN: &str = r#"**Bread Coop AI** (Private & Verifiable)
+const HELP_EN: &str = r#"**BAM** (Bread Coop AI)
 
-**Voice:**
-- !transcribe — Quote-reply per msg
-- !transcribe-on
-- !transcribe-off
+Language sidecars: join a per-language Signal group bridged to this main chat.
 
-**Translation:**
-- !list-langs — Supported languages
-- !translate <lang> — Quote-reply per msg
-- !translate-on <lang1> <lang2>
-- !translate-off
-- !translate-me on <lang> — Translate only my msgs
-- !translate-me off
-
-**AI chat:**
-- !ask <question> — Chat w/ AI
+**Sidecars:**
+- !translate-me-on <lang> — Join BAM {language} sidecar
+- !translate-me-off — Leave your sidecar
+- !list-langs — Supported language codes
 
 **Default Language**
 - !set-es — español
 - !set-en — english
 
 **Command Menus**
-- !privacy — Show privacy menu
+- !privacy — Privacy & TEE
 - !help — Show this menu"#;
 
-const HELP_ES: &str = r#"**Bread Coop AI** (Privado y verificable)
+const HELP_ES: &str = r#"**BAM** (Bread Coop AI)
 
-**Voz:**
-- !transcribe — Responder citando un mensaje de voz
-- !transcribe-on — Transcripción automática
-- !transcribe-off — Desactivar transcripción automática
+Sidecars de idioma: únete a un grupo Signal por idioma, conectado a este chat principal.
 
-**Traducción:**
-- !list-langs — Idiomas disponibles
-- !translate <lang> — Responder citando un mensaje
-- !translate-on <lang1> <lang2> — Traducción automática
-- !translate-off — Desactivar traducción automática
-- !translate-me on <lang> — Traducir solo mis mensajes
-- !translate-me off — Desactivar
-
-**Chat con IA:**
-- !ask <pregunta> — Pregunta a la IA
+**Sidecars:**
+- !translate-me-on <lang> — Unirte al sidecar BAM {idioma}
+- !translate-me-off — Salir del sidecar
+- !list-langs — Códigos de idioma disponibles
 
 **Idioma predeterminado**
 - !set-es — español
 - !set-en — english
 
 **Menús de comandos**
-- !privacy — Menú de privacidad y seguridad
+- !privacy — Privacidad y TEE
 - !help — Mostrar este menú"#;
 
 const PRIVACY_EN: &str = r#"**Bread Coop AI** (Private & Verifiable)
@@ -122,3 +104,26 @@ Tus mensajes están cifrados de extremo a extremo con Signal, se procesan en un 
 La transcripción de voz corre localmente en el TEE (Whisper). La traducción usa NEAR AI solo con texto.
 
 Ni el operador del bot ni NEAR AI pueden leer tus mensajes."#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn help_en_covers_sidecars_omits_legacy() {
+        let h = help_menu(MenuLanguage::En);
+        assert!(h.contains("!translate-me-on"));
+        assert!(h.contains("!list-langs"));
+        assert!(!h.contains("!ask"));
+        assert!(!h.contains("!transcribe"));
+        assert!(!h.contains("!translate-on"));
+        assert!(!h.contains("list-langs-common"));
+    }
+
+    #[test]
+    fn help_es_covers_sidecars() {
+        let h = help_menu(MenuLanguage::Es);
+        assert!(h.contains("!translate-me-on"));
+        assert!(!h.contains("!ask"));
+    }
+}

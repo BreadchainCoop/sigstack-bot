@@ -75,6 +75,113 @@ impl SignalClient {
         Ok(groups)
     }
 
+    /// Create a Signal group. Returns the send id (`group.…`).
+    #[instrument(skip(self, members))]
+    pub async fn create_group(
+        &self,
+        phone_number: &str,
+        name: &str,
+        members: Vec<String>,
+        description: Option<&str>,
+    ) -> Result<Group, SignalError> {
+        let encoded_number = encode(phone_number);
+        let body = CreateGroupRequest {
+            name: name.to_string(),
+            members,
+            description: description.map(str::to_string),
+        };
+        let response = self
+            .client
+            .post(format!("{}/v1/groups/{}", self.base_url, encoded_number))
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+
+        let created: CreateGroupResponse = response.json().await?;
+        // Refresh list to obtain internal_id for inbound matching.
+        let groups = self.list_groups(phone_number).await?;
+        let group = groups
+            .into_iter()
+            .find(|g| g.id == created.id)
+            .unwrap_or(Group {
+                name: name.to_string(),
+                id: created.id.clone(),
+                internal_id: created.id.clone(),
+            });
+
+        self.cache_group_mapping(phone_number, &group).await;
+        debug!(
+            "Created group {} (internal {}) for {}",
+            group.id, group.internal_id, phone_number
+        );
+        Ok(group)
+    }
+
+    /// Add members to an existing group (`group.…` send id).
+    #[instrument(skip(self, members))]
+    pub async fn add_members(
+        &self,
+        phone_number: &str,
+        group_send_id: &str,
+        members: Vec<String>,
+    ) -> Result<(), SignalError> {
+        self.change_members(phone_number, group_send_id, members, true)
+            .await
+    }
+
+    /// Remove members from an existing group.
+    #[instrument(skip(self, members))]
+    pub async fn remove_members(
+        &self,
+        phone_number: &str,
+        group_send_id: &str,
+        members: Vec<String>,
+    ) -> Result<(), SignalError> {
+        self.change_members(phone_number, group_send_id, members, false)
+            .await
+    }
+
+    async fn change_members(
+        &self,
+        phone_number: &str,
+        group_send_id: &str,
+        members: Vec<String>,
+        add: bool,
+    ) -> Result<(), SignalError> {
+        let encoded_number = encode(phone_number);
+        let encoded_group = encode(group_send_id);
+        let url = format!(
+            "{}/v1/groups/{}/{}/members",
+            self.base_url, encoded_number, encoded_group
+        );
+        let body = ChangeGroupMembersRequest { members };
+        let request = if add {
+            self.client.post(&url).json(&body)
+        } else {
+            self.client.delete(&url).json(&body)
+        };
+        let response = request.send().await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+        Ok(())
+    }
+
+    async fn cache_group_mapping(&self, phone_number: &str, group: &Group) {
+        let key = (phone_number.to_string(), group.internal_id.clone());
+        self.group_cache
+            .write()
+            .await
+            .insert(key, group.id.clone());
+    }
+
     /// Resolve the recipient id for `/v2/send` (DM source or `group.*` id).
     #[instrument(skip(self))]
     pub async fn resolve_send_recipient(
@@ -114,6 +221,35 @@ impl SignalClient {
             "Resolved group internal_id {} -> {}",
             group_id, send_id
         );
+        Ok(send_id)
+    }
+
+    /// Resolve `internal_id` (or pass-through `group.…`) to send id for an account.
+    pub async fn resolve_group_send_id_for_account(
+        &self,
+        phone_number: &str,
+        group_id: &str,
+    ) -> Result<String, SignalError> {
+        if group_id.starts_with("group.") {
+            return Ok(group_id.to_string());
+        }
+
+        let cache_key = (phone_number.to_string(), group_id.to_string());
+        if let Some(send_id) = self.group_cache.read().await.get(&cache_key) {
+            return Ok(send_id.clone());
+        }
+
+        let groups = self.list_groups(phone_number).await?;
+        let send_id = resolve_group_send_id(group_id, &groups).ok_or_else(|| {
+            SignalError::Api(format!(
+                "Unknown group id {group_id} for account {phone_number}"
+            ))
+        })?;
+
+        self.group_cache
+            .write()
+            .await
+            .insert(cache_key, send_id.clone());
         Ok(send_id)
     }
 

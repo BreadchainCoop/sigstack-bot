@@ -65,6 +65,40 @@ impl GroupTranslateMode {
     }
 }
 
+/// Language sidecar bridge keyed under the **main** group `internal_id`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LanguageBridge {
+    /// lang code → sidecar send id (`group.…`)
+    #[serde(default)]
+    pub sidecars: HashMap<String, String>,
+    /// lang code → sidecar internal_id (inbound match)
+    #[serde(default)]
+    pub sidecar_internal: HashMap<String, String>,
+    /// user key (UUID or phone) → lang code
+    #[serde(default)]
+    pub members: HashMap<String, String>,
+    /// user key → invite address used for Signal members[]
+    #[serde(default)]
+    pub member_addresses: HashMap<String, String>,
+}
+
+impl LanguageBridge {
+    pub fn is_empty(&self) -> bool {
+        self.sidecars.is_empty()
+            && self.sidecar_internal.is_empty()
+            && self.members.is_empty()
+            && self.member_addresses.is_empty()
+    }
+
+    pub fn sidecar_send_id(&self, lang: &str) -> Option<&str> {
+        self.sidecars.get(lang).map(String::as_str)
+    }
+
+    pub fn member_lang(&self, user: &str) -> Option<&str> {
+        self.members.get(user).map(String::as_str)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GroupPreference {
     #[serde(default = "default_true")]
@@ -73,9 +107,9 @@ struct GroupPreference {
     translate: Option<GroupTranslateMode>,
     #[serde(default)]
     menu_language: MenuLanguage,
-    /// Per-user opt-in translation: sender id -> target language code.
+    /// Mutual-aid language sidecar bridge (replaces legacy per-user translate map).
     #[serde(default)]
-    user_translate: HashMap<String, String>,
+    language_bridge: Option<LanguageBridge>,
 }
 
 impl Default for GroupPreference {
@@ -84,7 +118,7 @@ impl Default for GroupPreference {
             transcribe_enabled: true,
             translate: None,
             menu_language: MenuLanguage::En,
-            user_translate: HashMap::new(),
+            language_bridge: None,
         }
     }
 }
@@ -94,7 +128,7 @@ impl GroupPreference {
         self.transcribe_enabled
             && self.translate.is_none()
             && self.menu_language == MenuLanguage::En
-            && self.user_translate.is_empty()
+            && self.language_bridge.as_ref().is_none_or(LanguageBridge::is_empty)
     }
 }
 
@@ -107,6 +141,8 @@ struct GroupPreferencesSnapshot {
 /// In-memory group preferences with optional TEE-encrypted persistence.
 pub struct GroupPreferencesStore {
     groups: RwLock<HashMap<String, GroupPreference>>,
+    /// sidecar internal_id → (main internal_id, lang code); rebuilt on load/mutate.
+    sidecar_index: RwLock<HashMap<String, (String, String)>>,
     rate_limits: RwLock<HashMap<String, Vec<Instant>>>,
     max_per_minute: u32,
     dstack: Option<Arc<DstackClient>>,
@@ -120,6 +156,7 @@ impl GroupPreferencesStore {
     pub fn new_in_memory(max_per_minute: u32) -> Arc<Self> {
         Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
+            sidecar_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
             dstack: None,
@@ -138,6 +175,7 @@ impl GroupPreferencesStore {
     ) -> Arc<Self> {
         let store = Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
+            sidecar_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
             dstack: if persist {
@@ -175,6 +213,7 @@ impl GroupPreferencesStore {
     ) -> Arc<Self> {
         let store = Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
+            sidecar_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
             dstack: Some(Arc::new(dstack)),
@@ -184,6 +223,18 @@ impl GroupPreferencesStore {
         });
         let _ = store.load().await;
         store
+    }
+
+    fn rebuild_sidecar_index(&self) {
+        let mut index = HashMap::new();
+        for (main_id, pref) in self.groups.read().unwrap().iter() {
+            if let Some(bridge) = &pref.language_bridge {
+                for (lang, internal) in &bridge.sidecar_internal {
+                    index.insert(internal.clone(), (main_id.clone(), lang.clone()));
+                }
+            }
+        }
+        *self.sidecar_index.write().unwrap() = index;
     }
 
     // --- Transcription (per group) ---
@@ -276,48 +327,96 @@ impl GroupPreferencesStore {
         had_translate
     }
 
-    // --- Per-user opt-in translate (per group + sender) ---
+    // --- Language sidecar bridge (keyed by main group internal_id) ---
 
-    /// Target language code the given user opted into for this group, if any.
-    pub fn get_user_translate(&self, group_id: &str, user: &str) -> Option<String> {
+    pub fn get_bridge(&self, main_group_id: &str) -> Option<LanguageBridge> {
         self.groups
             .read()
             .unwrap()
-            .get(group_id)
-            .and_then(|p| p.user_translate.get(user).cloned())
+            .get(main_group_id)
+            .and_then(|p| p.language_bridge.clone())
+            .filter(|b| !b.is_empty())
     }
 
-    /// Whether this specific user has opted into translation in this group.
-    pub fn is_user_translate_active(&self, group_id: &str, user: &str) -> bool {
-        self.groups
+    /// Resolve sidecar internal_id → (main_id, lang).
+    pub fn lookup_sidecar(&self, sidecar_internal_id: &str) -> Option<(String, String)> {
+        self.sidecar_index
             .read()
             .unwrap()
-            .get(group_id)
-            .is_some_and(|p| p.user_translate.contains_key(user))
+            .get(sidecar_internal_id)
+            .cloned()
     }
 
-    /// Enable per-user translation for `user` in `group_id`, targeting `lang_code`.
-    pub fn set_user_translate(self: &Arc<Self>, group_id: &str, user: &str, lang_code: String) {
+    pub fn member_lang(&self, main_group_id: &str, user: &str) -> Option<String> {
+        self.get_bridge(main_group_id)
+            .and_then(|b| b.members.get(user).cloned())
+    }
+
+    pub fn set_sidecar(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        lang: &str,
+        send_id: String,
+        internal_id: String,
+    ) {
         {
             let mut groups = self.groups.write().unwrap();
-            let entry = groups.entry(group_id.to_string()).or_default();
-            entry.user_translate.insert(user.to_string(), lang_code);
+            let entry = groups.entry(main_group_id.to_string()).or_default();
+            let bridge = entry.language_bridge.get_or_insert_with(LanguageBridge::default);
+            bridge.sidecars.insert(lang.to_string(), send_id);
+            bridge
+                .sidecar_internal
+                .insert(lang.to_string(), internal_id);
         }
+        self.rebuild_sidecar_index();
         self.schedule_persist();
     }
 
-    /// Disable per-user translation for `user`; returns true if it was active.
-    pub fn clear_user_translate(self: &Arc<Self>, group_id: &str, user: &str) -> bool {
+    /// Record user membership; returns previous lang if switching.
+    pub fn set_bridge_member(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        user: &str,
+        lang: &str,
+        address: Option<String>,
+    ) -> Option<String> {
+        let previous = {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.entry(main_group_id.to_string()).or_default();
+            let bridge = entry.language_bridge.get_or_insert_with(LanguageBridge::default);
+            let prev = bridge.members.insert(user.to_string(), lang.to_string());
+            if let Some(addr) = address {
+                bridge.member_addresses.insert(user.to_string(), addr);
+            }
+            prev
+        };
+        self.schedule_persist();
+        previous
+    }
+
+    /// Remove member; returns (lang, address) if they were subscribed.
+    pub fn clear_bridge_member(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        user: &str,
+    ) -> Option<(String, Option<String>)> {
         let removed = {
             let mut groups = self.groups.write().unwrap();
-            let Some(entry) = groups.get_mut(group_id) else {
-                return false;
+            let Some(entry) = groups.get_mut(main_group_id) else {
+                return None;
             };
-            let removed = entry.user_translate.remove(user).is_some();
-            if entry.is_default() {
-                groups.remove(group_id);
+            let Some(bridge) = entry.language_bridge.as_mut() else {
+                return None;
+            };
+            let lang = bridge.members.remove(user)?;
+            let address = bridge.member_addresses.remove(user);
+            if bridge.is_empty() {
+                entry.language_bridge = None;
             }
-            removed
+            if entry.is_default() {
+                groups.remove(main_group_id);
+            }
+            Some((lang, address))
         };
         self.schedule_persist();
         removed
@@ -496,6 +595,7 @@ impl GroupPreferencesStore {
 
         let count = snapshot.groups.len();
         *self.groups.write().unwrap() = snapshot.groups;
+        self.rebuild_sidecar_index();
         Ok(count)
     }
 
@@ -598,6 +698,72 @@ mod tests {
         assert_eq!(
             store2.get_menu_language("group.three"),
             MenuLanguage::Es
+        );
+    }
+
+    #[test]
+    fn language_bridge_sidecar_and_members() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let main = "main-internal";
+        store.set_sidecar(
+            main,
+            "es",
+            "group.es-send".into(),
+            "es-internal".into(),
+        );
+        store.set_sidecar(
+            main,
+            "en",
+            "group.en-send".into(),
+            "en-internal".into(),
+        );
+
+        assert_eq!(
+            store.lookup_sidecar("es-internal"),
+            Some((main.into(), "es".into()))
+        );
+        assert_eq!(
+            store.get_bridge(main).unwrap().sidecar_send_id("en"),
+            Some("group.en-send")
+        );
+
+        assert!(store.set_bridge_member(main, "user-a", "es", Some("+1".into())).is_none());
+        assert_eq!(store.member_lang(main, "user-a").as_deref(), Some("es"));
+
+        let prev = store.set_bridge_member(main, "user-a", "en", None);
+        assert_eq!(prev.as_deref(), Some("es"));
+        assert_eq!(store.member_lang(main, "user-a").as_deref(), Some("en"));
+
+        let removed = store.clear_bridge_member(main, "user-a").unwrap();
+        assert_eq!(removed.0, "en");
+        assert!(store.member_lang(main, "user-a").is_none());
+    }
+
+    #[tokio::test]
+    async fn language_bridge_encrypted_round_trip() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("bridge.enc");
+        let key = [9u8; 32];
+        let dstack = DstackClient::new("/nonexistent/dstack.sock");
+
+        let store = GroupPreferencesStore::with_test_key(dstack, path.clone(), key, 30).await;
+        store.set_sidecar(
+            "main-1",
+            "es",
+            "group.es".into(),
+            "es-int".into(),
+        );
+        store.set_bridge_member("main-1", "uuid-1", "es", Some("+1555".into()));
+        store.persist_now().await.unwrap();
+
+        let store2 =
+            GroupPreferencesStore::with_test_key(DstackClient::new("/x"), path, key, 30).await;
+        let bridge = store2.get_bridge("main-1").unwrap();
+        assert_eq!(bridge.sidecar_send_id("es"), Some("group.es"));
+        assert_eq!(bridge.member_lang("uuid-1"), Some("es"));
+        assert_eq!(
+            store2.lookup_sidecar("es-int"),
+            Some(("main-1".into(), "es".into()))
         );
     }
 }

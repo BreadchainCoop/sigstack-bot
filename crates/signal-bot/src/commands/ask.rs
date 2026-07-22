@@ -78,11 +78,14 @@ mod tests {
     fn sample_message(text: &str) -> BotMessage {
         BotMessage {
             source: "+1234567890".into(),
+            source_number: None,
+            source_name: None,
             text: text.into(),
             timestamp: 0,
             message_timestamp: 0,
             is_group: true,
             group_id: Some("group.test".into()),
+            group_name: None,
             receiving_account: "+0987654321".into(),
             attachments: vec![],
             quote: None,

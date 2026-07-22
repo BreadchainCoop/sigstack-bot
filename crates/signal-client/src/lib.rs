@@ -440,7 +440,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/v1/groups/%2B15555555555"))
             .and(body_json(serde_json::json!({
-                "name": "BAM Spanish",
+                "name": "Language Thread Spanish",
                 "members": ["+14155551234"],
                 "description": "Spanish sidecar"
             })))
@@ -453,7 +453,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/v1/groups/%2B15555555555"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "name": "BAM Spanish",
+                "name": "Language Thread Spanish",
                 "id": "group.sidecarEs==",
                 "internal_id": "es-internal-id"
             }])))
@@ -464,7 +464,7 @@ mod tests {
         let group = client
             .create_group(
                 "+15555555555",
-                "BAM Spanish",
+                "Language Thread Spanish",
                 vec!["+14155551234".into()],
                 Some("Spanish sidecar"),
             )
@@ -532,7 +532,7 @@ mod tests {
 
         let client = create_test_client(&mock_server).await;
         let err = client
-            .create_group("+15555555555", "BAM English", vec![], None)
+            .create_group("+15555555555", "Language Thread English", vec![], None)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("bad members"));

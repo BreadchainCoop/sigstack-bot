@@ -29,14 +29,17 @@ pub fn privacy_menu(language: MenuLanguage) -> &'static str {
     }
 }
 
-const HELP_EN: &str = r#"**BAM** (Bread Coop AI)
+const HELP_EN: &str = r#"Translation Threads:
 
-Language sidecars: join a per-language Signal group bridged to this main chat.
+Join a per-language Signal group bridged to this main chat.
 
-**Sidecars:**
-- !translate-me-on <lang> — Join BAM {language} sidecar
-- !translate-me-off — Leave your sidecar
-- !list-langs — Supported language codes
+**Commands:**
+- !translate-me-on <lang>
+- !translate-me-off
+- !list-langs
+
+example:
+!translate-me-on es
 
 **Default Language**
 - !set-es — español
@@ -46,14 +49,17 @@ Language sidecars: join a per-language Signal group bridged to this main chat.
 - !privacy — Privacy & TEE
 - !help — Show this menu"#;
 
-const HELP_ES: &str = r#"**BAM** (Bread Coop AI)
+const HELP_ES: &str = r#"Hilos de traducción:
 
-Sidecars de idioma: únete a un grupo Signal por idioma, conectado a este chat principal.
+Únete a un grupo Signal por idioma, conectado a este chat principal.
 
-**Sidecars:**
-- !translate-me-on <lang> — Unirte al sidecar BAM {idioma}
-- !translate-me-off — Salir del sidecar
-- !list-langs — Códigos de idioma disponibles
+**Commands:**
+- !translate-me-on <lang>
+- !translate-me-off
+- !list-langs
+
+ejemplo:
+!translate-me-on es
 
 **Idioma predeterminado**
 - !set-es — español

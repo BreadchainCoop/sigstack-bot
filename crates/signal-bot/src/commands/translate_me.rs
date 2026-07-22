@@ -1,6 +1,6 @@
 //! Language sidecar bridge: `!translate-me-on` / `!translate-me-off` + relay engine.
 //!
-//! Main group stays bilingual. Each subscribed language gets a `BAM {Language}`
+//! Main group stays bilingual. Each subscribed language gets a `Language Thread {Language}`
 //! Signal sidecar. Messages fan out: main→sidecars (relay/translate),
 //! sidecar→main (relay) + other sidecars (translate). Bot never relays itself.
 
@@ -194,7 +194,7 @@ impl TranslateMeHandler {
                 ));
             }
         } else {
-            let name = format!("BAM {}", lang.name);
+            let name = format!("Language Thread {}", lang.name);
             let description = format!(
                 "{} sidecar bridged to the main mutual-aid group.",
                 lang.name
@@ -217,7 +217,7 @@ impl TranslateMeHandler {
                         group.internal_id.clone(),
                     );
                     let welcome = format!(
-                        "Welcome to BAM {}. Messages here are bridged with the main group.",
+                        "Welcome to Language Thread {}. Messages here are bridged with the main group.",
                         lang.name
                     );
                     if let Err(e) = self.signal.send(bot, &group.id, &welcome).await {
@@ -248,7 +248,7 @@ impl TranslateMeHandler {
         );
 
         Ok(format!(
-            "Joined the {} sidecar (BAM {}). Accept the Signal group invite if prompted. \
+            "Joined the {} sidecar (Language Thread {}). Accept the Signal group invite if prompted. \
 Use !translate-me-off to leave.",
             lang.name, lang.name
         ))

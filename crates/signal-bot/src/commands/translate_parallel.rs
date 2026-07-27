@@ -466,6 +466,94 @@ impl CommandHandler for TranslateParallelHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::translate_lang::resolve_language;
+    use crate::group_preferences_store::GroupTranslateMode;
+    use serde_json::json;
+    use wiremock::matchers::{method, path, path_regex};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn group_msg(source: &str, text: &str) -> BotMessage {
+        BotMessage {
+            source: source.into(),
+            source_number: Some(source.into()),
+            source_name: Some("Ada".into()),
+            text: text.into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: true,
+            group_id: Some("main-internal".into()),
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        }
+    }
+
+    fn handler_pair(
+        store: Arc<GroupPreferencesStore>,
+        signal_uri: String,
+        near_uri: String,
+    ) -> TranslateParallelHandler {
+        TranslateParallelHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new("key", near_uri, "m", std::time::Duration::from_secs(5)).unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal_uri).unwrap()),
+            BotIdentity::new(),
+        )
+    }
+
+    fn sample_bridge() -> ParallelBridge {
+        ParallelBridge {
+            main_lang: "en".into(),
+            parallel_lang: "es".into(),
+            parallel_send_id: "group.es".into(),
+            parallel_internal_id: "es-internal".into(),
+            members: [("+15550002222".into(), "+15550002222".into())]
+                .into_iter()
+                .collect(),
+        }
+    }
+
+    async fn mount_signal_basics(signal: &MockServer) {
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "group.es"})))
+            .mount(signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Main",
+                    "id": "group.main",
+                    "internal_id": "main-internal"
+                },
+                {
+                    "name": "Parallel Spanish",
+                    "id": "group.es",
+                    "internal_id": "es-internal"
+                }
+            ])))
+            .mount(signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"^/v1/groups/%2B15550001111/.+/members$"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(signal)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(path_regex(r"^/v1/groups/%2B15550001111/.+/members$"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(signal)
+            .await;
+    }
 
     #[test]
     fn parse_lang_pair_ok() {
@@ -474,6 +562,7 @@ mod tests {
             Some(("en", "es"))
         );
         assert!(TranslateParallelHandler::parse_lang_pair("!parallel-on en").is_none());
+        assert!(TranslateParallelHandler::parse_lang_pair("!parallel-on en es fr").is_none());
     }
 
     #[test]
@@ -488,5 +577,210 @@ mod tests {
     #[test]
     fn attribution_format() {
         assert_eq!(format_attribution("Ada", "hola"), "Ada:\nhola");
+    }
+
+    #[test]
+    fn matches_commands_and_relay_candidates() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_parallel("main-internal", sample_bridge());
+        let handler = handler_pair(
+            store,
+            "http://127.0.0.1:9".into(),
+            "http://127.0.0.1:9".into(),
+        );
+
+        assert!(handler.matches(&group_msg("+1", "!parallel-on en es")));
+        assert!(handler.matches(&group_msg("+1", "!parallel-join")));
+        assert!(handler.matches(&group_msg("+1", "!parallel-leave")));
+        assert!(handler.matches(&group_msg("+1", "!parallel-off")));
+
+        let relay = group_msg("+15550002222", "Hello from the main chat");
+        assert!(handler.matches(&relay));
+
+        let mut cmd = relay.clone();
+        cmd.text = "!help".into();
+        assert!(!handler.matches(&cmd));
+
+        let mut dm = relay.clone();
+        dm.is_group = false;
+        dm.group_id = None;
+        dm.text = "hello".into();
+        assert!(!handler.matches(&dm));
+    }
+
+    #[tokio::test]
+    async fn setup_join_leave_off_happy_path() {
+        let signal = MockServer::start().await;
+        mount_signal_basics(&signal).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+
+        let on = group_msg("+15550002222", "!parallel-on en es");
+        assert!(handler.execute(&on).await.unwrap().is_empty());
+        assert!(store.has_parallel("main-internal"));
+
+        // Already on.
+        assert!(handler.execute(&on).await.unwrap().is_empty());
+
+        let join = group_msg("+15550003333", "!parallel-join");
+        assert!(handler.execute(&join).await.unwrap().is_empty());
+        assert!(store
+            .get_parallel("main-internal")
+            .unwrap()
+            .is_member("+15550003333"));
+
+        // Already a member.
+        assert!(handler.execute(&join).await.unwrap().is_empty());
+
+        let leave = group_msg("+15550003333", "!parallel-leave");
+        assert!(handler.execute(&leave).await.unwrap().is_empty());
+
+        let off = group_msg("+15550002222", "!parallel-off");
+        assert!(handler.execute(&off).await.unwrap().is_empty());
+        assert!(!store.has_parallel("main-internal"));
+    }
+
+    #[tokio::test]
+    async fn setup_rejects_invalid_and_conflicting_states() {
+        let signal = MockServer::start().await;
+        mount_signal_basics(&signal).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+
+        let dm = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!parallel-on en es".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert!(handler.execute(&dm).await.unwrap().is_empty());
+
+        let usage = group_msg("+15550002222", "!parallel-on");
+        assert!(handler.execute(&usage).await.unwrap().is_empty());
+
+        let unknown = group_msg("+15550002222", "!parallel-on en zz");
+        assert!(handler.execute(&unknown).await.unwrap().is_empty());
+
+        let same = group_msg("+15550002222", "!parallel-on en english");
+        assert!(handler.execute(&same).await.unwrap().is_empty());
+
+        store.set(
+            "main-internal".into(),
+            GroupTranslateMode::new(
+                resolve_language("en").unwrap(),
+                resolve_language("es").unwrap(),
+            ),
+        );
+        let blocked = group_msg("+15550002222", "!parallel-on en es");
+        assert!(handler.execute(&blocked).await.unwrap().is_empty());
+        store.clear("main-internal");
+
+        store.set_parallel("main-internal", sample_bridge());
+        let mut from_parallel = group_msg("+15550002222", "!parallel-on en fr");
+        from_parallel.group_id = Some("es-internal".into());
+        assert!(handler.execute(&from_parallel).await.unwrap().is_empty());
+
+        from_parallel.text = "!parallel-join".into();
+        assert!(handler.execute(&from_parallel).await.unwrap().is_empty());
+
+        from_parallel.text = "!parallel-off".into();
+        assert!(handler.execute(&from_parallel).await.unwrap().is_empty());
+        assert!(store.has_parallel("main-internal"));
+    }
+
+    #[tokio::test]
+    async fn join_without_setup_and_leave_from_parallel() {
+        let signal = MockServer::start().await;
+        mount_signal_basics(&signal).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+
+        let join = group_msg("+15550003333", "!parallel-join");
+        assert!(handler.execute(&join).await.unwrap().is_empty());
+
+        store.set_parallel("main-internal", sample_bridge());
+        let mut leave = group_msg("+15550002222", "!parallel-leave");
+        leave.group_id = Some("es-internal".into());
+        assert!(handler.execute(&leave).await.unwrap().is_empty());
+        assert!(!store
+            .get_parallel("main-internal")
+            .unwrap()
+            .is_member("+15550002222"));
+    }
+
+    #[tokio::test]
+    async fn relay_main_to_parallel_and_back() {
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        mount_signal_basics(&signal).await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hola"}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .mount(&near)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_parallel("main-internal", sample_bridge());
+        let handler = handler_pair(store, signal.uri(), near.uri());
+
+        let main_msg = group_msg(
+            "+15550002222",
+            "Hello friends from the mutual aid meetup tonight",
+        );
+        assert!(handler.matches(&main_msg));
+        assert!(handler.execute(&main_msg).await.unwrap().is_empty());
+
+        let mut side = group_msg(
+            "+15550002222",
+            "Necesitamos más voluntarios para el evento de mañana",
+        );
+        side.group_id = Some("es-internal".into());
+        assert!(handler.matches(&side));
+        assert!(handler.execute(&side).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn relay_skips_bot_authored_messages() {
+        let signal = MockServer::start().await;
+        mount_signal_basics(&signal).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_parallel("main-internal", sample_bridge());
+        let identity = BotIdentity::new();
+        identity.remember_phone("+15550001111");
+        let handler = TranslateParallelHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new(
+                    "key",
+                    "http://127.0.0.1:9",
+                    "m",
+                    std::time::Duration::from_secs(2),
+                )
+                .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+            identity,
+        );
+
+        let bot_msg = group_msg("+15550001111", "Ada:\nHola");
+        assert!(handler.execute(&bot_msg).await.unwrap().is_empty());
     }
 }

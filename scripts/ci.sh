@@ -79,6 +79,28 @@ cargo llvm-cov --workspace --lcov --output-path lcov.info \
   --fail-under-lines 90 \
   --ignore-filename-regex '(^|/)main\.rs$'
 
+# Belt-and-suspenders: some cargo-llvm-cov builds have been observed not exiting
+# non-zero for --fail-under-lines. Enforce ≥90% from the LCOV we just wrote.
+LINE_PCT="$(python3 - <<'PY'
+lf = lh = 0
+with open("lcov.info", encoding="utf-8") as f:
+    for line in f:
+        if line.startswith("LF:"):
+            lf += int(line[3:])
+        elif line.startswith("LH:"):
+            lh += int(line[3:])
+if lf <= 0:
+    raise SystemExit("lcov.info missing LF totals")
+print(f"{100.0 * lh / lf:.2f}")
+PY
+)"
+echo "LCOV line coverage: ${LINE_PCT}% (gate ≥90%)"
+python3 - <<PY
+pct = float("${LINE_PCT}")
+if pct < 90.0:
+    raise SystemExit(f"error: line coverage {pct:.2f}% is below the 90% gate")
+PY
+
 # Upload LCOV is Actions-only (artifact). Locally we just leave lcov.info in-tree
 # (gitignored).
 

@@ -4,61 +4,18 @@ use signal_bot::commands::*;
 use signal_bot::config::Config;
 use signal_bot::error::AppResult;
 use signal_bot::group_preferences_store::GroupPreferencesStore;
-use signal_bot::transcribe_store::TranscribeStore;
-use signal_bot::voice_attachment_cache::VoiceAttachmentCache;
 use anyhow::Context;
 use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
 use signal_client::{MessageReceiver, SignalClient};
-use whisper_client::WhisperClient;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
 use tokio_stream::StreamExt;
-use tools::{ToolRegistry, builtin::{CalculatorTool, WeatherTool, WebSearchTool}};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use x402_payments::CreditStore;
-
-/// Create and configure tool registry based on config.
-fn create_tool_registry(config: &signal_bot::config::ToolsConfig) -> ToolRegistry {
-    let mut registry = ToolRegistry::new();
-
-    if !config.enabled {
-        info!("Tools system disabled by configuration");
-        return registry;
-    }
-
-    // Calculator - always available (no API key needed)
-    if config.calculator.enabled {
-        registry.register(Arc::new(CalculatorTool::new()));
-        info!("Registered tool: calculate");
-    }
-
-    // Weather - always available (no API key needed)
-    if config.weather.enabled {
-        registry.register(Arc::new(WeatherTool::new()));
-        info!("Registered tool: get_weather");
-    }
-
-    // Web search - requires API key
-    if config.web_search.enabled {
-        if let Some(api_key) = &config.web_search.api_key {
-            let tool = WebSearchTool::new(api_key.clone())
-                .with_max_results(config.web_search.max_results);
-            registry.register(Arc::new(tool));
-            info!("Registered tool: web_search (max_results: {})", config.web_search.max_results);
-        } else {
-            warn!("Web search tool enabled but TOOLS__WEB_SEARCH__API_KEY not set - skipping");
-        }
-    }
-
-    let enabled_count = registry.list_enabled().len();
-    info!("Tool registry ready with {} enabled tools", enabled_count);
-
-    registry
-}
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
@@ -92,9 +49,6 @@ async fn main() -> AppResult<()> {
         SignalClient::new(&config.signal.service_url)
             .context("Failed to create Signal client")?,
     );
-
-    // Create tool registry based on config
-    let tool_registry = Arc::new(create_tool_registry(&config.tools));
 
     // Initialize payment system
     let credit_store = if config.payments.enabled {
@@ -162,60 +116,7 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
-    let whisper_client = if config.whisper.enabled {
-        let whisper = Arc::new(
-            WhisperClient::new(
-                &config.whisper.service_url,
-                config.whisper.timeout,
-            )
-            .context("Failed to create Whisper client")?,
-        );
-
-        if whisper.health_check().await {
-            info!(
-                "Whisper API healthy at {} (model: {})",
-                config.whisper.service_url, config.whisper.model
-            );
-        } else {
-            warn!(
-                "Whisper API not reachable at {} — voice notes will fail until whisper-api is up",
-                config.whisper.service_url
-            );
-        }
-
-        Some(whisper)
-    } else {
-        info!("Whisper transcription disabled");
-        None
-    };
-
-    // Create command handlers
-    let chat = if let Some(ref store) = credit_store {
-        ChatHandler::with_payments(
-            near_ai.clone(),
-            conversations.clone(),
-            signal.clone(),
-            tool_registry.clone(),
-            config.bot.system_prompt.clone(),
-            config.tools.max_tool_calls,
-            config.bot.signal_username.clone(),
-            config.bot.github_repo.clone(),
-            store.clone(),
-            config.payments.pricing.clone(),
-        )
-    } else {
-        ChatHandler::new(
-            near_ai.clone(),
-            conversations.clone(),
-            signal.clone(),
-            tool_registry.clone(),
-            config.bot.system_prompt.clone(),
-            config.tools.max_tool_calls,
-            config.bot.signal_username.clone(),
-            config.bot.github_repo.clone(),
-        )
-    };
-
+    // Alpha command surface: sidecars + menus + TEE. Ask/chat/voice/translate-on kept in tree but unregistered.
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
 
     let group_prefs = GroupPreferencesStore::open(
@@ -233,67 +134,20 @@ async fn main() -> AppResult<()> {
         );
     }
 
-    let transcribe_store = Arc::new(TranscribeStore::new(Some(group_prefs.clone())));
-    let whisper_available = whisper_client.is_some();
+    let bot_identity = signal_bot::bot_identity::BotIdentity::new();
 
-    let voice_attachment_cache = VoiceAttachmentCache::with_default_capacity();
-
-    if let Some(ref whisper) = whisper_client {
-        let mut voice = VoiceHandler::new(
-            whisper.clone(),
-            signal.clone(),
-            config.whisper.reply_prefix.clone(),
-            config.whisper.max_attachment_bytes,
-        )
-        .with_transcribe_store(transcribe_store.clone());
-        if config.translate_all.enabled {
-            voice = voice.with_translate_all(group_prefs.clone(), near_ai.clone());
-        }
-        handlers.push(Box::new(voice));
-        handlers.push(Box::new(ManualTranscribeHandler::new(
-            whisper.clone(),
-            signal.clone(),
-            config.whisper.reply_prefix.clone(),
-            config.whisper.max_attachment_bytes,
-            voice_attachment_cache.clone(),
-        )));
-        info!("Voice note transcription enabled");
-    }
-
-    handlers.push(Box::new(TranscribeHandler::new(
-        transcribe_store,
-        whisper_available,
-    )));
-
-    if config.translate_all.enabled {
-        handlers.push(Box::new(TranslateAllHandler::new(
-            group_prefs.clone(),
-            near_ai.clone(),
-            signal.clone(),
-        )));
-        // Per-user opt-in translation. Registered after TranslateAllHandler so
-        // group-wide mode (when active) still takes precedence, and before
-        // TranslateHandler so `!translate-me` isn't captured by `!translate`.
-        handlers.push(Box::new(TranslateMeHandler::new(
-            group_prefs.clone(),
-            near_ai.clone(),
-            signal.clone(),
-        )));
-        info!(
-            "Group auto-translate enabled: !translate-on, !translate-off, !translate-me (max {}/min)",
-            config.translate_all.max_messages_per_minute
-        );
-    }
-
-    handlers.push(Box::new(TranslateHandler::new(
+    handlers.push(Box::new(TranslateMeHandler::new(
+        group_prefs.clone(),
         near_ai.clone(),
         signal.clone(),
-        config.whisper.reply_prefix.clone(),
+        bot_identity.clone(),
     )));
+    info!(
+        "Language sidecars enabled: !translate-me-on / !translate-me-off (max {}/min)",
+        config.translate_all.max_messages_per_minute
+    );
+
     handlers.push(Box::new(TranslateLangsHandler::new()));
-    handlers.push(Box::new(AskHandler::new(chat.clone())));
-    info!("AI chat: DM free-text; groups use !ask");
-    handlers.push(Box::new(chat));
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(ClearHandler::new(conversations.clone())));
     handlers.push(Box::new(SetLanguageHandler::new(group_prefs.clone())));
@@ -301,7 +155,6 @@ async fn main() -> AppResult<()> {
     handlers.push(Box::new(PrivacyHandler::new(group_prefs.clone())));
     handlers.push(Box::new(ModelsHandler::new(near_ai.clone())));
 
-    // Add payment handlers if enabled
     if let Some(ref store) = credit_store {
         handlers.push(Box::new(BalanceHandler::new(store.clone())));
         handlers.push(Box::new(DepositHandler::new(config.payments.clone())));
@@ -320,13 +173,7 @@ async fn main() -> AppResult<()> {
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
-                if let Some(audio) = message.primary_audio_attachment() {
-                    voice_attachment_cache.remember(
-                        message.reply_target(),
-                        message.message_timestamp,
-                        audio.clone(),
-                    );
-                }
+                bot_identity.note_inbound(&message);
 
                 let handler = handlers
                     .iter()

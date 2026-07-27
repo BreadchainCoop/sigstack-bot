@@ -242,11 +242,14 @@ mod tests {
         );
         let mut msg = BotMessage {
             source: "+1".into(),
+            source_number: None,
+            source_name: None,
             text: "!transcribe".into(),
             timestamp: 0,
             message_timestamp: 0,
             is_group: false,
             group_id: None,
+            group_name: None,
             receiving_account: "+2".into(),
             attachments: vec![],
             quote: None,

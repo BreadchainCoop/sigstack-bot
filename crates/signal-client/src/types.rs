@@ -14,6 +14,8 @@ pub struct Envelope {
     pub source: String,
     #[serde(rename = "sourceNumber")]
     pub source_number: Option<String>,
+    #[serde(rename = "sourceUuid")]
+    pub source_uuid: Option<String>,
     #[serde(rename = "sourceName")]
     pub source_name: Option<String>,
     pub timestamp: i64,
@@ -48,6 +50,27 @@ pub struct Group {
     pub id: String,
     #[serde(rename = "internal_id")]
     pub internal_id: String,
+}
+
+/// Request body for `POST /v1/groups/{number}`.
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateGroupRequest {
+    pub name: String,
+    pub members: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Response from create group.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateGroupResponse {
+    pub id: String,
+}
+
+/// Request body for add/remove group members.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChangeGroupMembersRequest {
+    pub members: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -142,8 +165,12 @@ pub struct Account {
 /// Parsed message for bot processing.
 #[derive(Debug, Clone)]
 pub struct BotMessage {
-    /// The phone number that sent the message.
+    /// Sender id from the envelope (`source` — often UUID).
     pub source: String,
+    /// E.164 phone when Signal includes it.
+    pub source_number: Option<String>,
+    /// Display name when Signal includes it.
+    pub source_name: Option<String>,
     /// The message text (empty for voice-only messages).
     pub text: String,
     /// Envelope timestamp (milliseconds).
@@ -154,6 +181,8 @@ pub struct BotMessage {
     pub is_group: bool,
     /// Group ID if this is a group message.
     pub group_id: Option<String>,
+    /// Optional group display name from `groupInfo`.
+    pub group_name: Option<String>,
     /// The bot's phone number that received this message.
     pub receiving_account: String,
     /// Attachments on this message (voice notes, etc.).
@@ -187,15 +216,50 @@ impl BotMessage {
 
         Some(Self {
             source: msg.envelope.source.clone(),
+            source_number: msg.envelope.source_number.clone(),
+            source_name: msg.envelope.source_name.clone(),
             text: data.message.clone().unwrap_or_default(),
             timestamp: msg.envelope.timestamp,
             message_timestamp: data.timestamp,
             is_group: data.group_info.is_some(),
             group_id: data.group_info.as_ref().map(|g| g.group_id.clone()),
+            group_name: data.group_info.as_ref().and_then(|g| g.group_name.clone()),
             receiving_account: msg.account.clone(),
             attachments: data.attachments.clone(),
             quote,
         })
+    }
+
+    /// Best address for group invite (`members[]`): phone, else source if it looks usable.
+    pub fn invite_address(&self) -> Option<String> {
+        if let Some(n) = &self.source_number {
+            if n.starts_with('+') {
+                return Some(n.clone());
+            }
+        }
+        if self.source.starts_with('+') {
+            return Some(self.source.clone());
+        }
+        // UUID may work for some signal-cli versions; prefer when no phone.
+        if self.source.contains('-') && self.source.len() >= 32 {
+            return Some(self.source.clone());
+        }
+        None
+    }
+
+    /// Display name for attribution in bridged messages.
+    pub fn display_name(&self) -> String {
+        self.source_name
+            .clone()
+            .filter(|n| !n.trim().is_empty())
+            .unwrap_or_else(|| {
+                let s = self.source_number.as_deref().unwrap_or(&self.source);
+                if s.chars().count() > 16 {
+                    format!("{}…", s.chars().take(12).collect::<String>())
+                } else {
+                    s.to_string()
+                }
+            })
     }
 
     /// Whether this message is a voice note (has at least one audio attachment).

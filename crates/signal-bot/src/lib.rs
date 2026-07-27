@@ -1,3 +1,4 @@
+pub mod bot_identity;
 pub mod commands;
 pub mod config;
 pub mod error;

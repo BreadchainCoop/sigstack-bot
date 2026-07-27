@@ -6,7 +6,7 @@ mod types;
 
 pub use client::WhisperClient;
 pub use error::WhisperError;
-pub use types::{HealthResponse, TranscriptionResult, whisper_language_to_iso};
+pub use types::{whisper_language_to_iso, HealthResponse, TranscriptionResult};
 
 #[cfg(test)]
 mod tests {
@@ -100,7 +100,10 @@ mod tests {
             .mount(&server)
             .await;
         let client = test_client(&server).await;
-        assert!(matches!(client.health().await.unwrap_err(), WhisperError::Api(_)));
+        assert!(matches!(
+            client.health().await.unwrap_err(),
+            WhisperError::Api(_)
+        ));
     }
 
     #[tokio::test]

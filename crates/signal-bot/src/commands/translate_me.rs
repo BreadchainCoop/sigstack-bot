@@ -717,7 +717,9 @@ mod tests {
         assert!(handler.matches(&msg));
         assert!(handler.execute(&msg).await.unwrap().is_empty());
         assert_eq!(
-            store.member_lang("main-internal", "+15550002222").as_deref(),
+            store
+                .member_lang("main-internal", "+15550002222")
+                .as_deref(),
             Some("es")
         );
 
@@ -732,7 +734,9 @@ mod tests {
         msg.text = "!translate-me-on fr".into();
         assert!(handler.execute(&msg).await.unwrap().is_empty());
         assert_eq!(
-            store.member_lang("main-internal", "+15550002222").as_deref(),
+            store
+                .member_lang("main-internal", "+15550002222")
+                .as_deref(),
             Some("fr")
         );
 

@@ -25,9 +25,7 @@ pub struct SignalClient {
 impl SignalClient {
     /// Create a new Signal client.
     pub fn new(base_url: impl Into<String>) -> Result<Self, SignalError> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()?;
+        let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
         Ok(Self {
             client,
@@ -176,10 +174,7 @@ impl SignalClient {
 
     async fn cache_group_mapping(&self, phone_number: &str, group: &Group) {
         let key = (phone_number.to_string(), group.internal_id.clone());
-        self.group_cache
-            .write()
-            .await
-            .insert(key, group.id.clone());
+        self.group_cache.write().await.insert(key, group.id.clone());
     }
 
     /// Resolve the recipient id for `/v2/send` (DM source or `group.*` id).
@@ -217,10 +212,7 @@ impl SignalClient {
             .await
             .insert(cache_key, send_id.clone());
 
-        debug!(
-            "Resolved group internal_id {} -> {}",
-            group_id, send_id
-        );
+        debug!("Resolved group internal_id {} -> {}", group_id, send_id);
         Ok(send_id)
     }
 
@@ -287,10 +279,7 @@ impl SignalClient {
         let encoded_number = encode(phone_number);
         let response = self
             .client
-            .get(format!(
-                "{}/v1/receive/{}",
-                self.base_url, encoded_number
-            ))
+            .get(format!("{}/v1/receive/{}", self.base_url, encoded_number))
             .send()
             .await?;
 
@@ -310,10 +299,7 @@ impl SignalClient {
         let encoded_id = encode(attachment_id);
         let response = self
             .client
-            .get(format!(
-                "{}/v1/attachments/{}",
-                self.base_url, encoded_id
-            ))
+            .get(format!("{}/v1/attachments/{}", self.base_url, encoded_id))
             .send()
             .await?;
 

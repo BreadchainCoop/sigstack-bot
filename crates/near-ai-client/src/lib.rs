@@ -141,7 +141,7 @@ mod tests {
     async fn test_health_check_success() {
         // health_check calls POST /chat/completions to verify connectivity
         let mock_server = MockServer::start().await;
-        
+
         Mock::given(method("POST"))
             .and(path("/chat/completions"))
             .respond_with(ResponseTemplate::new(200))
@@ -190,7 +190,10 @@ mod tests {
     async fn test_message_constructors() {
         let system = Message::system("You are a helpful assistant");
         assert!(matches!(system.role, Role::System));
-        assert_eq!(system.content, Some("You are a helpful assistant".to_string()));
+        assert_eq!(
+            system.content,
+            Some("You are a helpful assistant".to_string())
+        );
         assert_eq!(system.tool_calls, None);
         assert_eq!(system.tool_call_id, None);
 

@@ -446,11 +446,8 @@ mod tests {
             .verify_ownership(Some("secret")));
 
         // Missing file → empty registry
-        let missing = EncryptedStore::with_key(
-            DstackClient::new("/x"),
-            dir.path().join("nope.enc"),
-            key,
-        );
+        let missing =
+            EncryptedStore::with_key(DstackClient::new("/x"), dir.path().join("nope.enc"), key);
         assert_eq!(missing.load().await.unwrap().count(), 0);
 
         // Truncated file → empty registry

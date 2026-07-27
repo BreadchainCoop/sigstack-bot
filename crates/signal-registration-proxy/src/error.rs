@@ -156,7 +156,9 @@ mod tests {
         let io: ProxyError = std::io::Error::other("disk").into();
         assert!(matches!(io, ProxyError::Storage(_)));
 
-        let json: ProxyError = serde_json::from_str::<serde_json::Value>("{").unwrap_err().into();
+        let json: ProxyError = serde_json::from_str::<serde_json::Value>("{")
+            .unwrap_err()
+            .into();
         assert!(matches!(json, ProxyError::Storage(_)));
 
         let aes: ProxyError = aes_gcm::Error.into();

@@ -169,10 +169,9 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v1/accounts"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-                "+15550001111",
-                "+15550003333"
-            ])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!(["+15550001111", "+15550003333"])),
+            )
             .mount(&server)
             .await;
         Mock::given(method("GET"))
@@ -243,8 +242,11 @@ mod tests {
             .await;
 
         let client = SignalClient::new(server.uri()).unwrap();
-        let receiver =
-            MessageReceiver::with_intervals(client, Duration::from_millis(50), Duration::from_secs(60));
+        let receiver = MessageReceiver::with_intervals(
+            client,
+            Duration::from_millis(50),
+            Duration::from_secs(60),
+        );
         let mut stream = Box::pin(receiver.stream());
         let msg = tokio::time::timeout(Duration::from_secs(2), stream.next())
             .await

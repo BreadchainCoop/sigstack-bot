@@ -147,7 +147,10 @@ mod tests {
                 p if p.starts_with("/GetQuote") => {
                     r#"{"quote":"cXVvdGU=","report_data":"aabb"}"#.into()
                 }
-                "/DeriveKey" => r#"{"key":"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}"#.into(),
+                "/DeriveKey" => {
+                    r#"{"key":"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}"#
+                        .into()
+                }
                 "/GetRaTlsCert" => {
                     use base64::{engine::general_purpose::STANDARD, Engine};
                     let cert = STANDARD.encode(b"certificate-bytes");
@@ -163,8 +166,7 @@ mod tests {
             Ok(Response::new(Body::from(body)))
         }
 
-        let make_svc =
-            make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
         let server = Server::bind_unix(&sock).unwrap().serve(make_svc);
         let handle = tokio::spawn(async move {
             let _ = server.await;
@@ -222,8 +224,7 @@ mod tests {
                 .unwrap())
         }
 
-        let make_svc =
-            make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
         let server = Server::bind_unix(&sock).unwrap().serve(make_svc);
         let handle = tokio::spawn(async move {
             let _ = server.await;
@@ -256,8 +257,7 @@ mod tests {
             Ok(Response::new(Body::from(r#"{"key":"not-hex"}"#)))
         }
 
-        let make_svc =
-            make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
         let server = Server::bind_unix(&sock).unwrap().serve(make_svc);
         let handle = tokio::spawn(async move {
             let _ = server.await;

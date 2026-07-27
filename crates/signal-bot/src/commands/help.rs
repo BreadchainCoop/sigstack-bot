@@ -77,7 +77,9 @@ mod tests {
         assert!(!t.contains("!translate-me-on"));
 
         let t = translation.execute(&dm("!help")).await.unwrap();
-        assert!(t.contains("!translate-me-on"));
+        assert!(t.contains("!translation"));
+        assert!(t.contains("!transcription"));
+        assert!(t.contains("!privacy"));
         assert!(!t.contains("Voice notes in this chat"));
     }
 

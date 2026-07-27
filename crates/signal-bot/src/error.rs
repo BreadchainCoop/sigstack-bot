@@ -14,9 +14,6 @@ pub enum AppError {
     #[error("NEAR AI error: {0}")]
     NearAi(#[from] near_ai_client::NearAiError),
 
-    #[error("Conversation error: {0}")]
-    Conversation(#[from] conversation_store::ConversationError),
-
     #[error("Dstack error: {0}")]
     Dstack(#[from] dstack_client::DstackError),
 

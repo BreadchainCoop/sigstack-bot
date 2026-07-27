@@ -2,6 +2,7 @@
 
 use crate::commands::menu_locale::help_menu;
 use crate::commands::CommandHandler;
+use crate::config::BotRole;
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::menu_language::MenuLanguage;
@@ -51,7 +52,10 @@ impl CommandHandler for SetLanguageHandler {
             MenuLanguage::Es => "Idioma del menú configurado en español para este grupo.",
         };
 
-        Ok(format!("{confirmation}\n\n{}", help_menu(language)))
+        Ok(format!(
+            "{confirmation}\n\n{}",
+            help_menu(language, BotRole::Translation)
+        ))
     }
 }
 

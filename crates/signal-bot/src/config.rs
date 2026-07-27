@@ -1,8 +1,16 @@
 //! Application configuration loaded from environment variables.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use std::time::Duration;
+
+/// Which product surface this process runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BotRole {
+    Transcription,
+    Translation,
+}
 
 /// Application configuration.
 #[derive(Debug, Clone, Deserialize)]
@@ -11,28 +19,16 @@ pub struct Config {
     #[serde(default)]
     pub signal: SignalConfig,
 
-    /// NEAR AI configuration
-    pub near_ai: NearAiConfig,
-
-    /// Conversation storage configuration
+    /// NEAR AI configuration (required for translation role)
     #[serde(default)]
-    pub conversation: ConversationConfig,
+    pub near_ai: Option<NearAiConfig>,
 
-    /// Bot configuration
-    #[serde(default)]
+    /// Bot configuration (includes required `BOT__ROLE`)
     pub bot: BotConfig,
 
     /// Dstack configuration
     #[serde(default)]
     pub dstack: DstackConfig,
-
-    /// Tools configuration
-    #[serde(default)]
-    pub tools: ToolsConfig,
-
-    /// Payment configuration
-    #[serde(default)]
-    pub payments: x402_payments::PaymentConfig,
 
     /// Whisper transcription configuration
     #[serde(default)]
@@ -77,21 +73,9 @@ pub struct NearAiConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ConversationConfig {
-    /// Conversation TTL (how long before inactive conversations expire)
-    #[serde(default = "default_ttl", with = "humantime_serde")]
-    pub ttl: Duration,
-
-    /// Max messages per conversation (older messages are trimmed)
-    #[serde(default = "default_max_messages")]
-    pub max_messages: usize,
-}
-
-#[derive(Debug, Clone, Deserialize)]
 pub struct BotConfig {
-    /// System prompt for AI
-    #[serde(default = "default_system_prompt")]
-    pub system_prompt: String,
+    /// Product role: `transcription` or `translation` (required)
+    pub role: BotRole,
 
     /// Signal username (e.g., "nearai.54")
     #[serde(default)]
@@ -111,50 +95,6 @@ pub struct DstackConfig {
     /// Dstack guest agent socket path
     #[serde(default = "default_dstack_socket")]
     pub socket_path: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ToolsConfig {
-    /// Enable tool use system
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-
-    /// Maximum tool calls per message
-    #[serde(default = "default_max_tool_calls")]
-    pub max_tool_calls: usize,
-
-    /// Web search configuration
-    #[serde(default)]
-    pub web_search: WebSearchConfig,
-
-    /// Weather tool configuration
-    #[serde(default)]
-    pub weather: WeatherConfig,
-
-    /// Calculator tool configuration
-    #[serde(default)]
-    pub calculator: CalculatorConfig,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct WebSearchConfig {
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    pub api_key: Option<String>,
-    #[serde(default = "default_search_results")]
-    pub max_results: usize,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct WeatherConfig {
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CalculatorConfig {
-    #[serde(default = "default_true")]
-    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -216,68 +156,10 @@ impl Default for SignalConfig {
     }
 }
 
-impl Default for ConversationConfig {
-    fn default() -> Self {
-        Self {
-            ttl: default_ttl(),
-            max_messages: default_max_messages(),
-        }
-    }
-}
-
-impl Default for BotConfig {
-    fn default() -> Self {
-        Self {
-            system_prompt: default_system_prompt(),
-            signal_username: None,
-            github_repo: None,
-            log_level: default_log_level(),
-        }
-    }
-}
-
 impl Default for DstackConfig {
     fn default() -> Self {
         Self {
             socket_path: default_dstack_socket(),
-        }
-    }
-}
-
-impl Default for ToolsConfig {
-    fn default() -> Self {
-        Self {
-            enabled: default_true(),
-            max_tool_calls: default_max_tool_calls(),
-            web_search: WebSearchConfig::default(),
-            weather: WeatherConfig::default(),
-            calculator: CalculatorConfig::default(),
-        }
-    }
-}
-
-impl Default for WebSearchConfig {
-    fn default() -> Self {
-        Self {
-            enabled: default_true(),
-            api_key: None,
-            max_results: default_search_results(),
-        }
-    }
-}
-
-impl Default for WeatherConfig {
-    fn default() -> Self {
-        Self {
-            enabled: default_true(),
-        }
-    }
-}
-
-impl Default for CalculatorConfig {
-    fn default() -> Self {
-        Self {
-            enabled: default_true(),
         }
     }
 }
@@ -313,7 +195,6 @@ impl Default for GroupPreferencesConfig {
     }
 }
 
-// Default value functions
 fn default_signal_service() -> String {
     "http://signal-api:8080".into()
 }
@@ -334,66 +215,6 @@ fn default_timeout() -> Duration {
     Duration::from_secs(10)
 }
 
-fn default_ttl() -> Duration {
-    Duration::from_secs(24 * 60 * 60) // 24 hours
-}
-
-fn default_max_messages() -> usize {
-    50
-}
-
-fn default_system_prompt() -> String {
-    r#"You are an AI assistant accessible via Signal, running in a Trusted Execution Environment (TEE) for privacy protection.
-
-## Privacy & Security
-- Your conversations are protected by Intel TDX hardware encryption
-- Neither the bot operator nor the AI provider can read your messages
-- Users can verify this by sending "!verify" for cryptographic attestation
-
-## Available Tools
-You have access to these tools - use them when helpful:
-- **web_search**: Search the web for current information, news, facts
-- **get_weather**: Get current weather for any location
-- **calculate**: Evaluate math expressions accurately
-
-## Guidelines
-- Be concise - this is mobile chat, not essays
-- Use tools proactively for current information (don't guess dates, prices, weather)
-- For calculations, use the calculate tool rather than mental math
-- If a tool fails, explain what happened and try to help anyway
-- Never fabricate search results or weather data"#.into()
-}
-
-/// Build system prompt with identity information.
-/// This is called at runtime to inject signal_username and github_repo.
-pub fn build_system_prompt_with_identity(
-    base_prompt: &str,
-    signal_username: Option<&str>,
-    github_repo: Option<&str>,
-) -> String {
-    let now = chrono::Utc::now();
-    let mut prompt = base_prompt.to_string();
-
-    // Add identity section if either field is configured
-    if signal_username.is_some() || github_repo.is_some() {
-        prompt.push_str("\n\n## Identity");
-        if let Some(username) = signal_username {
-            prompt.push_str(&format!("\n- Signal username: @{}", username));
-        }
-        if let Some(repo) = github_repo {
-            prompt.push_str(&format!("\n- Source code: {}", repo));
-        }
-    }
-
-    // Add current timestamp
-    prompt.push_str(&format!(
-        "\n\nCurrent date and time: {} UTC",
-        now.format("%A, %B %d, %Y at %H:%M")
-    ));
-
-    prompt
-}
-
 fn default_log_level() -> String {
     "info".into()
 }
@@ -404,14 +225,6 @@ fn default_dstack_socket() -> String {
 
 fn default_true() -> bool {
     true
-}
-
-fn default_max_tool_calls() -> usize {
-    5
-}
-
-fn default_search_results() -> usize {
-    5
 }
 
 fn default_whisper_service() -> String {
@@ -460,8 +273,30 @@ impl Config {
             .build()
             .context("Failed to build configuration")?;
 
-        config
+        let cfg: Self = config
             .try_deserialize()
-            .context("Failed to deserialize configuration")
+            .context("Failed to deserialize configuration")?;
+
+        cfg.validate()?;
+        Ok(cfg)
+    }
+
+    fn validate(&self) -> Result<()> {
+        match self.bot.role {
+            BotRole::Transcription => {
+                if !self.whisper.enabled {
+                    bail!("BOT__ROLE=transcription requires WHISPER__ENABLED=true");
+                }
+            }
+            BotRole::Translation => {
+                let Some(near) = &self.near_ai else {
+                    bail!("BOT__ROLE=translation requires NEAR_AI__API_KEY (and related NEAR_AI__* settings)");
+                };
+                if near.api_key.trim().is_empty() {
+                    bail!("BOT__ROLE=translation requires a non-empty NEAR_AI__API_KEY");
+                }
+            }
+        }
+        Ok(())
     }
 }

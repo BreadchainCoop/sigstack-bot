@@ -1,10 +1,5 @@
 //! Bot command handlers.
 
-mod ask;
-mod balance;
-mod chat;
-mod clear;
-mod deposit;
 mod help;
 mod manual_transcribe;
 mod menu_locale;
@@ -21,11 +16,6 @@ mod translate_service;
 mod verify;
 mod voice;
 
-pub use ask::AskHandler;
-pub use balance::BalanceHandler;
-pub use chat::ChatHandler;
-pub use clear::ClearHandler;
-pub use deposit::DepositHandler;
 pub use help::HelpHandler;
 pub use manual_transcribe::ManualTranscribeHandler;
 pub use models::ModelsHandler;
@@ -81,7 +71,7 @@ pub trait CommandHandler: Send + Sync {
     /// Short name for dispatch / debug logs.
     fn label(&self) -> &'static str {
         if self.is_default() {
-            "chat"
+            "default"
         } else {
             "command"
         }

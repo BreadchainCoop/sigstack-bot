@@ -1,11 +1,13 @@
-//! Signal AI Proxy Bot - Main entry point.
+//! Signal product bots — transcription or translation (see `BOT__ROLE`).
 
+use signal_bot::bot_identity::BotIdentity;
 use signal_bot::commands::*;
-use signal_bot::config::Config;
+use signal_bot::config::{BotRole, Config};
 use signal_bot::error::AppResult;
 use signal_bot::group_preferences_store::GroupPreferencesStore;
+use signal_bot::transcribe_store::TranscribeStore;
+use signal_bot::voice_attachment_cache::VoiceAttachmentCache;
 use anyhow::Context;
-use conversation_store::ConversationStore;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
 use signal_client::{MessageReceiver, SignalClient};
@@ -15,88 +17,24 @@ use tokio::signal;
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-use x402_payments::CreditStore;
+use whisper_client::WhisperClient;
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
-    // Load configuration
     let config = Config::load().context("Failed to load configuration")?;
 
-    // Initialize logging
     init_logging(&config.bot.log_level);
 
-    info!("Starting Signal AI Proxy Bot...");
-
-    // Initialize clients
-    let near_ai = Arc::new(
-        NearAiClient::new(
-            &config.near_ai.api_key,
-            &config.near_ai.base_url,
-            &config.near_ai.model,
-            config.near_ai.timeout,
-        )
-        .context("Failed to create NEAR AI client")?,
+    info!(
+        role = ?config.bot.role,
+        "Starting sigstack Signal bot"
     );
-
-    let conversations = Arc::new(ConversationStore::new(
-        config.conversation.max_messages,
-        config.conversation.ttl,
-    ));
 
     let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
 
     let signal = Arc::new(
         SignalClient::new(&config.signal.service_url)
             .context("Failed to create Signal client")?,
-    );
-
-    // Initialize payment system
-    let credit_store = if config.payments.enabled {
-        info!("Initializing payment system...");
-
-        // Create separate DstackClient instances for payment system
-        let payment_dstack = DstackClient::new(&config.dstack.socket_path);
-        let server_dstack = DstackClient::new(&config.dstack.socket_path);
-
-        let store = CreditStore::new(
-            payment_dstack,
-            config.payments.storage_path.clone(),
-        )
-        .await
-        .context("Failed to initialize credit store")?;
-
-        // Spawn payment HTTP server
-        if let Some(handle) = x402_payments::spawn_payment_server(
-            config.payments.clone(),
-            server_dstack,
-        )
-        .await
-        .context("Failed to start payment server")? {
-            info!("Payment server started on port {}", config.payments.server_port);
-            // Store handle to keep server running (we don't await it)
-            tokio::spawn(async move {
-                if let Err(e) = handle.await {
-                    error!("Payment server error: {:?}", e);
-                }
-            });
-        }
-
-        Some(store)
-    } else {
-        info!("Payments disabled");
-        None
-    };
-
-    // Health checks
-    if near_ai.health_check().await {
-        info!("NEAR AI healthy - Model: {}", config.near_ai.model);
-    } else {
-        warn!("NEAR AI health check failed - will retry on requests");
-    }
-
-    info!(
-        "In-memory conversation store ready (max_messages={}, ttl={:?})",
-        config.conversation.max_messages, config.conversation.ttl
     );
 
     if dstack.is_in_tee().await {
@@ -116,60 +54,29 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
-    // Alpha command surface: sidecars + menus + TEE. Ask/chat/voice/translate-on kept in tree but unregistered.
-    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+    let bot_identity = BotIdentity::new();
 
-    let group_prefs = GroupPreferencesStore::open(
-        dstack.clone(),
-        PathBuf::from(&config.group_preferences.storage_path),
-        config.group_preferences.persist,
-        config.translate_all.max_messages_per_minute,
-    )
-    .await;
-
-    if config.group_preferences.persist {
-        info!(
-            "Group preferences persistence enabled: {}",
-            config.group_preferences.storage_path
-        );
-    }
-
-    let bot_identity = signal_bot::bot_identity::BotIdentity::new();
-
-    handlers.push(Box::new(TranslateMeHandler::new(
-        group_prefs.clone(),
-        near_ai.clone(),
-        signal.clone(),
-        bot_identity.clone(),
-    )));
-    info!(
-        "Language sidecars enabled: !translate-me-on / !translate-me-off (max {}/min)",
-        config.translate_all.max_messages_per_minute
-    );
-
-    handlers.push(Box::new(TranslateLangsHandler::new()));
-    handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
-    handlers.push(Box::new(ClearHandler::new(conversations.clone())));
-    handlers.push(Box::new(SetLanguageHandler::new(group_prefs.clone())));
-    handlers.push(Box::new(HelpHandler::new(group_prefs.clone())));
-    handlers.push(Box::new(PrivacyHandler::new(group_prefs.clone())));
-    handlers.push(Box::new(ModelsHandler::new(near_ai.clone())));
-
-    if let Some(ref store) = credit_store {
-        handlers.push(Box::new(BalanceHandler::new(store.clone())));
-        handlers.push(Box::new(DepositHandler::new(config.payments.clone())));
-        info!("Payment commands enabled: !balance, !deposit");
-    }
+    let handlers: Vec<Box<dyn CommandHandler>> = match config.bot.role {
+        BotRole::Transcription => {
+            build_transcription_handlers(&config, signal.clone(), dstack.clone()).await?
+        }
+        BotRole::Translation => {
+            build_translation_handlers(
+                &config,
+                signal.clone(),
+                dstack.clone(),
+                bot_identity.clone(),
+            )
+            .await?
+        }
+    };
 
     info!("Registered {} command handlers", handlers.len());
-    info!("NEAR AI endpoint: {}", config.near_ai.base_url);
     info!("Listening for messages...");
 
-    // Start message receiver
     let receiver = MessageReceiver::new((*signal).clone(), config.signal.poll_interval);
     let mut stream = Box::pin(receiver.stream());
 
-    // Main message loop
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
@@ -239,9 +146,162 @@ async fn main() -> AppResult<()> {
     Ok(())
 }
 
+async fn build_transcription_handlers(
+    config: &Config,
+    signal: Arc<SignalClient>,
+    dstack: Arc<DstackClient>,
+) -> AppResult<Vec<Box<dyn CommandHandler>>> {
+    let whisper = Arc::new(
+        WhisperClient::new(&config.whisper.service_url, config.whisper.timeout)
+            .context("Failed to create Whisper client")?,
+    );
+
+    if whisper.health_check().await {
+        info!(
+            "Whisper healthy at {} (model={})",
+            config.whisper.service_url, config.whisper.model
+        );
+    } else {
+        warn!(
+            "Whisper health check failed at {} — will retry on requests",
+            config.whisper.service_url
+        );
+    }
+
+    let group_prefs = GroupPreferencesStore::open(
+        dstack.clone(),
+        PathBuf::from(&config.group_preferences.storage_path),
+        config.group_preferences.persist,
+        config.translate_all.max_messages_per_minute,
+    )
+    .await;
+
+    let transcribe_store = Arc::new(TranscribeStore::new(Some(group_prefs.clone())));
+    let voice_cache = VoiceAttachmentCache::with_default_capacity();
+
+    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+
+    // Voice only — no NEAR translate-on-voice; translation CVM handles posted text.
+    handlers.push(Box::new(
+        VoiceHandler::new(
+            whisper.clone(),
+            signal.clone(),
+            config.whisper.reply_prefix.clone(),
+            config.whisper.max_attachment_bytes,
+        )
+        .with_transcribe_store(transcribe_store.clone())
+        .with_voice_cache(voice_cache.clone()),
+    ));
+    handlers.push(Box::new(ManualTranscribeHandler::new(
+        whisper.clone(),
+        signal.clone(),
+        config.whisper.reply_prefix.clone(),
+        config.whisper.max_attachment_bytes,
+        voice_cache,
+    )));
+    handlers.push(Box::new(TranscribeHandler::new(transcribe_store, true)));
+    handlers.push(Box::new(VerifyHandler::new(dstack)));
+    handlers.push(Box::new(HelpHandler::new(
+        group_prefs.clone(),
+        BotRole::Transcription,
+    )));
+    handlers.push(Box::new(PrivacyHandler::new(
+        group_prefs,
+        BotRole::Transcription,
+    )));
+
+    info!("Transcription role: voice / !transcribe* / help / privacy / verify");
+    Ok(handlers)
+}
+
+async fn build_translation_handlers(
+    config: &Config,
+    signal: Arc<SignalClient>,
+    dstack: Arc<DstackClient>,
+    bot_identity: Arc<BotIdentity>,
+) -> AppResult<Vec<Box<dyn CommandHandler>>> {
+    let near_cfg = config
+        .near_ai
+        .as_ref()
+        .context("NEAR AI config missing after validation")?;
+
+    let near_ai = Arc::new(
+        NearAiClient::new(
+            &near_cfg.api_key,
+            &near_cfg.base_url,
+            &near_cfg.model,
+            near_cfg.timeout,
+        )
+        .context("Failed to create NEAR AI client")?,
+    );
+
+    if near_ai.health_check().await {
+        info!("NEAR AI healthy - Model: {}", near_cfg.model);
+    } else {
+        warn!("NEAR AI health check failed - will retry on requests");
+    }
+
+    let group_prefs = GroupPreferencesStore::open(
+        dstack.clone(),
+        PathBuf::from(&config.group_preferences.storage_path),
+        config.group_preferences.persist,
+        config.translate_all.max_messages_per_minute,
+    )
+    .await;
+
+    if config.group_preferences.persist {
+        info!(
+            "Group preferences persistence enabled: {}",
+            config.group_preferences.storage_path
+        );
+    }
+
+    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+
+    handlers.push(Box::new(TranslateMeHandler::new(
+        group_prefs.clone(),
+        near_ai.clone(),
+        signal.clone(),
+        bot_identity,
+    )));
+    info!(
+        "Language Threads enabled: !translate-me-on / !translate-me-off (max {}/min)",
+        config.translate_all.max_messages_per_minute
+    );
+
+    if config.translate_all.enabled {
+        handlers.push(Box::new(TranslateAllHandler::new(
+            group_prefs.clone(),
+            near_ai.clone(),
+            signal.clone(),
+        )));
+        info!("In-chat translation enabled: !translate-on / !translate-off");
+    }
+
+    handlers.push(Box::new(TranslateHandler::new(
+        near_ai.clone(),
+        signal.clone(),
+        "📝 Transcript:",
+    )));
+    handlers.push(Box::new(TranslateLangsHandler::new()));
+    handlers.push(Box::new(SetLanguageHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(VerifyHandler::new(dstack)));
+    handlers.push(Box::new(HelpHandler::new(
+        group_prefs.clone(),
+        BotRole::Translation,
+    )));
+    handlers.push(Box::new(PrivacyHandler::new(
+        group_prefs,
+        BotRole::Translation,
+    )));
+    handlers.push(Box::new(ModelsHandler::new(near_ai)));
+
+    info!("Translation role: Language Threads + in-chat + quote !translate");
+    Ok(handlers)
+}
+
 fn init_logging(level: &str) {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(level));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
 
     tracing_subscriber::registry()
         .with(filter)

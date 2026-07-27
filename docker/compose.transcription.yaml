@@ -1,0 +1,86 @@
+# Local transcription stack — mirrors Phala transcription CVM.
+# Own Docker network; does not share a network with the translation stack.
+# Integration with translation is via Signal group chat only.
+#
+#   docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
+
+name: sigstack-transcription
+
+services:
+  signal-api:
+    image: bbernhard/signal-cli-rest-api@sha256:2399d449123cdad56c4d859277e3b9127e1a00c4d2ab4601c239882609286cf8
+    environment:
+      - MODE=normal
+      - AUTO_RECEIVE_SCHEDULE=
+      - LOG_LEVEL=info
+    volumes:
+      - signal-config-transcription:/home/.local/share/signal-cli
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  whisper-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.whisper
+    platform: linux/amd64
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+    volumes:
+      - whisper-models:/models
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+    restart: unless-stopped
+
+  signal-bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - BOT__ROLE=transcription
+      - SIGNAL__SERVICE_URL=http://signal-api:8080
+      - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
+      - WHISPER__ENABLED=true
+      - WHISPER__SERVICE_URL=http://whisper-api:9000
+      - WHISPER__MODEL=${WHISPER_MODEL:-small}
+      - WHISPER__TIMEOUT=${WHISPER_TIMEOUT:-120s}
+      - BOT__LOG_LEVEL=${LOG_LEVEL:-info}
+      - BOT__GITHUB_REPO=${BOT_GITHUB_REPO:-https://github.com/BreadchainCoop/sigstack-bot}
+      - DSTACK__SOCKET_PATH=/var/run/dstack.sock
+      - GROUP_PREFERENCES__PERSIST=${GROUP_PREFERENCES_PERSIST:-true}
+      - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock:ro
+      - group-prefs-transcription:/data
+    networks:
+      - internal
+    depends_on:
+      signal-api:
+        condition: service_healthy
+      whisper-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  signal-config-transcription:
+    driver: local
+  whisper-models:
+    driver: local
+  group-prefs-transcription:
+    driver: local
+
+networks:
+  internal:
+    name: sigstack-transcription-internal

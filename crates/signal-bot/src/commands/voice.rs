@@ -6,6 +6,7 @@ use crate::commands::translate_service::{
 use crate::commands::CommandHandler;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_store::TranscribeStore;
+use crate::voice_attachment_cache::VoiceAttachmentCache;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
@@ -25,6 +26,7 @@ pub struct VoiceHandler {
     group_translate: Option<Arc<GroupPreferencesStore>>,
     near_ai: Option<Arc<NearAiClient>>,
     transcribe_store: Option<Arc<TranscribeStore>>,
+    voice_cache: Option<Arc<VoiceAttachmentCache>>,
 }
 
 impl VoiceHandler {
@@ -42,11 +44,17 @@ impl VoiceHandler {
             group_translate: None,
             near_ai: None,
             transcribe_store: None,
+            voice_cache: None,
         }
     }
 
     pub fn with_transcribe_store(mut self, store: Arc<TranscribeStore>) -> Self {
         self.transcribe_store = Some(store);
+        self
+    }
+
+    pub fn with_voice_cache(mut self, cache: Arc<VoiceAttachmentCache>) -> Self {
+        self.voice_cache = Some(cache);
         self
     }
 
@@ -188,6 +196,10 @@ impl CommandHandler for VoiceHandler {
             Some(a) => a,
             None => return Ok("Could not read voice attachment.".into()),
         };
+
+        if let Some(cache) = &self.voice_cache {
+            cache.remember(message.reply_target(), message.timestamp, audio.clone());
+        }
 
         if let Some(expected) = audio.size {
             if expected > self.max_attachment_bytes as i64 {

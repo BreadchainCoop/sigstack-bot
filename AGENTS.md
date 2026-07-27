@@ -36,11 +36,12 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 | [`docs/two-cvm-architecture.md`](docs/two-cvm-architecture.md) | Architecture diagram and compose/Phala split |
 | [`docs/language-threads.md`](docs/language-threads.md) | Language Threads product behavior |
 | [`.agents/skills/`](.agents/skills/) | Vendored skills (Rust, Docker, Stripe) |
+| [`.agents/rules/`](.agents/rules/) | Agent rules (e.g. commit message subjects) |
 
 ## Rules of thumb
 
 - Required env: `BOT__ROLE=transcription|translation`
 - Do not reintroduce tools, x402, or general chat paths
 - Image digests stay pinned in compose for attestation
-- Commits must pass [commitlint](https://github.com/conventional-changelog/commitlint) (`type: subject`); run `npm install` or `pnpm install` so husky `commit-msg` / `pre-push` hooks are active
+- Commits must pass [commitlint](https://github.com/conventional-changelog/commitlint) (`type: subject`); subject all lowercase, no trailing period, dashes not snake_case — see [`.agents/rules/commit-messages.md`](.agents/rules/commit-messages.md). Run `npm install` or `pnpm install` so husky `commit-msg` / `pre-push` hooks are active
 - **CI style gates are not optional.** GitHub Actions (`test.yml` + `commitlint.yml`) fails on fmt, Clippy `-D warnings`, llvm-cov ≥90% lines, and conventional commits. Before finishing Rust work run `npm run ci` / `pnpm run ci` (never bare `pnpm ci`). Husky `pre-push` runs that script; `commit-msg` runs commitlint on each commit. Cursor auto-fmts `.rs` edits and re-prompts on stop if fmt/clippy would fail CI.

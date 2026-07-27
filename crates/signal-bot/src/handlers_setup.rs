@@ -203,6 +203,8 @@ mod tests {
             signal: SignalConfig {
                 service_url: "http://127.0.0.1:9".into(),
                 poll_interval: Duration::from_millis(50),
+                phone_number: None,
+                peer_phone: None,
             },
             near_ai: None,
             bot: BotConfig {

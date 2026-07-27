@@ -52,6 +52,14 @@ pub struct SignalConfig {
     /// Poll interval for messages
     #[serde(default = "default_poll_interval", with = "humantime_serde")]
     pub poll_interval: Duration,
+
+    /// This bot's Signal phone (ops/registration; identity still learned from inbound).
+    #[serde(default)]
+    pub phone_number: Option<String>,
+
+    /// Peer product bot phone (E.164). Translation uses this to invite transcription.
+    #[serde(default)]
+    pub peer_phone: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -152,6 +160,8 @@ impl Default for SignalConfig {
         Self {
             service_url: default_signal_service(),
             poll_interval: default_poll_interval(),
+            phone_number: None,
+            peer_phone: None,
         }
     }
 }
@@ -374,6 +384,8 @@ mod tests {
             SignalConfig::default().service_url,
             "http://signal-api:8080"
         );
+        assert!(SignalConfig::default().phone_number.is_none());
+        assert!(SignalConfig::default().peer_phone.is_none());
         assert_eq!(WhisperConfig::default().model, "small");
         assert!(TranslateAllConfig::default().enabled);
         assert!(GroupPreferencesConfig::default().persist);

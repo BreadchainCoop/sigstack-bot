@@ -110,6 +110,10 @@ impl SignalClient {
                 name: name.to_string(),
                 id: created.id.clone(),
                 internal_id: created.id.clone(),
+                members: vec![],
+                pending_invites: vec![],
+                pending_requests: vec![],
+                admins: vec![],
             });
 
         self.cache_group_mapping(phone_number, &group).await;
@@ -454,6 +458,10 @@ mod tests {
             name: "test".into(),
             id: "group.TUIzYitaQy85SmtteUpTMEo2ZE9wZ3lib0tOWVZrcDEzNFA3bDU0N1BrOD0=".into(),
             internal_id: "MB3b+ZC/9JkmyJS0J6dOpgyboKNYVkp134P7l547Pk8=".into(),
+            members: vec![],
+            pending_invites: vec![],
+            pending_requests: vec![],
+            admins: vec![],
         }];
 
         assert_eq!(

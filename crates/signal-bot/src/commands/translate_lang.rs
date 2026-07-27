@@ -9,36 +9,156 @@ pub struct Language {
 
 /// Full supported language catalog (for `!list-langs`).
 pub const ALL_LANGUAGES: &[Language] = &[
-    Language { code: "en", name: "English", flag: "🇺🇸" },
-    Language { code: "es", name: "Spanish", flag: "🇪🇸" },
-    Language { code: "fr", name: "French", flag: "🇫🇷" },
-    Language { code: "de", name: "German", flag: "🇩🇪" },
-    Language { code: "it", name: "Italian", flag: "🇮🇹" },
-    Language { code: "pt", name: "Portuguese", flag: "🇵🇹" },
-    Language { code: "ru", name: "Russian", flag: "🇷🇺" },
-    Language { code: "zh", name: "Chinese", flag: "🇨🇳" },
-    Language { code: "ja", name: "Japanese", flag: "🇯🇵" },
-    Language { code: "ko", name: "Korean", flag: "🇰🇷" },
-    Language { code: "ar", name: "Arabic", flag: "🇸🇦" },
-    Language { code: "hi", name: "Hindi", flag: "🇮🇳" },
-    Language { code: "bn", name: "Bengali", flag: "🇧🇩" },
-    Language { code: "nl", name: "Dutch", flag: "🇳🇱" },
-    Language { code: "pl", name: "Polish", flag: "🇵🇱" },
-    Language { code: "tr", name: "Turkish", flag: "🇹🇷" },
-    Language { code: "vi", name: "Vietnamese", flag: "🇻🇳" },
-    Language { code: "th", name: "Thai", flag: "🇹🇭" },
-    Language { code: "id", name: "Indonesian", flag: "🇮🇩" },
-    Language { code: "uk", name: "Ukrainian", flag: "🇺🇦" },
-    Language { code: "sv", name: "Swedish", flag: "🇸🇪" },
-    Language { code: "cs", name: "Czech", flag: "🇨🇿" },
-    Language { code: "el", name: "Greek", flag: "🇬🇷" },
-    Language { code: "he", name: "Hebrew", flag: "🇮🇱" },
-    Language { code: "ro", name: "Romanian", flag: "🇷🇴" },
-    Language { code: "hu", name: "Hungarian", flag: "🇭🇺" },
-    Language { code: "fi", name: "Finnish", flag: "🇫🇮" },
-    Language { code: "da", name: "Danish", flag: "🇩🇰" },
-    Language { code: "no", name: "Norwegian", flag: "🇳🇴" },
-    Language { code: "fa", name: "Persian", flag: "🇮🇷" },
+    Language {
+        code: "en",
+        name: "English",
+        flag: "🇺🇸",
+    },
+    Language {
+        code: "es",
+        name: "Spanish",
+        flag: "🇪🇸",
+    },
+    Language {
+        code: "fr",
+        name: "French",
+        flag: "🇫🇷",
+    },
+    Language {
+        code: "de",
+        name: "German",
+        flag: "🇩🇪",
+    },
+    Language {
+        code: "it",
+        name: "Italian",
+        flag: "🇮🇹",
+    },
+    Language {
+        code: "pt",
+        name: "Portuguese",
+        flag: "🇵🇹",
+    },
+    Language {
+        code: "ru",
+        name: "Russian",
+        flag: "🇷🇺",
+    },
+    Language {
+        code: "zh",
+        name: "Chinese",
+        flag: "🇨🇳",
+    },
+    Language {
+        code: "ja",
+        name: "Japanese",
+        flag: "🇯🇵",
+    },
+    Language {
+        code: "ko",
+        name: "Korean",
+        flag: "🇰🇷",
+    },
+    Language {
+        code: "ar",
+        name: "Arabic",
+        flag: "🇸🇦",
+    },
+    Language {
+        code: "hi",
+        name: "Hindi",
+        flag: "🇮🇳",
+    },
+    Language {
+        code: "bn",
+        name: "Bengali",
+        flag: "🇧🇩",
+    },
+    Language {
+        code: "nl",
+        name: "Dutch",
+        flag: "🇳🇱",
+    },
+    Language {
+        code: "pl",
+        name: "Polish",
+        flag: "🇵🇱",
+    },
+    Language {
+        code: "tr",
+        name: "Turkish",
+        flag: "🇹🇷",
+    },
+    Language {
+        code: "vi",
+        name: "Vietnamese",
+        flag: "🇻🇳",
+    },
+    Language {
+        code: "th",
+        name: "Thai",
+        flag: "🇹🇭",
+    },
+    Language {
+        code: "id",
+        name: "Indonesian",
+        flag: "🇮🇩",
+    },
+    Language {
+        code: "uk",
+        name: "Ukrainian",
+        flag: "🇺🇦",
+    },
+    Language {
+        code: "sv",
+        name: "Swedish",
+        flag: "🇸🇪",
+    },
+    Language {
+        code: "cs",
+        name: "Czech",
+        flag: "🇨🇿",
+    },
+    Language {
+        code: "el",
+        name: "Greek",
+        flag: "🇬🇷",
+    },
+    Language {
+        code: "he",
+        name: "Hebrew",
+        flag: "🇮🇱",
+    },
+    Language {
+        code: "ro",
+        name: "Romanian",
+        flag: "🇷🇴",
+    },
+    Language {
+        code: "hu",
+        name: "Hungarian",
+        flag: "🇭🇺",
+    },
+    Language {
+        code: "fi",
+        name: "Finnish",
+        flag: "🇫🇮",
+    },
+    Language {
+        code: "da",
+        name: "Danish",
+        flag: "🇩🇰",
+    },
+    Language {
+        code: "no",
+        name: "Norwegian",
+        flag: "🇳🇴",
+    },
+    Language {
+        code: "fa",
+        name: "Persian",
+        flag: "🇮🇷",
+    },
 ];
 
 /// Resolve a user-provided language token (ISO code or common name).

@@ -128,7 +128,10 @@ impl GroupPreference {
         self.transcribe_enabled
             && self.translate.is_none()
             && self.menu_language == MenuLanguage::En
-            && self.language_bridge.as_ref().is_none_or(LanguageBridge::is_empty)
+            && self
+                .language_bridge
+                .as_ref()
+                .is_none_or(LanguageBridge::is_empty)
     }
 }
 
@@ -178,16 +181,8 @@ impl GroupPreferencesStore {
             sidecar_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
-            dstack: if persist {
-                Some(dstack)
-            } else {
-                None
-            },
-            storage_path: if persist {
-                Some(storage_path)
-            } else {
-                None
-            },
+            dstack: if persist { Some(dstack) } else { None },
+            storage_path: if persist { Some(storage_path) } else { None },
             cached_key: RwLock::new(None),
             persist_lock: Mutex::new(()),
         });
@@ -195,9 +190,7 @@ impl GroupPreferencesStore {
         if persist {
             match store.load().await {
                 Ok(count) => info!("Loaded group preferences for {count} groups"),
-                Err(e) => warn!(
-                    "Could not load group preferences (starting fresh): {e}"
-                ),
+                Err(e) => warn!("Could not load group preferences (starting fresh): {e}"),
             }
         }
 
@@ -362,7 +355,9 @@ impl GroupPreferencesStore {
         {
             let mut groups = self.groups.write().unwrap();
             let entry = groups.entry(main_group_id.to_string()).or_default();
-            let bridge = entry.language_bridge.get_or_insert_with(LanguageBridge::default);
+            let bridge = entry
+                .language_bridge
+                .get_or_insert_with(LanguageBridge::default);
             bridge.sidecars.insert(lang.to_string(), send_id);
             bridge
                 .sidecar_internal
@@ -383,7 +378,9 @@ impl GroupPreferencesStore {
         let previous = {
             let mut groups = self.groups.write().unwrap();
             let entry = groups.entry(main_group_id.to_string()).or_default();
-            let bridge = entry.language_bridge.get_or_insert_with(LanguageBridge::default);
+            let bridge = entry
+                .language_bridge
+                .get_or_insert_with(LanguageBridge::default);
             let prev = bridge.members.insert(user.to_string(), lang.to_string());
             if let Some(addr) = address {
                 bridge.member_addresses.insert(user.to_string(), addr);
@@ -552,7 +549,10 @@ impl GroupPreferencesStore {
             .await
             .map_err(|e| format!("rename temp file: {e}"))?;
 
-        debug!("Saved encrypted group preferences ({} bytes) to {path:?}", data.len());
+        debug!(
+            "Saved encrypted group preferences ({} bytes) to {path:?}",
+            data.len()
+        );
         Ok(())
     }
 
@@ -658,10 +658,7 @@ mod tests {
     #[test]
     fn menu_language_defaults_english() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        assert_eq!(
-            store.get_menu_language("group.new"),
-            MenuLanguage::En
-        );
+        assert_eq!(store.get_menu_language("group.new"), MenuLanguage::En);
     }
 
     #[test]
@@ -695,28 +692,15 @@ mod tests {
             GroupPreferencesStore::with_test_key(DstackClient::new("/x"), path, key, 30).await;
         assert!(store2.is_active("group.one"));
         assert!(!store2.is_transcribe_enabled("group.two"));
-        assert_eq!(
-            store2.get_menu_language("group.three"),
-            MenuLanguage::Es
-        );
+        assert_eq!(store2.get_menu_language("group.three"), MenuLanguage::Es);
     }
 
     #[test]
     fn language_bridge_sidecar_and_members() {
         let store = GroupPreferencesStore::new_in_memory(0);
         let main = "main-internal";
-        store.set_sidecar(
-            main,
-            "es",
-            "group.es-send".into(),
-            "es-internal".into(),
-        );
-        store.set_sidecar(
-            main,
-            "en",
-            "group.en-send".into(),
-            "en-internal".into(),
-        );
+        store.set_sidecar(main, "es", "group.es-send".into(), "es-internal".into());
+        store.set_sidecar(main, "en", "group.en-send".into(), "en-internal".into());
 
         assert_eq!(
             store.lookup_sidecar("es-internal"),
@@ -727,7 +711,9 @@ mod tests {
             Some("group.en-send")
         );
 
-        assert!(store.set_bridge_member(main, "user-a", "es", Some("+1".into())).is_none());
+        assert!(store
+            .set_bridge_member(main, "user-a", "es", Some("+1".into()))
+            .is_none());
         assert_eq!(store.member_lang(main, "user-a").as_deref(), Some("es"));
 
         let prev = store.set_bridge_member(main, "user-a", "en", None);
@@ -747,12 +733,7 @@ mod tests {
         let dstack = DstackClient::new("/nonexistent/dstack.sock");
 
         let store = GroupPreferencesStore::with_test_key(dstack, path.clone(), key, 30).await;
-        store.set_sidecar(
-            "main-1",
-            "es",
-            "group.es".into(),
-            "es-int".into(),
-        );
+        store.set_sidecar("main-1", "es", "group.es".into(), "es-int".into());
         store.set_bridge_member("main-1", "uuid-1", "es", Some("+1555".into()));
         store.persist_now().await.unwrap();
 

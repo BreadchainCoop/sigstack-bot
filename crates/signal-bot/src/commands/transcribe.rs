@@ -39,8 +39,7 @@ impl CommandHandler for TranscribeHandler {
 
         let context_id = message.reply_target();
         let enable = message.text.trim() == "!transcribe-on";
-        self.store
-            .set_enabled(context_id, enable, message.is_group);
+        self.store.set_enabled(context_id, enable, message.is_group);
 
         if message.is_group {
             if enable {

@@ -71,16 +71,15 @@ impl ManualTranscribeHandler {
                 .text
                 .as_deref()
                 .map(|t| Self::truncate_snippet(t, 120))
-                .or_else(|| quote.audio_attachment.as_ref().map(|_| "[voice note]".into()));
+                .or_else(|| {
+                    quote
+                        .audio_attachment
+                        .as_ref()
+                        .map(|_| "[voice note]".into())
+                });
 
             self.signal
-                .reply_quoted_target(
-                    message,
-                    quote.id,
-                    author,
-                    snippet.as_deref(),
-                    body,
-                )
+                .reply_quoted_target(message, quote.id, author, snippet.as_deref(), body)
                 .await?;
         } else {
             self.signal.reply(message, body).await?;
@@ -99,7 +98,11 @@ impl ManualTranscribeHandler {
         }
     }
 
-    async fn transcribe_audio(&self, audio: &Attachment, bytes: &[u8]) -> Result<String, WhisperError> {
+    async fn transcribe_audio(
+        &self,
+        audio: &Attachment,
+        bytes: &[u8],
+    ) -> Result<String, WhisperError> {
         let filename = VoiceHandler::attachment_filename(audio);
         let transcript = self
             .whisper
@@ -164,7 +167,10 @@ impl CommandHandler for ManualTranscribeHandler {
         let bytes = match self.signal.download_attachment(&audio.id).await {
             Ok(bytes) => bytes,
             Err(e) => {
-                warn!("Failed to download quoted voice attachment {}: {}", audio.id, e);
+                warn!(
+                    "Failed to download quoted voice attachment {}: {}",
+                    audio.id, e
+                );
                 let msg = "Could not download voice note. Try again later.";
                 self.send_reply(message, Some(quote), msg).await?;
                 return Ok(String::new());
@@ -234,7 +240,9 @@ mod tests {
     #[test]
     fn matches_bare_command_only() {
         let handler = ManualTranscribeHandler::new(
-            Arc::new(WhisperClient::new("http://localhost", std::time::Duration::from_secs(5)).unwrap()),
+            Arc::new(
+                WhisperClient::new("http://localhost", std::time::Duration::from_secs(5)).unwrap(),
+            ),
             Arc::new(SignalClient::new("http://localhost").unwrap()),
             "📝 Transcript:",
             5_000_000,

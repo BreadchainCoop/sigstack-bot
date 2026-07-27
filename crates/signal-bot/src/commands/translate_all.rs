@@ -16,8 +16,7 @@ use tracing::{debug, info, instrument, warn};
 const TRANSLATE_ON_PREFIXES: &[&str] = &["!translate-on", "!translation-on"];
 const TRANSLATE_OFF_COMMANDS: &[&str] = &["!translate-off", "!translation-off"];
 
-const BARE_COMMAND_MSG: &str =
-    "Please specify two languages. Example: !translate-on es en";
+const BARE_COMMAND_MSG: &str = "Please specify two languages. Example: !translate-on es en";
 const GROUP_ONLY_MSG: &str = "!translate-on is only available in group chats";
 
 /// Whether the message is `!translate-on` / `!translation-on` or the off variant.
@@ -85,10 +84,7 @@ impl TranslateAllHandler {
     }
 
     fn require_group(message: &BotMessage) -> Result<&str, &'static str> {
-        message
-            .group_id
-            .as_deref()
-            .ok_or(GROUP_ONLY_MSG)
+        message.group_id.as_deref().ok_or(GROUP_ONLY_MSG)
     }
 
     async fn handle_setup(&self, message: &BotMessage) -> AppResult<String> {
@@ -162,7 +158,10 @@ impl TranslateAllHandler {
         };
 
         if !self.store.allow_message(group_id) {
-            warn!(group_id, "translate-all rate limited — skipping text message");
+            warn!(
+                group_id,
+                "translate-all rate limited — skipping text message"
+            );
             return Ok(());
         }
 
@@ -256,8 +255,13 @@ mod tests {
         TranslateAllHandler::new(
             GroupPreferencesStore::new_in_memory(30),
             Arc::new(
-                NearAiClient::new("key", "http://localhost", "model", std::time::Duration::from_secs(5))
-                    .unwrap(),
+                NearAiClient::new(
+                    "key",
+                    "http://localhost",
+                    "model",
+                    std::time::Duration::from_secs(5),
+                )
+                .unwrap(),
             ),
             Arc::new(SignalClient::new("http://localhost").unwrap()),
         )

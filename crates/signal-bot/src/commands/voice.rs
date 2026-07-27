@@ -4,10 +4,10 @@ use crate::commands::translate_service::{
     format_voice_auto_translation, near_ai_translate, resolve_translate_all_voice_pair,
 };
 use crate::commands::CommandHandler;
+use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_store::TranscribeStore;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
-use crate::error::AppResult;
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
 use signal_client::{Attachment, BotMessage, SignalClient};
@@ -109,7 +109,10 @@ impl VoiceHandler {
             .group_translate
             .as_ref()
             .expect("translate-all store required");
-        let near_ai = self.near_ai.as_ref().expect("near_ai required for translate-all");
+        let near_ai = self
+            .near_ai
+            .as_ref()
+            .expect("near_ai required for translate-all");
         let mode = store
             .get(group_id)
             .expect("translate-all mode must be active");
@@ -124,18 +127,18 @@ impl VoiceHandler {
         let transcript_text = transcript.trimmed_text();
         let whisper_lang = transcript.language.as_deref();
 
-        let (source, target) = match resolve_translate_all_voice_pair(&mode, whisper_lang, transcript_text)
-        {
-            Some(pair) => pair,
-            None => {
-                info!(
-                    group_id,
-                    whisper_lang,
-                    "Voice transcript language not in translate-all pair — transcript only"
-                );
-                return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
-            }
-        };
+        let (source, target) =
+            match resolve_translate_all_voice_pair(&mode, whisper_lang, transcript_text) {
+                Some(pair) => pair,
+                None => {
+                    info!(
+                        group_id,
+                        whisper_lang,
+                        "Voice transcript language not in translate-all pair — transcript only"
+                    );
+                    return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
+                }
+            };
 
         debug!(
             group_id,
@@ -208,9 +211,7 @@ impl CommandHandler for VoiceHandler {
                     max = self.max_attachment_bytes,
                     "Voice attachment exceeds size limit"
                 );
-                return Ok(
-                    "Voice note too long (max 5 min). Send a shorter clip.".into(),
-                );
+                return Ok("Voice note too long (max 5 min). Send a shorter clip.".into());
             }
         }
 
@@ -241,7 +242,10 @@ impl CommandHandler for VoiceHandler {
             let group_id = message.group_id.as_deref().unwrap();
             let store = self.group_translate.as_ref().unwrap();
             if store.allow_message(group_id) {
-                match self.translate_all_voice(message, audio, &bytes, group_id).await {
+                match self
+                    .translate_all_voice(message, audio, &bytes, group_id)
+                    .await
+                {
                     Ok(response) => {
                         info!(
                             source = %message.source,

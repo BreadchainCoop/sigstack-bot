@@ -106,8 +106,16 @@ fn casual_language_hints(text: &str) -> Vec<&'static str> {
     let mut hints = Vec::new();
 
     let english_markers = [
-        " the ", " i'm ", " how ", " your ", "hello", "english", " day?",
-        "speaking in english", "how are", "doing?",
+        " the ",
+        " i'm ",
+        " how ",
+        " your ",
+        "hello",
+        "english",
+        " day?",
+        "speaking in english",
+        "how are",
+        "doing?",
     ];
     if english_markers.iter().any(|m| lower.contains(m)) {
         hints.push("en");
@@ -303,14 +311,11 @@ mod tests {
             resolve_language("es").unwrap(),
             resolve_language("en").unwrap(),
         );
-        let pair = resolve_translate_all_voice_pair(
-            &mode,
-            Some("es"),
-            "Como está? Como foi tu dia oi?",
-        )
-        .or_else(|| {
-            resolve_translate_all_voice_pair(&mode, None, "Como está? Como foi tu dia oi?")
-        });
+        let pair =
+            resolve_translate_all_voice_pair(&mode, Some("es"), "Como está? Como foi tu dia oi?")
+                .or_else(|| {
+                    resolve_translate_all_voice_pair(&mode, None, "Como está? Como foi tu dia oi?")
+                });
         let (source, target) = pair.expect("should resolve es -> en");
         assert_eq!(source.code, "es");
         assert_eq!(target.code, "en");

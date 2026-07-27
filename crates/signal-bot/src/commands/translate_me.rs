@@ -96,7 +96,10 @@ impl TranslateMeHandler {
 
     fn is_relay_candidate(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
-        if message.group_id.is_none() || message.is_voice_note() || text.is_empty() || text.starts_with('!')
+        if message.group_id.is_none()
+            || message.is_voice_note()
+            || text.is_empty()
+            || text.starts_with('!')
         {
             return false;
         }
@@ -201,12 +204,7 @@ impl TranslateMeHandler {
             );
             match self
                 .signal
-                .create_group(
-                    bot,
-                    &name,
-                    vec![address.clone()],
-                    Some(&description),
-                )
+                .create_group(bot, &name, vec![address.clone()], Some(&description))
                 .await
             {
                 Ok(group) => {
@@ -233,12 +231,8 @@ impl TranslateMeHandler {
             }
         }
 
-        self.store.set_bridge_member(
-            main_id,
-            &user_key,
-            lang.code,
-            Some(address),
-        );
+        self.store
+            .set_bridge_member(main_id, &user_key, lang.code, Some(address));
 
         info!(
             main_id,
@@ -480,11 +474,7 @@ impl CommandHandler for TranslateMeHandler {
         if Self::is_command(&message.text) {
             let reply = self.handle_command(message).await?;
             if !reply.is_empty() {
-                if let Err(e) = self
-                    .signal
-                    .reply(message, &reply)
-                    .await
-                {
+                if let Err(e) = self.signal.reply(message, &reply).await {
                     warn!(error = %e, "Failed to send translate-me command reply");
                 }
             }

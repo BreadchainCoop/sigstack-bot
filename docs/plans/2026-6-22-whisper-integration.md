@@ -3,7 +3,7 @@
 **Date:** 2026-06-22  
 **Status:** Draft  
 **Authors:** —  
-**Related:** `CLAUDE.md` (TEE model), `DESIGN.md` (future enhancements), [signal-translate-bot](https://github.com/decentralparknyc/signal-translate-bot) (LibreTranslate sidecar pattern)
+**Related:** `docs/CLAUDE.md` (TEE model), `docs/DESIGN.md` (future enhancements), [signal-translate-bot](https://github.com/decentralparknyc/signal-translate-bot) (LibreTranslate sidecar pattern)
 
 ---
 
@@ -195,7 +195,7 @@ services:
 
 ## Security & TEE Considerations
 
-### Must stay true (same as CLAUDE.md)
+### Must stay true (same as docs/CLAUDE.md)
 
 - **Signal CLI and bot in same CVM** — voice decrypt happens in `signal-api` inside enclave
 - **No plaintext audio to disk** — stream attachment to whisper service in memory; drop after transcript
@@ -505,7 +505,7 @@ Current `phala-compose.yaml` deploy suggestion uses **4096 MB** — sufficient f
 | `docker/phala-compose.yaml` | Add `whisper-api`; pin digest; bump memory if needed |
 | `docker/Dockerfile.whisper` | **New** (if custom image) |
 | `.env.example` / `docker/.env` | Whisper env vars |
-| `CLAUDE.md` | Document voice path + verification notes |
+| `docs/CLAUDE.md` | Document voice path + verification notes |
 
 ## Testing Plan
 
@@ -611,7 +611,7 @@ impl CommandHandler for ChatHandler {
 ### Phase 7: Production hardening
 
 - [ ] Pin whisper image digest in `phala-compose.yaml`
-- [ ] Document CVM sizing in `CLAUDE.md`
+- [ ] Document CVM sizing in `docs/CLAUDE.md`
 - [ ] Update attestation / verification docs for new service
 
 ### Phase 8 (optional): LibreTranslate sidecar

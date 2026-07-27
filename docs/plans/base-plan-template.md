@@ -151,7 +151,7 @@ External services (Whisper, LibreTranslate, NEAR AI, etc.) and whether they run 
 ## References
 
 - [Link to external doc or repo]()
-- `CLAUDE.md` — TEE security model
+- `docs/CLAUDE.md` — TEE security model
 - Related plan: `docs/plans/…`
 
 ---

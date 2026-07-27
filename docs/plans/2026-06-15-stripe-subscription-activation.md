@@ -3,7 +3,7 @@
 **Date:** 2026-06-15  
 **Status:** Draft  
 **Authors:** —  
-**Related:** `x402-payment-integration.md` (superseded for consumer SaaS), `CLAUDE.md`, `2026-6-22-whisper-integration.md`, [SignalWhisperBot plans](https://signalwhisperbot.com/en/plans) (competitor reference)
+**Related:** `x402-payment-integration.md` (superseded for consumer SaaS), `docs/CLAUDE.md`, `2026-6-22-whisper-integration.md`, [SignalWhisperBot plans](https://signalwhisperbot.com/en/plans) (competitor reference)
 
 ---
 
@@ -416,7 +416,7 @@ Stripe webhook events (minimum): `checkout.session.completed`, `customer.subscri
 - [SignalWhisperBot — Plans & Pricing](https://signalwhisperbot.com/en/plans)
 - `docs/plans/x402-payment-integration.md` — prior payment design (crypto)
 - `docs/plans/base-plan-template.md` — plan format
-- `CLAUDE.md` — TEE trust model, registration proxy, data flow
+- `docs/CLAUDE.md` — TEE trust model, registration proxy, data flow
 - `crates/signal-bot/src/group_preferences_store.rs` — pattern for encrypted non-content persistence
 - `crates/x402-payments/src/credits/store.rs` — pattern for usage records (adapt sponsor billing)
 

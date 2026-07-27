@@ -111,9 +111,7 @@ impl DstackClient {
             .uri(uri)
             .header("Content-Type", "application/json")
             .body(body)
-            .map_err(|e| {
-                DstackError::QuoteGeneration(format!("Failed to build request: {}", e))
-            })?;
+            .map_err(|e| DstackError::QuoteGeneration(format!("Failed to build request: {}", e)))?;
 
         let response = client.request(request).await?;
 

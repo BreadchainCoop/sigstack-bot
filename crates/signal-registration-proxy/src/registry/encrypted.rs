@@ -350,7 +350,8 @@ mod tests {
     #[test]
     fn test_registry_serialization_round_trip() {
         let mut registry = Registry::new();
-        let record = PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None);
+        let record =
+            PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None);
         registry.insert("+14155551234".into(), record);
 
         // Serialize
@@ -367,7 +368,10 @@ mod tests {
         let restored: Registry = serde_json::from_slice(&decrypted).unwrap();
 
         assert!(restored.get("+14155551234").is_some());
-        assert!(restored.get("+14155551234").unwrap().verify_ownership(Some("secret")));
+        assert!(restored
+            .get("+14155551234")
+            .unwrap()
+            .verify_ownership(Some("secret")));
     }
 
     #[test]
@@ -412,5 +416,65 @@ mod tests {
             // Save succeeds
             store.save(&registry).await.unwrap();
         });
+    }
+
+    #[tokio::test]
+    async fn encrypted_store_with_key_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("registry.enc");
+        let key = [0x11u8; 32];
+        let dstack = DstackClient::new("/nonexistent");
+
+        let store = EncryptedStore::with_key(dstack.clone(), path.clone(), key);
+        assert!(!store.exists());
+
+        let mut registry = Registry::new();
+        registry.insert(
+            "+14155551234".into(),
+            PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None),
+        );
+        store.save(&registry).await.unwrap();
+        assert!(store.exists());
+
+        let loaded = EncryptedStore::with_key(dstack, path.clone(), key)
+            .load()
+            .await
+            .unwrap();
+        assert!(loaded
+            .get("+14155551234")
+            .unwrap()
+            .verify_ownership(Some("secret")));
+
+        // Missing file → empty registry
+        let missing =
+            EncryptedStore::with_key(DstackClient::new("/x"), dir.path().join("nope.enc"), key);
+        assert_eq!(missing.load().await.unwrap().count(), 0);
+
+        // Truncated file → empty registry
+        std::fs::write(&path, b"short").unwrap();
+        let truncated = EncryptedStore::with_key(DstackClient::new("/x"), path.clone(), key);
+        assert_eq!(truncated.load().await.unwrap().count(), 0);
+
+        // Wrong key → encryption error
+        let path2 = dir.path().join("reg2.enc");
+        EncryptedStore::with_key(DstackClient::new("/x"), path2.clone(), key)
+            .save(&registry)
+            .await
+            .unwrap();
+        let wrong = EncryptedStore::with_key(DstackClient::new("/x"), path2, [0x22u8; 32]);
+        assert!(matches!(
+            wrong.load().await.unwrap_err(),
+            ProxyError::Encryption(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn store_new_falls_back_to_memory_outside_tee() {
+        let store = Store::new(
+            DstackClient::new("/nonexistent"),
+            PathBuf::from("/tmp/unused.enc"),
+        )
+        .await;
+        assert!(matches!(store, Store::Memory(_)));
     }
 }

@@ -197,10 +197,7 @@ impl BotMessage {
     /// Returns `Some` for text messages and voice notes (audio attachments).
     pub fn from_incoming(msg: &IncomingMessage) -> Option<Self> {
         let data = msg.envelope.data_message.as_ref()?;
-        let has_text = data
-            .message
-            .as_ref()
-            .is_some_and(|text| !text.is_empty());
+        let has_text = data.message.as_ref().is_some_and(|text| !text.is_empty());
         let has_audio = data.attachments.iter().any(Attachment::is_audio);
 
         if !has_text && !has_audio {

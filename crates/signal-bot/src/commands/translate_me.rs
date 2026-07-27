@@ -96,7 +96,10 @@ impl TranslateMeHandler {
 
     fn is_relay_candidate(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
-        if message.group_id.is_none() || message.is_voice_note() || text.is_empty() || text.starts_with('!')
+        if message.group_id.is_none()
+            || message.is_voice_note()
+            || text.is_empty()
+            || text.starts_with('!')
         {
             return false;
         }
@@ -201,12 +204,7 @@ impl TranslateMeHandler {
             );
             match self
                 .signal
-                .create_group(
-                    bot,
-                    &name,
-                    vec![address.clone()],
-                    Some(&description),
-                )
+                .create_group(bot, &name, vec![address.clone()], Some(&description))
                 .await
             {
                 Ok(group) => {
@@ -233,12 +231,8 @@ impl TranslateMeHandler {
             }
         }
 
-        self.store.set_bridge_member(
-            main_id,
-            &user_key,
-            lang.code,
-            Some(address),
-        );
+        self.store
+            .set_bridge_member(main_id, &user_key, lang.code, Some(address));
 
         info!(
             main_id,
@@ -480,11 +474,7 @@ impl CommandHandler for TranslateMeHandler {
         if Self::is_command(&message.text) {
             let reply = self.handle_command(message).await?;
             if !reply.is_empty() {
-                if let Err(e) = self
-                    .signal
-                    .reply(message, &reply)
-                    .await
-                {
+                if let Err(e) = self.signal.reply(message, &reply).await {
                     warn!(error = %e, "Failed to send translate-me command reply");
                 }
             }
@@ -585,5 +575,276 @@ mod tests {
             quote: None,
         };
         assert!(identity.is_bot_message(&bot_msg));
+    }
+
+    #[tokio::test]
+    async fn execute_command_paths_without_creating_sidecar() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(3)
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let identity = BotIdentity::new();
+        let handler = TranslateMeHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new(
+                    "key",
+                    "http://127.0.0.1:9",
+                    "m",
+                    std::time::Duration::from_secs(2),
+                )
+                .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+            identity,
+        );
+
+        let dm = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!translate-me-on es".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert!(handler.matches(&dm));
+        assert!(handler.execute(&dm).await.unwrap().is_empty());
+
+        let mut group = dm.clone();
+        group.is_group = true;
+        group.group_id = Some("group.main".into());
+        group.text = "!translate-me-on".into();
+        assert!(handler.execute(&group).await.unwrap().is_empty());
+
+        group.text = "!translate-me-off".into();
+        assert!(handler.execute(&group).await.unwrap().is_empty());
+    }
+
+    fn handler_pair(
+        store: Arc<GroupPreferencesStore>,
+        signal_uri: String,
+        near_uri: String,
+    ) -> TranslateMeHandler {
+        TranslateMeHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new("key", near_uri, "m", std::time::Duration::from_secs(5)).unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal_uri).unwrap()),
+            BotIdentity::new(),
+        )
+    }
+
+    #[tokio::test]
+    async fn create_sidecar_on_existing_add_switch_and_off() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path, path_regex};
+        use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
+
+        struct CreateGroupResponder;
+        impl Respond for CreateGroupResponder {
+            fn respond(&self, request: &Request) -> ResponseTemplate {
+                let body: serde_json::Value =
+                    serde_json::from_slice(&request.body).unwrap_or_else(|_| json!({}));
+                let name = body["name"].as_str().unwrap_or("");
+                let id = if name.contains("French") {
+                    "group.fr"
+                } else {
+                    "group.es"
+                };
+                ResponseTemplate::new(200).set_body_json(json!({"id": id}))
+            }
+        }
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(CreateGroupResponder)
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Language Thread Spanish",
+                    "id": "group.es",
+                    "internal_id": "es-internal"
+                },
+                {
+                    "name": "Language Thread French",
+                    "id": "group.fr",
+                    "internal_id": "fr-internal"
+                }
+            ])))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"^/v1/groups/%2B15550001111/.+/members$"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(path_regex(r"^/v1/groups/%2B15550001111/.+/members$"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+
+        let mut msg = group_msg("+15550002222", "!translate-me-on es");
+        msg.group_id = Some("main-internal".into());
+        assert!(handler.matches(&msg));
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert_eq!(
+            store
+                .member_lang("main-internal", "+15550002222")
+                .as_deref(),
+            Some("es")
+        );
+
+        // Already subscribed same language.
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+
+        // Existing sidecar: second user joins via add_members.
+        let mut other = group_msg("+15550003333", "!translate-me-on es");
+        other.group_id = Some("main-internal".into());
+        assert!(handler.execute(&other).await.unwrap().is_empty());
+
+        msg.text = "!translate-me-on fr".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert_eq!(
+            store
+                .member_lang("main-internal", "+15550002222")
+                .as_deref(),
+            Some("fr")
+        );
+
+        // Off from sidecar group.
+        msg.group_id = Some("fr-internal".into());
+        msg.text = "!translate-me-off".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(store.member_lang("main-internal", "+15550002222").is_none());
+    }
+
+    #[tokio::test]
+    async fn relay_main_to_sidecar_and_sidecar_to_main() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hola"}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .mount(&near)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        store.set_sidecar(
+            "main-internal",
+            "fr",
+            "group.fr".into(),
+            "fr-internal".into(),
+        );
+
+        let handler = handler_pair(store, signal.uri(), near.uri());
+
+        // Main → sidecars (English text translates into ES/FR).
+        let main_msg = group_msg("+15550002222", "Hello friends from the mutual aid group");
+        assert!(handler.matches(&main_msg));
+        assert!(handler.execute(&main_msg).await.unwrap().is_empty());
+
+        // Sidecar → main + other sidecars.
+        let mut side = group_msg("+15550002222", "Bonjour");
+        side.group_id = Some("fr-internal".into());
+        assert!(handler.matches(&side));
+        assert!(handler.execute(&side).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn on_rejects_unknown_lang_and_missing_address() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "name": "Main",
+                "id": "group.main",
+                "internal_id": "main-internal"
+            }, {
+                "name": "ES",
+                "id": "group.es",
+                "internal_id": "es-internal"
+            }])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        let handler = handler_pair(store, signal.uri(), "http://127.0.0.1:9".into());
+
+        let unknown = group_msg("+15550002222", "!translate-me-on zz");
+        assert!(handler.execute(&unknown).await.unwrap().is_empty());
+
+        let mut no_addr = group_msg("alice", "!translate-me-on es");
+        no_addr.source_number = None;
+        assert!(handler.execute(&no_addr).await.unwrap().is_empty());
+
+        // Subscribe from sidecar is rejected.
+        let mut from_side = group_msg("+15550002222", "!translate-me-on es");
+        from_side.group_id = Some("es-internal".into());
+        assert!(handler.execute(&from_side).await.unwrap().is_empty());
     }
 }

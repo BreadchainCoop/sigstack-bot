@@ -4,11 +4,11 @@ use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use dstack_client::DstackClient;
+use hex;
+use sha2::{Digest, Sha256};
 use signal_client::BotMessage;
 use std::sync::Arc;
 use tracing::info;
-use sha2::{Sha256, Digest};
-use hex;
 
 /// Operator addresses for fund sweeping (from payment config).
 #[derive(Debug, Clone, Default)]
@@ -43,7 +43,10 @@ impl VerifyHandler {
     }
 
     /// Create handler with operator addresses to display.
-    pub fn with_operator_addresses(dstack: Arc<DstackClient>, addresses: OperatorAddresses) -> Self {
+    pub fn with_operator_addresses(
+        dstack: Arc<DstackClient>,
+        addresses: OperatorAddresses,
+    ) -> Self {
         Self {
             dstack,
             operator_addresses: Some(addresses),
@@ -215,7 +218,9 @@ impl VerifyHandler {
 
             lines.push("3. **Verify Docker Compose:** Check that compose_hash matches the expected configuration".into());
             lines.push("   - Repository: https://github.com/zmanian/signal-bot-tee".into());
-            lines.push("   - Compare the compose_hash above with: `sha256sum docker-compose.yaml`".into());
+            lines.push(
+                "   - Compare the compose_hash above with: `sha256sum docker-compose.yaml`".into(),
+            );
             lines.push("   - This proves the bot is running the expected code".into());
         } else if let Some(err) = &result.error {
             lines.push(format!("**Quote Error:** {}", err));
@@ -237,12 +242,17 @@ impl VerifyHandler {
                 }
                 lines.push(String::new());
                 lines.push("_Deposits are automatically swept to these addresses._".into());
-                lines.push("_Verify these match the expected operator by checking the compose hash._".into());
+                lines.push(
+                    "_Verify these match the expected operator by checking the compose hash._"
+                        .into(),
+                );
             }
         }
 
         lines.push(String::new());
-        lines.push("**NEAR AI:** Verify separately at https://docs.near.ai/cloud/verification/".into());
+        lines.push(
+            "**NEAR AI:** Verify separately at https://docs.near.ai/cloud/verification/".into(),
+        );
 
         lines.join("\n")
     }
@@ -482,5 +492,38 @@ mod tests {
         assert!(response.contains("0xABC123"));
         assert!(response.contains("operator.near"));
         assert!(response.contains("swept to these addresses"));
+    }
+
+    #[tokio::test]
+    async fn execute_reports_not_in_tee() {
+        let handler = create_test_handler();
+        let msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!verify challenge-1".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert!(handler.matches(&msg));
+        let out = handler.execute(&msg).await.unwrap();
+        assert!(out.contains("NOT RUNNING IN TEE") || out.contains("Not running in TEE"));
+    }
+
+    #[test]
+    fn operator_addresses_has_any() {
+        assert!(!OperatorAddresses::default().has_any());
+        assert!(OperatorAddresses {
+            base: Some("0x1".into()),
+            near: None,
+            solana: None,
+        }
+        .has_any());
     }
 }

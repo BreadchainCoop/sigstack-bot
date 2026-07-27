@@ -123,7 +123,9 @@ pub async fn verify_registration(
 
     // Check registration exists and is pending
     let registry = state.registry.read().await;
-    let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+    let record = registry
+        .get(&number)
+        .ok_or(ProxyError::NotFound(number.clone()))?;
 
     if record.status != RegistrationStatus::Pending {
         return Err(ProxyError::NotFound(number));
@@ -167,7 +169,9 @@ pub async fn get_status(
     let number = normalize_phone_number(&number).map_err(ProxyError::InvalidPhoneNumber)?;
 
     let registry = state.registry.read().await;
-    let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+    let record = registry
+        .get(&number)
+        .ok_or(ProxyError::NotFound(number.clone()))?;
 
     Ok(Json(StatusResponse {
         phone_number: record.phone_number.clone(),
@@ -207,7 +211,9 @@ pub async fn unregister(
 
     // Check registration exists
     let registry = state.registry.read().await;
-    let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+    let record = registry
+        .get(&number)
+        .ok_or(ProxyError::NotFound(number.clone()))?;
 
     // Verify ownership
     if !record.verify_ownership(request.ownership_secret.as_deref()) {
@@ -278,7 +284,9 @@ pub async fn update_profile(
 
     // Check registration exists and is verified
     let registry = state.registry.read().await;
-    let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+    let record = registry
+        .get(&number)
+        .ok_or(ProxyError::NotFound(number.clone()))?;
 
     if record.status != RegistrationStatus::Verified {
         return Err(ProxyError::NotFound(number));
@@ -316,7 +324,9 @@ pub async fn set_username(
     // Check registration exists and is verified
     {
         let registry = state.registry.read().await;
-        let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+        let record = registry
+            .get(&number)
+            .ok_or(ProxyError::NotFound(number.clone()))?;
 
         if record.status != RegistrationStatus::Verified {
             return Err(ProxyError::NotFound(number));
@@ -364,7 +374,9 @@ pub async fn delete_username(
 
     // Check registration exists and is verified
     let registry = state.registry.read().await;
-    let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+    let record = registry
+        .get(&number)
+        .ok_or(ProxyError::NotFound(number.clone()))?;
 
     if record.status != RegistrationStatus::Verified {
         return Err(ProxyError::NotFound(number));
@@ -453,7 +465,9 @@ pub async fn update_bot_config(
     // Check registration exists and is verified
     {
         let registry = state.registry.read().await;
-        let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+        let record = registry
+            .get(&number)
+            .ok_or(ProxyError::NotFound(number.clone()))?;
 
         if record.status != RegistrationStatus::Verified {
             return Err(ProxyError::NotFound(number));
@@ -468,7 +482,9 @@ pub async fn update_bot_config(
     // Update config in registry
     let (model, system_prompt) = {
         let mut registry = state.registry.write().await;
-        let record = registry.get_mut(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+        let record = registry
+            .get_mut(&number)
+            .ok_or(ProxyError::NotFound(number.clone()))?;
         record.update_config(request.model.clone(), request.system_prompt.clone());
         let result = (record.model.clone(), record.system_prompt.clone());
         state.store.save(&registry).await?;
@@ -493,7 +509,9 @@ pub async fn get_bot_config(
     let number = normalize_phone_number(&number).map_err(ProxyError::InvalidPhoneNumber)?;
 
     let registry = state.registry.read().await;
-    let record = registry.get(&number).ok_or(ProxyError::NotFound(number.clone()))?;
+    let record = registry
+        .get(&number)
+        .ok_or(ProxyError::NotFound(number.clone()))?;
 
     if record.status != RegistrationStatus::Verified {
         return Err(ProxyError::NotFound(number));
@@ -523,7 +541,11 @@ pub async fn list_bots(State(state): State<AppState>) -> Json<Vec<BotInfo>> {
     let mut bots = Vec::new();
     for r in verified_records {
         // Generate Signal.me link
-        let phone_digits = r.phone_number.chars().filter(|c| c.is_ascii_digit()).collect::<String>();
+        let phone_digits = r
+            .phone_number
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .collect::<String>();
         let signal_link = format!("https://signal.me/#p/+{}", phone_digits);
 
         // Use username as display name, or phone number as fallback

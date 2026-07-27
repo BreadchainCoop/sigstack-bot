@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/rust-fmt.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/rust-lint-gate.sh",
+        "loop_limit": 3
+      }
+    ]
+  }
+}

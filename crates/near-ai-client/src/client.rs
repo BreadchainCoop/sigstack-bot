@@ -35,9 +35,7 @@ impl NearAiClient {
         model: impl Into<String>,
         timeout: Duration,
     ) -> Result<Self, NearAiError> {
-        let client = Client::builder()
-            .timeout(timeout)
-            .build()?;
+        let client = Client::builder().timeout(timeout).build()?;
 
         Ok(Self {
             client,
@@ -73,7 +71,10 @@ impl NearAiClient {
         let response = self
             .client
             .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
@@ -116,7 +117,10 @@ impl NearAiClient {
         let response = match self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
@@ -171,7 +175,10 @@ impl NearAiClient {
         let response = self
             .client
             .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
@@ -182,32 +189,28 @@ impl NearAiClient {
         }
 
         let stream = response.bytes_stream().map(|result| {
-            result
-                .map_err(NearAiError::from)
-                .and_then(|bytes| {
-                    // Parse SSE data
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut content = String::new();
+            result.map_err(NearAiError::from).map(|bytes| {
+                // Parse SSE data
+                let text = String::from_utf8_lossy(&bytes);
+                let mut content = String::new();
 
-                    for line in text.lines() {
-                        if let Some(data) = line.strip_prefix("data: ") {
-                            if data == "[DONE]" {
-                                continue;
-                            }
-                            if let Ok(chunk) = serde_json::from_str::<ChatChunk>(data) {
-                                if let Some(delta_content) = chunk
-                                    .choices
-                                    .first()
-                                    .and_then(|c| c.delta.content.as_ref())
-                                {
-                                    content.push_str(delta_content);
-                                }
+                for line in text.lines() {
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if data == "[DONE]" {
+                            continue;
+                        }
+                        if let Ok(chunk) = serde_json::from_str::<ChatChunk>(data) {
+                            if let Some(delta_content) =
+                                chunk.choices.first().and_then(|c| c.delta.content.as_ref())
+                            {
+                                content.push_str(delta_content);
                             }
                         }
                     }
+                }
 
-                    Ok(content)
-                })
+                content
+            })
         });
 
         Ok(stream)
@@ -220,10 +223,30 @@ impl NearAiClient {
         // NEAR AI Cloud doesn't expose a /models endpoint
         // Return a list of known available models (as of Dec 2025)
         Ok(vec![
-            Model { id: "deepseek-ai/DeepSeek-V3.1".to_string(), object: "model".to_string(), created: 0, owned_by: "deepseek".to_string() },
-            Model { id: "openai/gpt-oss-120b".to_string(), object: "model".to_string(), created: 0, owned_by: "openai".to_string() },
-            Model { id: "Qwen/Qwen3-30B-A3B-Instruct-2507".to_string(), object: "model".to_string(), created: 0, owned_by: "alibaba".to_string() },
-            Model { id: "zai-org/GLM-4.6".to_string(), object: "model".to_string(), created: 0, owned_by: "zhipu".to_string() },
+            Model {
+                id: "deepseek-ai/DeepSeek-V3.1".to_string(),
+                object: "model".to_string(),
+                created: 0,
+                owned_by: "deepseek".to_string(),
+            },
+            Model {
+                id: "openai/gpt-oss-120b".to_string(),
+                object: "model".to_string(),
+                created: 0,
+                owned_by: "openai".to_string(),
+            },
+            Model {
+                id: "Qwen/Qwen3-30B-A3B-Instruct-2507".to_string(),
+                object: "model".to_string(),
+                created: 0,
+                owned_by: "alibaba".to_string(),
+            },
+            Model {
+                id: "zai-org/GLM-4.6".to_string(),
+                object: "model".to_string(),
+                created: 0,
+                owned_by: "zhipu".to_string(),
+            },
         ])
     }
 
@@ -233,7 +256,10 @@ impl NearAiClient {
         let response = self
             .client
             .get(format!("{}/attestation", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .send()
             .await?;
 
@@ -297,7 +323,10 @@ impl NearAiClient {
         match self
             .client
             .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()

@@ -1,7 +1,9 @@
 //! whisper.cpp HTTP server client.
 
 use crate::error::WhisperError;
-use crate::types::{whisper_language_to_iso, HealthResponse, InferenceResponse, TranscriptionResult};
+use crate::types::{
+    whisper_language_to_iso, HealthResponse, InferenceResponse, TranscriptionResult,
+};
 use reqwest::Client;
 use std::time::Duration;
 use tracing::{debug, instrument, warn};
@@ -80,7 +82,8 @@ impl WhisperClient {
         content_type: &str,
         translate: bool,
     ) -> Result<TranscriptionResult, WhisperError> {
-        let mut part = reqwest::multipart::Part::bytes(audio.to_vec()).file_name(filename.to_string());
+        let mut part =
+            reqwest::multipart::Part::bytes(audio.to_vec()).file_name(filename.to_string());
         if !content_type.is_empty() {
             part = part.mime_str(content_type).map_err(WhisperError::Http)?;
         }

@@ -18,11 +18,19 @@ pub struct MessageReceiver {
 impl MessageReceiver {
     /// Create a new message receiver.
     pub fn new(client: SignalClient, poll_interval: Duration) -> Self {
+        Self::with_intervals(client, poll_interval, Duration::from_secs(300))
+    }
+
+    /// Create a receiver with custom poll and account-refresh intervals (useful in tests).
+    pub fn with_intervals(
+        client: SignalClient,
+        poll_interval: Duration,
+        account_refresh_interval: Duration,
+    ) -> Self {
         Self {
             client,
             poll_interval,
-            // Refresh account list every 5 minutes
-            account_refresh_interval: Duration::from_secs(300),
+            account_refresh_interval,
         }
     }
 
@@ -101,5 +109,150 @@ impl MessageReceiver {
                 sleep(self.poll_interval).await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::Duration;
+    use tokio_stream::StreamExt;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn stream_yields_text_messages_from_receive() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/accounts"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!(["+15550001111"])))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/receive/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "envelope": {
+                    "source": "+15550002222",
+                    "sourceNumber": "+15550002222",
+                    "timestamp": 1000,
+                    "dataMessage": {
+                        "message": "hello receiver",
+                        "timestamp": 1000,
+                        "attachments": []
+                    }
+                },
+                "account": "+15550001111"
+            }])))
+            .mount(&server)
+            .await;
+
+        let client = SignalClient::new(server.uri()).unwrap();
+        let receiver = MessageReceiver::with_intervals(
+            client,
+            Duration::from_millis(50),
+            Duration::from_secs(60),
+        );
+        let mut stream = Box::pin(receiver.stream());
+
+        let msg = tokio::time::timeout(Duration::from_secs(2), stream.next())
+            .await
+            .expect("timed out waiting for message")
+            .expect("stream ended");
+        assert_eq!(msg.text, "hello receiver");
+        assert_eq!(msg.source, "+15550002222");
+        assert_eq!(msg.receiving_account, "+15550001111");
+    }
+
+    #[tokio::test]
+    async fn stream_continues_after_receive_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/accounts"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!(["+15550001111", "+15550003333"])),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/receive/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/receive/%2B15550003333"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "envelope": {
+                    "source": "+15550004444",
+                    "sourceNumber": "+15550004444",
+                    "timestamp": 2000,
+                    "dataMessage": {
+                        "message": "from second account",
+                        "timestamp": 2000,
+                        "attachments": []
+                    }
+                },
+                "account": "+15550003333"
+            }])))
+            .mount(&server)
+            .await;
+
+        let client = SignalClient::new(server.uri()).unwrap();
+        let receiver = MessageReceiver::with_intervals(
+            client,
+            Duration::from_millis(50),
+            Duration::from_secs(60),
+        );
+        let mut stream = Box::pin(receiver.stream());
+        let msg = tokio::time::timeout(Duration::from_secs(2), stream.next())
+            .await
+            .expect("timed out")
+            .expect("message");
+        assert_eq!(msg.text, "from second account");
+        assert_eq!(msg.receiving_account, "+15550003333");
+    }
+
+    #[tokio::test]
+    async fn stream_yields_voice_notes() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/accounts"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!(["+15550001111"])))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/receive/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "envelope": {
+                    "source": "+15550002222",
+                    "sourceNumber": "+15550002222",
+                    "timestamp": 3000,
+                    "dataMessage": {
+                        "timestamp": 3000,
+                        "attachments": [{
+                            "contentType": "audio/aac",
+                            "id": "voice-1",
+                            "size": 1234
+                        }]
+                    }
+                },
+                "account": "+15550001111"
+            }])))
+            .mount(&server)
+            .await;
+
+        let client = SignalClient::new(server.uri()).unwrap();
+        let receiver = MessageReceiver::with_intervals(
+            client,
+            Duration::from_millis(50),
+            Duration::from_secs(60),
+        );
+        let mut stream = Box::pin(receiver.stream());
+        let msg = tokio::time::timeout(Duration::from_secs(2), stream.next())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(msg.is_voice_note());
+        assert_eq!(msg.primary_audio_attachment().unwrap().id, "voice-1");
     }
 }

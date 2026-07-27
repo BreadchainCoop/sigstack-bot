@@ -46,4 +46,5 @@ urlencoding = "2.1"
 
 [dev-dependencies]
 tokio-test.workspace = true
+wiremock.workspace = true
 tempfile = "3.14"

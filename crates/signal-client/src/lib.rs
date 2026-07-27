@@ -385,11 +385,7 @@ mod tests {
         let quote = bot_msg.quote.as_ref().unwrap();
         assert_eq!(quote.id, 1718999999000);
         assert_eq!(quote.author_number.as_deref(), Some("+14155559876"));
-        assert!(quote
-            .text
-            .as_ref()
-            .unwrap()
-            .contains("Hola a todos"));
+        assert!(quote.text.as_ref().unwrap().contains("Hola a todos"));
     }
 
     #[test]
@@ -410,9 +406,8 @@ mod tests {
 
     #[test]
     fn test_bot_message_from_voice_quote_without_attachment_metadata() {
-        let fixture = include_str!(
-            "../../../docs/spikes/fixtures/voice-with-quote-reply-no-attachment.json"
-        );
+        let fixture =
+            include_str!("../../../docs/spikes/fixtures/voice-with-quote-reply-no-attachment.json");
         let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
         let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
 
@@ -423,12 +418,17 @@ mod tests {
 
     #[test]
     fn test_quoted_attachment_id_at_root() {
-        let fixture = include_str!(
-            "../../../docs/spikes/fixtures/voice-with-quote-reply-root-id.json"
-        );
+        let fixture =
+            include_str!("../../../docs/spikes/fixtures/voice-with-quote-reply-root-id.json");
         let messages: Vec<IncomingMessage> = serde_json::from_str(fixture).unwrap();
         let bot_msg = BotMessage::from_incoming(&messages[0]).unwrap();
-        let audio = bot_msg.quote.as_ref().unwrap().audio_attachment.as_ref().unwrap();
+        let audio = bot_msg
+            .quote
+            .as_ref()
+            .unwrap()
+            .audio_attachment
+            .as_ref()
+            .unwrap();
         assert_eq!(audio.id, "root-audio-id");
         assert_eq!(audio.content_type, "audio/aac");
     }
@@ -452,11 +452,13 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path("/v1/groups/%2B15555555555"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "name": "Language Thread Spanish",
-                "id": "group.sidecarEs==",
-                "internal_id": "es-internal-id"
-            }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "name": "Language Thread Spanish",
+                    "id": "group.sidecarEs==",
+                    "internal_id": "es-internal-id"
+                }])),
+            )
             .mount(&mock_server)
             .await;
 

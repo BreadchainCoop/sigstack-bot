@@ -4,10 +4,10 @@ use crate::commands::translate_service::{
     format_voice_auto_translation, near_ai_translate, resolve_translate_all_voice_pair,
 };
 use crate::commands::CommandHandler;
+use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_store::TranscribeStore;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
-use crate::error::AppResult;
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
 use signal_client::{Attachment, BotMessage, SignalClient};
@@ -109,7 +109,10 @@ impl VoiceHandler {
             .group_translate
             .as_ref()
             .expect("translate-all store required");
-        let near_ai = self.near_ai.as_ref().expect("near_ai required for translate-all");
+        let near_ai = self
+            .near_ai
+            .as_ref()
+            .expect("near_ai required for translate-all");
         let mode = store
             .get(group_id)
             .expect("translate-all mode must be active");
@@ -124,18 +127,18 @@ impl VoiceHandler {
         let transcript_text = transcript.trimmed_text();
         let whisper_lang = transcript.language.as_deref();
 
-        let (source, target) = match resolve_translate_all_voice_pair(&mode, whisper_lang, transcript_text)
-        {
-            Some(pair) => pair,
-            None => {
-                info!(
-                    group_id,
-                    whisper_lang,
-                    "Voice transcript language not in translate-all pair — transcript only"
-                );
-                return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
-            }
-        };
+        let (source, target) =
+            match resolve_translate_all_voice_pair(&mode, whisper_lang, transcript_text) {
+                Some(pair) => pair,
+                None => {
+                    info!(
+                        group_id,
+                        whisper_lang,
+                        "Voice transcript language not in translate-all pair — transcript only"
+                    );
+                    return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
+                }
+            };
 
         debug!(
             group_id,
@@ -208,9 +211,7 @@ impl CommandHandler for VoiceHandler {
                     max = self.max_attachment_bytes,
                     "Voice attachment exceeds size limit"
                 );
-                return Ok(
-                    "Voice note too long (max 5 min). Send a shorter clip.".into(),
-                );
+                return Ok("Voice note too long (max 5 min). Send a shorter clip.".into());
             }
         }
 
@@ -241,7 +242,10 @@ impl CommandHandler for VoiceHandler {
             let group_id = message.group_id.as_deref().unwrap();
             let store = self.group_translate.as_ref().unwrap();
             if store.allow_message(group_id) {
-                match self.translate_all_voice(message, audio, &bytes, group_id).await {
+                match self
+                    .translate_all_voice(message, audio, &bytes, group_id)
+                    .await
+                {
                     Ok(response) => {
                         info!(
                             source = %message.source,
@@ -306,5 +310,110 @@ mod tests {
             upload_timestamp: None,
         };
         assert_eq!(VoiceHandler::attachment_filename(&audio), "voice.m4a");
+    }
+
+    fn dm_voice(size: Option<i64>) -> BotMessage {
+        BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: String::new(),
+            timestamp: 99,
+            message_timestamp: 99,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![Attachment {
+                content_type: "audio/aac".into(),
+                filename: Some("note.m4a".into()),
+                id: "att-1".into(),
+                size,
+                upload_timestamp: None,
+            }],
+            quote: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_without_audio_attachment() {
+        let whisper = Arc::new(
+            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 1024);
+        let mut msg = dm_voice(None);
+        msg.attachments.clear();
+        let out = handler.execute(&msg).await.unwrap();
+        assert!(out.contains("Could not read voice attachment"));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_oversized_declared_size() {
+        let whisper = Arc::new(
+            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 100);
+        let out = handler.execute(&dm_voice(Some(500))).await.unwrap();
+        assert!(out.contains("too long"));
+    }
+
+    #[tokio::test]
+    async fn execute_transcribes_via_whisper() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        let whisper_mock = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/att-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"fake-audio-bytes"))
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/inference"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "text": " Hola mundo\n",
+                "language": "spanish"
+            })))
+            .mount(&whisper_mock)
+            .await;
+
+        let whisper = Arc::new(
+            WhisperClient::new(whisper_mock.uri(), std::time::Duration::from_secs(5)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
+        let cache = VoiceAttachmentCache::with_default_capacity();
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000)
+            .with_voice_cache(cache.clone());
+
+        let msg = dm_voice(Some(16));
+        assert!(handler.matches(&msg));
+        let out = handler.execute(&msg).await.unwrap();
+        assert_eq!(out, "📝 Transcript:\nHola mundo");
+        assert!(cache.lookup(msg.reply_target(), msg.timestamp).is_some());
+    }
+
+    #[tokio::test]
+    async fn execute_handles_download_failure() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/att-1"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("fail"))
+            .mount(&signal_mock)
+            .await;
+
+        let whisper = Arc::new(
+            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000);
+        let out = handler.execute(&dm_voice(Some(10))).await.unwrap();
+        assert!(out.contains("Could not download"));
     }
 }

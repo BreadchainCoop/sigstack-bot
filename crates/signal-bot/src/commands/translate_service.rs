@@ -34,10 +34,11 @@ fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Op
         return Some(code);
     }
     // Iberian romance often transcribed as Portuguese; treat as Spanish when es is in the pair.
-    if matches!(code.as_str(), "pt" | "ca" | "gl") && (mode.lang_a == "es" || mode.lang_b == "es") {
-        if mode.target_for_source("es").is_some() {
-            return Some("es".into());
-        }
+    if matches!(code.as_str(), "pt" | "ca" | "gl")
+        && (mode.lang_a == "es" || mode.lang_b == "es")
+        && mode.target_for_source("es").is_some()
+    {
+        return Some("es".into());
     }
     None
 }
@@ -106,8 +107,16 @@ fn casual_language_hints(text: &str) -> Vec<&'static str> {
     let mut hints = Vec::new();
 
     let english_markers = [
-        " the ", " i'm ", " how ", " your ", "hello", "english", " day?",
-        "speaking in english", "how are", "doing?",
+        " the ",
+        " i'm ",
+        " how ",
+        " your ",
+        "hello",
+        "english",
+        " day?",
+        "speaking in english",
+        "how are",
+        "doing?",
     ];
     if english_markers.iter().any(|m| lower.contains(m)) {
         hints.push("en");
@@ -303,14 +312,11 @@ mod tests {
             resolve_language("es").unwrap(),
             resolve_language("en").unwrap(),
         );
-        let pair = resolve_translate_all_voice_pair(
-            &mode,
-            Some("es"),
-            "Como está? Como foi tu dia oi?",
-        )
-        .or_else(|| {
-            resolve_translate_all_voice_pair(&mode, None, "Como está? Como foi tu dia oi?")
-        });
+        let pair =
+            resolve_translate_all_voice_pair(&mode, Some("es"), "Como está? Como foi tu dia oi?")
+                .or_else(|| {
+                    resolve_translate_all_voice_pair(&mode, None, "Como está? Como foi tu dia oi?")
+                });
         let (source, target) = pair.expect("should resolve es -> en");
         assert_eq!(source.code, "es");
         assert_eq!(target.code, "en");

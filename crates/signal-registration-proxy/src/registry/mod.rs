@@ -173,13 +173,15 @@ mod tests {
 
     #[test]
     fn test_verify_ownership() {
-        let record = PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret123"), None, None);
+        let record =
+            PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret123"), None, None);
 
         assert!(record.verify_ownership(Some("secret123")));
         assert!(!record.verify_ownership(Some("wrong")));
         assert!(!record.verify_ownership(None));
 
-        let no_proof_record = PhoneNumberRecord::new_pending("+14155551234".into(), None, None, None);
+        let no_proof_record =
+            PhoneNumberRecord::new_pending("+14155551234".into(), None, None, None);
         assert!(no_proof_record.verify_ownership(None));
         assert!(no_proof_record.verify_ownership(Some("anything")));
     }

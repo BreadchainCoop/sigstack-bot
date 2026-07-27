@@ -136,7 +136,8 @@ mod tests {
     #[test]
     fn test_registry_serialization() {
         let mut registry = Registry::new();
-        let record = PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None);
+        let record =
+            PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None);
         registry.insert("+14155551234".into(), record);
 
         let json = serde_json::to_string(&registry).unwrap();

@@ -104,11 +104,7 @@ mod tests {
         id.note_inbound(&self_msg);
         assert!(id.is_bot_message(&self_msg));
 
-        let again = msg(
-            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            None,
-            "+15550001111",
-        );
+        let again = msg("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", None, "+15550001111");
         assert!(id.is_bot_message(&again));
     }
 

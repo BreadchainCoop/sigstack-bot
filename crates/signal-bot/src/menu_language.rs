@@ -19,3 +19,16 @@ impl MenuLanguage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_code_parses_supported_languages() {
+        assert_eq!(MenuLanguage::from_code("en"), Some(MenuLanguage::En));
+        assert_eq!(MenuLanguage::from_code("es"), Some(MenuLanguage::Es));
+        assert_eq!(MenuLanguage::from_code("fr"), None);
+        assert_eq!(MenuLanguage::default(), MenuLanguage::En);
+    }
+}

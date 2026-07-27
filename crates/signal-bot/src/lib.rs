@@ -1,8 +1,10 @@
 pub mod bot_identity;
 pub mod commands;
 pub mod config;
+pub mod dispatch;
 pub mod error;
 pub mod group_preferences_store;
+pub mod handlers_setup;
 pub mod menu_language;
 pub mod transcribe_store;
 pub mod voice_attachment_cache;

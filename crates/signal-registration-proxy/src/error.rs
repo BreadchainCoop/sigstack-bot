@@ -132,10 +132,37 @@ mod tests {
                 ProxyError::Internal("x".into()),
                 StatusCode::INTERNAL_SERVER_ERROR,
             ),
+            (
+                ProxyError::Storage("x".into()),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+            (
+                ProxyError::Encryption("x".into()),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+            (
+                ProxyError::TeeNotAvailable("x".into()),
+                StatusCode::SERVICE_UNAVAILABLE,
+            ),
         ];
         for (err, expected) in cases {
             let response = err.into_response();
             assert_eq!(response.status(), expected);
         }
+    }
+
+    #[test]
+    fn from_impls_map_to_variants() {
+        let io: ProxyError = std::io::Error::other("disk").into();
+        assert!(matches!(io, ProxyError::Storage(_)));
+
+        let json: ProxyError = serde_json::from_str::<serde_json::Value>("{").unwrap_err().into();
+        assert!(matches!(json, ProxyError::Storage(_)));
+
+        let aes: ProxyError = aes_gcm::Error.into();
+        assert!(matches!(aes, ProxyError::Encryption(_)));
+
+        let tee: ProxyError = dstack_client::DstackError::NotInTee.into();
+        assert!(matches!(tee, ProxyError::TeeNotAvailable(_)));
     }
 }

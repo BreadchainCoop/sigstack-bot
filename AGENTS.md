@@ -12,6 +12,12 @@ TEE-hosted Signal bots for **voice transcription** and **group translation** (no
 cargo test
 cargo build --release -p signal-bot
 
+# Coverage (requires cargo-llvm-cov + rustup component llvm-tools-preview)
+npm test                 # cargo test --workspace
+npm run test:cov:report  # summary only (ignores main.rs)
+npm run test:cov:ci      # LCOV + fail under 90% lines (same gate as CI / prepush)
+npm run prepush          # lint + coverage gate + commitlint:branch
+
 cp docker/transcription.env.example docker/transcription.env
 cp docker/translation.env.example docker/translation.env
 # Two different SIGNAL_PHONE values; NEAR_AI_API_KEY in translation.env

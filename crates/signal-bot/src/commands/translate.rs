@@ -287,4 +287,65 @@ mod tests {
         msg.text = "!translate es".into();
         assert!(handler.matches(&msg));
     }
+
+    #[tokio::test]
+    async fn execute_usage_and_quote_translation() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(2)
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .mount(&near)
+            .await;
+
+        let handler = TranslateHandler::new(
+            Arc::new(
+                NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+            "📝 Transcript:",
+        );
+
+        let mut msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!translate".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+
+        msg.text = "!translate es".into();
+        msg.quote = Some(QuotedMessage {
+            id: 10,
+            author_number: Some("+15550003333".into()),
+            text: Some("Hola".into()),
+            audio_attachment: None,
+        });
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+    }
 }

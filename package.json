@@ -21,7 +21,7 @@
     "build": "cargo build --release -p signal-bot",
     "build:web": "npm --prefix web run build",
     "check": "npm run lint && npm run test",
-    "prepush": "npm run check && npm run commitlint:branch"
+    "prepush": "npm run lint && npm run test:cov:ci && npm run commitlint:branch"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

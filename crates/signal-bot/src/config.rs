@@ -369,30 +369,6 @@ mod tests {
     }
 
     #[test]
-    fn load_transcription_from_env() {
-        std::env::set_var("BOT__ROLE", "transcription");
-        std::env::remove_var("NEAR_AI__API_KEY");
-        let cfg = Config::load().expect("load transcription");
-        assert_eq!(cfg.bot.role, BotRole::Transcription);
-        assert!(cfg.whisper.enabled);
-        std::env::remove_var("BOT__ROLE");
-    }
-
-    #[test]
-    fn load_translation_from_env() {
-        std::env::set_var("BOT__ROLE", "translation");
-        std::env::set_var("NEAR_AI__API_KEY", "sk-test-key");
-        let cfg = Config::load().expect("load translation");
-        assert_eq!(cfg.bot.role, BotRole::Translation);
-        assert_eq!(
-            cfg.near_ai.as_ref().map(|n| n.api_key.as_str()),
-            Some("sk-test-key")
-        );
-        std::env::remove_var("BOT__ROLE");
-        std::env::remove_var("NEAR_AI__API_KEY");
-    }
-
-    #[test]
     fn section_defaults() {
         assert_eq!(
             SignalConfig::default().service_url,

@@ -321,4 +321,128 @@ mod tests {
         msg.text = "!help".into();
         assert!(!handler.matches(&msg));
     }
+
+    #[tokio::test]
+    async fn execute_setup_commands_send_replies() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(5)
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(30);
+        let handler = TranslateAllHandler::new(
+            store.clone(),
+            Arc::new(
+                NearAiClient::new(
+                    "key",
+                    "http://127.0.0.1:9",
+                    "model",
+                    std::time::Duration::from_secs(2),
+                )
+                .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+        );
+
+        let mut msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!translate-on".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+
+        // DM → group only
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+
+        msg.is_group = true;
+        msg.group_id = Some("group.main".into());
+        // bare on
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+
+        msg.text = "!translate-on xx yy".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+
+        msg.text = "!translate-on es en".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(store.is_active("group.main"));
+
+        msg.text = "!translate-off".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(!store.is_active("group.main"));
+    }
+
+    #[tokio::test]
+    async fn execute_intercept_translates_group_text() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .mount(&near)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(30);
+        store.set(
+            "group.main".into(),
+            GroupTranslateMode::new(
+                resolve_language("es").unwrap(),
+                resolve_language("en").unwrap(),
+            ),
+        );
+        let handler = TranslateAllHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+        );
+
+        let msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "Hola amigos".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: true,
+            group_id: Some("group.main".into()),
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert!(handler.matches(&msg));
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+    }
 }

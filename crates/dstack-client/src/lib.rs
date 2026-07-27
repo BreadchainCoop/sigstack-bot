@@ -126,4 +126,152 @@ mod tests {
         let cert: RaTlsCert = serde_json::from_str(json).unwrap();
         assert_eq!(cert.cert, "Y2VydGlmaWNhdGU=");
     }
+
+    /// Spawn a temporary Unix-socket HTTP server that answers dstack guest-agent routes.
+    async fn start_mock_guest_agent() -> (tempfile::TempDir, String, tokio::task::JoinHandle<()>) {
+        use hyper::service::{make_service_fn, service_fn};
+        use hyper::{Body, Request, Response, Server, StatusCode};
+        use hyperlocal::UnixServerExt;
+        use std::convert::Infallible;
+
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("dstack.sock");
+        let sock_str = sock.to_string_lossy().to_string();
+
+        async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+            let path = req.uri().path().to_string();
+            let body = match path.as_str() {
+                "/Info" => {
+                    r#"{"app_id":"app-1","compose_hash":"hash-1","instance_id":"inst-1"}"#.into()
+                }
+                p if p.starts_with("/GetQuote") => {
+                    r#"{"quote":"cXVvdGU=","report_data":"aabb"}"#.into()
+                }
+                "/DeriveKey" => r#"{"key":"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}"#.into(),
+                "/GetRaTlsCert" => {
+                    use base64::{engine::general_purpose::STANDARD, Engine};
+                    let cert = STANDARD.encode(b"certificate-bytes");
+                    format!(r#"{{"cert":"{cert}"}}"#)
+                }
+                _ => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::NOT_FOUND)
+                        .body(Body::from("missing"))
+                        .unwrap());
+                }
+            };
+            Ok(Response::new(Body::from(body)))
+        }
+
+        let make_svc =
+            make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+        let server = Server::bind_unix(&sock).unwrap().serve(make_svc);
+        let handle = tokio::spawn(async move {
+            let _ = server.await;
+        });
+
+        // Wait briefly for the socket file to appear.
+        for _ in 0..50 {
+            if sock.exists() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        (dir, sock_str, handle)
+    }
+
+    #[tokio::test]
+    async fn happy_path_info_quote_key_and_cert() {
+        let (_dir, sock, handle) = start_mock_guest_agent().await;
+        let client = DstackClient::new(&sock);
+
+        assert!(client.is_in_tee().await);
+
+        let info = client.get_app_info().await.unwrap();
+        assert_eq!(info.app_id.as_deref(), Some("app-1"));
+        assert_eq!(info.compose_hash.as_deref(), Some("hash-1"));
+
+        let quote = client.get_quote(b"challenge-bytes").await.unwrap();
+        assert_eq!(quote.quote, "cXVvdGU=");
+
+        let key = client.derive_key("/prefs", Some("subj")).await.unwrap();
+        assert_eq!(key.len(), 32);
+
+        let cert = client.get_ra_tls_cert().await.unwrap();
+        assert_eq!(cert, b"certificate-bytes");
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn http_error_from_guest_agent() {
+        use hyper::service::{make_service_fn, service_fn};
+        use hyper::{Body, Request, Response, Server, StatusCode};
+        use hyperlocal::UnixServerExt;
+        use std::convert::Infallible;
+
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("err.sock");
+        let sock_str = sock.to_string_lossy().to_string();
+
+        async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+            Ok(Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from("guest boom"))
+                .unwrap())
+        }
+
+        let make_svc =
+            make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+        let server = Server::bind_unix(&sock).unwrap().serve(make_svc);
+        let handle = tokio::spawn(async move {
+            let _ = server.await;
+        });
+        for _ in 0..50 {
+            if sock.exists() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let client = DstackClient::new(sock_str);
+        let err = client.get_app_info().await.unwrap_err();
+        assert!(matches!(err, DstackError::QuoteGeneration(_)));
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn derive_key_rejects_invalid_hex() {
+        use hyper::service::{make_service_fn, service_fn};
+        use hyper::{Body, Request, Response, Server};
+        use hyperlocal::UnixServerExt;
+        use std::convert::Infallible;
+
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("badhex.sock");
+        let sock_str = sock.to_string_lossy().to_string();
+
+        async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+            Ok(Response::new(Body::from(r#"{"key":"not-hex"}"#)))
+        }
+
+        let make_svc =
+            make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+        let server = Server::bind_unix(&sock).unwrap().serve(make_svc);
+        let handle = tokio::spawn(async move {
+            let _ = server.await;
+        });
+        for _ in 0..50 {
+            if sock.exists() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let client = DstackClient::new(sock_str);
+        let err = client.derive_key("/x", None).await.unwrap_err();
+        assert!(matches!(err, DstackError::KeyDerivation(_)));
+        handle.abort();
+    }
 }

@@ -39,11 +39,11 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 
 Aliases: `!translate-me on es`, `!translation-me-on es`, etc.
 
-**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-on` / quote `!translate` via `!in-chat`) — same-group only, not a sidecar bridge.
+**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-on` / quote `!translate`) — same-group only, not a sidecar bridge. Commands appear on the flat `!translation` menu (secondary to Language Threads).
 
 **Not registered:** `!ask`, DM chat, voice/`!transcribe*` (transcription CVM).
 
-Menus: `!help` → `!translation` → Language Threads commands listed with in-chat.
+Menus: `!help` → `!translation` (Language Threads commands first; in-chat below). `!in-chat` redirects to the same menu.
 
 ## Relay rules (fan-out + BotIdentity)
 

@@ -23,7 +23,7 @@ Stop:
 !translate-off
 ```
 
-Menus: `!help` → `!translation` → `!in-chat`
+Menus: `!help` → `!translation` (in-chat commands listed under Language Threads on the same screen). `!in-chat` still works as a redirect to that flat menu.
 
 ## Behavior
 
@@ -46,4 +46,4 @@ Voice notes: the **transcription** bot posts a transcript in-group; with auto-tr
 | Quote `!translate` | [`crates/signal-bot/src/commands/translate.rs`](../crates/signal-bot/src/commands/translate.rs) |
 | Detect / format helpers | [`crates/signal-bot/src/commands/translate_service.rs`](../crates/signal-bot/src/commands/translate_service.rs) |
 | Prefs (`GroupTranslateMode`) | [`crates/signal-bot/src/group_preferences_store.rs`](../crates/signal-bot/src/group_preferences_store.rs) |
-| Menus | [`crates/signal-bot/src/commands/menu_locale.rs`](../crates/signal-bot/src/commands/menu_locale.rs) (`!in-chat`) |
+| Menus | [`crates/signal-bot/src/commands/menu_locale.rs`](../crates/signal-bot/src/commands/menu_locale.rs) (flat `!translation`) |

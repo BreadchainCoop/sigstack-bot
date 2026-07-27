@@ -1,7 +1,7 @@
-//! Nested product menus: `!translation`, `!transcription`, `!in-chat`.
+//! Product menus: flat `!translation`, `!transcription`, `!in-chat` (redirects to translation).
 
 use crate::commands::menu_locale::{
-    help_menu, in_chat_menu, is_exact_command, menu_language_for_message, transcription_group_only,
+    help_menu, is_exact_command, menu_language_for_message, transcription_group_only,
     transcription_invited, transcription_unavailable, translation_products_menu,
 };
 use crate::commands::CommandHandler;
@@ -15,11 +15,15 @@ use tracing::warn;
 
 pub struct TranslationMenuHandler {
     group_prefs: Arc<GroupPreferencesStore>,
+    translate_all_enabled: bool,
 }
 
 impl TranslationMenuHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>) -> Self {
-        Self { group_prefs }
+    pub fn new(group_prefs: Arc<GroupPreferencesStore>, translate_all_enabled: bool) -> Self {
+        Self {
+            group_prefs,
+            translate_all_enabled,
+        }
     }
 }
 
@@ -35,7 +39,7 @@ impl CommandHandler for TranslationMenuHandler {
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
         let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(translation_products_menu(language).into())
+        Ok(translation_products_menu(language, self.translate_all_enabled).into())
     }
 }
 
@@ -225,8 +229,9 @@ impl CommandHandler for InChatMenuHandler {
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+        // Muscle-memory alias: same flat Translation menu as !translation.
         let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(in_chat_menu(language, self.translate_all_enabled).into())
+        Ok(translation_products_menu(language, self.translate_all_enabled).into())
     }
 }
 
@@ -257,7 +262,7 @@ mod tests {
     #[test]
     fn menus_match_exact_only() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        let t = TranslationMenuHandler::new(store.clone());
+        let t = TranslationMenuHandler::new(store.clone(), true);
         assert!(t.matches(&msg("!translation")));
         assert!(!t.matches(&msg("!translation-on es en")));
 
@@ -273,6 +278,18 @@ mod tests {
 
         let m = TranscriptionMenuHandler::new(store);
         assert!(m.matches(&msg("!transcription")));
+    }
+
+    #[tokio::test]
+    async fn in_chat_redirects_to_flat_translation_menu() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let translation = TranslationMenuHandler::new(store.clone(), true);
+        let in_chat = InChatMenuHandler::new(store, true);
+        let via_translation = translation.execute(&msg("!translation")).await.unwrap();
+        let via_in_chat = in_chat.execute(&msg("!in-chat")).await.unwrap();
+        assert_eq!(via_translation, via_in_chat);
+        assert!(via_translation.contains("Language Threads (recommended)"));
+        assert!(via_translation.contains("!translate-me-on"));
     }
 
     #[tokio::test]

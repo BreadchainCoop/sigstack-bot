@@ -150,7 +150,10 @@ pub async fn build_translation_handlers(
         info!("In-chat translation enabled: !translate-on / !translate-off");
     }
 
-    handlers.push(Box::new(TranslationMenuHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(TranslationMenuHandler::new(
+        group_prefs.clone(),
+        config.translate_all.enabled,
+    )));
     handlers.push(Box::new(TranscriptionPairingHandler::new(
         group_prefs.clone(),
         signal.clone(),

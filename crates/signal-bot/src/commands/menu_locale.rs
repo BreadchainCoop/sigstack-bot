@@ -41,13 +41,6 @@ pub fn in_chat_menu(language: MenuLanguage, translate_all_enabled: bool) -> &'st
     }
 }
 
-pub fn parallel_menu(language: MenuLanguage) -> &'static str {
-    match language {
-        MenuLanguage::En => PARALLEL_MENU_EN,
-        MenuLanguage::Es => PARALLEL_MENU_ES,
-    }
-}
-
 pub fn transcription_unavailable(language: MenuLanguage) -> &'static str {
     match language {
         MenuLanguage::En => TRANSCRIPTION_UNAVAILABLE_EN,
@@ -128,19 +121,23 @@ Idioma del menú: !set-en / !set-es
 const TRANSLATION_PRODUCTS_EN: &str = r#"Translation products
 
 - !in-chat — Translate inside this group (auto or one message)
-- !parallel — Parallel chat (this group + one translated lane)
-- Language Threads — coming in a later update (main bilingual + many language sidecars)
+- Language Threads — multilingual main + language sidecars
+  !translate-me-on <lang> — join/create a Language Thread (from main)
+  !translate-me-off — leave your Language Thread
+  !list-langs — language codes
 
-Also: !list-langs · !models · !verify <challenge>
+Also: !models · !verify <challenge>
 !help — Back to main menu"#;
 
 const TRANSLATION_PRODUCTS_ES: &str = r#"Productos de traducción
 
 - !in-chat — Traducir en este grupo (auto o un mensaje)
-- !parallel — Chat paralelo (este grupo + un hilo traducido)
-- Language Threads — próximamente (principal bilingüe + varios sidecars)
+- Language Threads — principal multilingüe + sidecars por idioma
+  !translate-me-on <lang> — unirte/crear un Language Thread (desde el principal)
+  !translate-me-off — salir de tu Language Thread
+  !list-langs — códigos de idioma
 
-También: !list-langs · !models · !verify <challenge>
+También: !models · !verify <challenge>
 !help — Volver al menú principal"#;
 
 const IN_CHAT_EN: &str = r#"In-chat translation
@@ -185,43 +182,11 @@ La auto-traducción está desactivada en este bot (!translate-on).
 
 !translation — Volver a productos · !help — Menú principal"#;
 
-const PARALLEL_MENU_EN: &str = r#"Parallel Translation
-
-This chat stays in one language. The bot creates a parallel Signal group in the other language and relays both ways.
-
-**Setup** (in this group):
-- !parallel-on <lang_this_chat> <lang_parallel>
-  lang1 = THIS chat; lang2 = the parallel group the bot creates
-  Example: !parallel-on en es
-
-**Join** (each person in this group):
-- !parallel-join — add yourself to the parallel group
-- !parallel-leave — leave the parallel group
-- !parallel-off — stop Parallel for this group (in main)
-
-!list-langs · !translation — Back · !help — Main menu"#;
-
-const PARALLEL_MENU_ES: &str = r#"Traducción paralela
-
-Este chat queda en un idioma. El bot crea un grupo Signal paralelo en el otro idioma y retransmite en ambos sentidos.
-
-**Configurar** (en este grupo):
-- !parallel-on <lang_este_chat> <lang_paralelo>
-  lang1 = ESTE chat; lang2 = el grupo paralelo que crea el bot
-  Ejemplo: !parallel-on en es
-
-**Unirse** (cada persona en este grupo):
-- !parallel-join — añadirte al grupo paralelo
-- !parallel-leave — salir del grupo paralelo
-- !parallel-off — desactivar Parallel en este grupo (en el principal)
-
-!list-langs · !translation — Volver · !help — Menú principal"#;
-
 const TRANSCRIPTION_UNAVAILABLE_EN: &str = r#"Voice transcription is currently unavailable.
 
 The transcription bot is not paired with this group yet. Meanwhile, try translation:
 
-- !translation — Translation products (in-chat, parallel, …)
+- !translation — Translation products (in-chat, Language Threads)
 
 !help — Main menu"#;
 
@@ -229,7 +194,7 @@ const TRANSCRIPTION_UNAVAILABLE_ES: &str = r#"La transcripción de voz no está 
 
 El bot de transcripción aún no está emparejado con este grupo. Mientras tanto, prueba la traducción:
 
-- !translation — Productos de traducción (en el chat, paralelo, …)
+- !translation — Productos de traducción (en el chat, Language Threads)
 
 !help — Menú principal"#;
 
@@ -335,8 +300,10 @@ mod tests {
     fn translation_products_lists_modes() {
         let h = translation_products_menu(MenuLanguage::En);
         assert!(h.contains("!in-chat"));
-        assert!(h.contains("!parallel"));
         assert!(h.contains("Language Threads"));
+        assert!(h.contains("!translate-me-on"));
+        assert!(h.contains("!translate-me-off"));
+        assert!(!h.contains("!parallel"));
     }
 
     #[test]
@@ -350,8 +317,8 @@ mod tests {
     fn exact_command_does_not_match_prefixed() {
         assert!(is_exact_command("!translation", "!translation"));
         assert!(!is_exact_command("!translation-on es en", "!translation"));
-        assert!(is_exact_command("!parallel", "!parallel"));
-        assert!(!is_exact_command("!parallel-on en es", "!parallel"));
+        assert!(is_exact_command("!in-chat", "!in-chat"));
+        assert!(!is_exact_command("!in-chat-extra", "!in-chat"));
     }
 
     #[test]

@@ -4,7 +4,7 @@ Status: **MVP implemented** on the translation bot.
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 
-Distinct from [Parallel Translation](parallel-translation.md) (monolingual main + one parallel group) and [Language Threads](language-threads.md) (bilingual main + N sidecars).
+Distinct from [Language Threads](language-threads.md) (multilingual main + N sidecars). In-chat stays in one Signal group; Language Threads creates sidecar groups.
 
 ## Setup
 
@@ -37,10 +37,6 @@ Not dual-post: the original stays as the human message; the bot only quote-repli
 Skip when language is undetected or not in the pair. Bot messages are never processed (`BotIdentity`). Rate-limited per group (`TRANSLATE_ALL__MAX_MESSAGES_PER_MINUTE`).
 
 Voice notes: the **transcription** bot posts a transcript in-group; with auto-translate on, the **translation** bot then intercepts that text like any other message.
-
-## Mutual exclusion
-
-Cannot enable in-chat auto-translate while Parallel (`!parallel-on`) is active, and vice versa.
 
 ## Key code
 

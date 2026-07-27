@@ -1,6 +1,6 @@
-//! Language sidecar bridge: `!translate-me-on` / `!translate-me-off` + relay engine.
+//! Language Threads: `!translate-me-on` / `!translate-me-off` + relay engine.
 //!
-//! Main group stays bilingual. Each subscribed language gets a `Language Thread {Language}`
+//! Main group stays multilingual. Each subscribed language gets a `Language Thread {Language}`
 //! Signal sidecar. Messages fan out: main→sidecars (relay/translate),
 //! sidecar→main (relay) + other sidecars (translate). Bot never relays itself.
 
@@ -470,6 +470,10 @@ impl CommandHandler for TranslateMeHandler {
         true
     }
 
+    fn label(&self) -> &'static str {
+        "translate_me"
+    }
+
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
         if Self::is_command(&message.text) {
             let reply = self.handle_command(message).await?;
@@ -749,28 +753,10 @@ mod tests {
 
     #[tokio::test]
     async fn relay_main_to_sidecar_and_sidecar_to_main() {
-        use serde_json::json;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
-
-        let signal = MockServer::start().await;
-        let near = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v2/send"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-            .mount(&signal)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/chat/completions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "id": "1",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hola"}, "finish_reason": "stop"}],
-                "created": 1,
-                "model": "m",
-                "object": "chat.completion"
-            })))
-            .mount(&near)
-            .await;
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
 
         let store = GroupPreferencesStore::new_in_memory(0);
         store.set_sidecar(
@@ -788,16 +774,223 @@ mod tests {
 
         let handler = handler_pair(store, signal.uri(), near.uri());
 
-        // Main → sidecars (English text translates into ES/FR).
         let main_msg = group_msg("+15550002222", "Hello friends from the mutual aid group");
         assert!(handler.matches(&main_msg));
         assert!(handler.execute(&main_msg).await.unwrap().is_empty());
 
-        // Sidecar → main + other sidecars.
-        let mut side = group_msg("+15550002222", "Bonjour");
+        let mut side = group_msg("+15550002222", "Bonjour amis du groupe d entraide");
         side.group_id = Some("fr-internal".into());
         assert!(handler.matches(&side));
         assert!(handler.execute(&side).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn relay_main_to_three_sidecars() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        for (lang, send, internal) in [
+            ("es", "group.es", "es-internal"),
+            ("fr", "group.fr", "fr-internal"),
+            ("hi", "group.hi", "hi-internal"),
+        ] {
+            store.set_sidecar("main-internal", lang, send.into(), internal.into());
+        }
+
+        let handler = handler_pair(store, signal.uri(), near.uri());
+        let main_msg = group_msg(
+            "+15550002222",
+            "Hello friends from the mutual aid group tonight",
+        );
+        assert!(handler.execute(&main_msg).await.unwrap().is_empty());
+
+        let recipients = send_recipients(&signal).await;
+        assert_eq!(recipients.len(), 3);
+        assert!(recipients.contains(&"group.es".to_string()));
+        assert!(recipients.contains(&"group.fr".to_string()));
+        assert!(recipients.contains(&"group.hi".to_string()));
+    }
+
+    #[tokio::test]
+    async fn relay_sidecar_skips_source_and_fans_out() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        for (lang, send, internal) in [
+            ("es", "group.es", "es-internal"),
+            ("fr", "group.fr", "fr-internal"),
+            ("hi", "group.hi", "hi-internal"),
+        ] {
+            store.set_sidecar("main-internal", lang, send.into(), internal.into());
+        }
+
+        let handler = handler_pair(store, signal.uri(), near.uri());
+        let mut side = group_msg("+15550002222", "Bonjour amis du groupe d entraide ensemble");
+        side.group_id = Some("fr-internal".into());
+        assert!(handler.execute(&side).await.unwrap().is_empty());
+
+        let recipients = send_recipients(&signal).await;
+        assert!(recipients.contains(&"group.main".to_string()));
+        assert!(recipients.contains(&"group.es".to_string()));
+        assert!(recipients.contains(&"group.hi".to_string()));
+        assert!(!recipients.contains(&"group.fr".to_string()));
+        assert_eq!(recipients.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn relay_bot_authored_zero_sends() {
+        let signal = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        let identity = BotIdentity::new();
+        identity.remember_phone("+15550001111");
+        let handler = TranslateMeHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new(
+                    "key",
+                    "http://127.0.0.1:9",
+                    "m",
+                    std::time::Duration::from_secs(2),
+                )
+                .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+            identity,
+        );
+
+        let bot_msg = group_msg("+15550001111", "Maria:\nHola");
+        assert!(!handler.matches(&bot_msg));
+        assert!(handler.execute(&bot_msg).await.unwrap().is_empty());
+        assert!(send_recipients(&signal).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn relay_n1_then_second_sidecar() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        let handler = handler_pair(store.clone(), signal.uri(), near.uri());
+
+        let main_msg = group_msg("+15550002222", "Hello friends from the mutual aid group");
+        assert!(handler.execute(&main_msg).await.unwrap().is_empty());
+        let first = send_recipients(&signal).await;
+        assert_eq!(first, vec!["group.es".to_string()]);
+
+        store.set_sidecar(
+            "main-internal",
+            "fr",
+            "group.fr".into(),
+            "fr-internal".into(),
+        );
+        // Reset received requests by starting a fresh mock is hard; count delta instead.
+        let before = send_recipients(&signal).await.len();
+        assert!(handler.execute(&main_msg).await.unwrap().is_empty());
+        let after = send_recipients(&signal).await;
+        let new_sends = &after[before..];
+        assert_eq!(new_sends.len(), 2);
+        assert!(new_sends.contains(&"group.es".to_string()));
+        assert!(new_sends.contains(&"group.fr".to_string()));
+    }
+
+    async fn mount_relay_signal(signal: &wiremock::MockServer) {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Main",
+                    "id": "group.main",
+                    "internal_id": "main-internal"
+                },
+                {
+                    "name": "ES",
+                    "id": "group.es",
+                    "internal_id": "es-internal"
+                },
+                {
+                    "name": "FR",
+                    "id": "group.fr",
+                    "internal_id": "fr-internal"
+                },
+                {
+                    "name": "HI",
+                    "id": "group.hi",
+                    "internal_id": "hi-internal"
+                }
+            ])))
+            .mount(signal)
+            .await;
+    }
+
+    async fn mount_near(near: &wiremock::MockServer) {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Translated"}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .mount(near)
+            .await;
+    }
+
+    async fn send_recipients(signal: &wiremock::MockServer) -> Vec<String> {
+        let mut out = Vec::new();
+        let Some(requests) = signal.received_requests().await else {
+            return out;
+        };
+        for req in requests {
+            if req.url.path() != "/v2/send" {
+                continue;
+            }
+            let body: serde_json::Value =
+                serde_json::from_slice(&req.body).unwrap_or(serde_json::json!({}));
+            if let Some(arr) = body["recipients"].as_array() {
+                for r in arr {
+                    if let Some(s) = r.as_str() {
+                        out.push(s.to_string());
+                    }
+                }
+            }
+        }
+        out
     }
 
     #[tokio::test]

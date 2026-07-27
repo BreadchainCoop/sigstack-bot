@@ -99,24 +99,6 @@ impl LanguageBridge {
     }
 }
 
-/// 1↔1 Parallel Translation bridge (monolingual main + one parallel group).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ParallelBridge {
-    pub main_lang: String,
-    pub parallel_lang: String,
-    pub parallel_send_id: String,
-    pub parallel_internal_id: String,
-    /// user key → invite address
-    #[serde(default)]
-    pub members: HashMap<String, String>,
-}
-
-impl ParallelBridge {
-    pub fn is_member(&self, user: &str) -> bool {
-        self.members.contains_key(user)
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GroupPreference {
     #[serde(default = "default_true")]
@@ -128,8 +110,6 @@ struct GroupPreference {
     /// Mutual-aid language sidecar bridge (replaces legacy per-user translate map).
     #[serde(default)]
     language_bridge: Option<LanguageBridge>,
-    #[serde(default)]
-    parallel_bridge: Option<ParallelBridge>,
 }
 
 impl Default for GroupPreference {
@@ -139,7 +119,6 @@ impl Default for GroupPreference {
             translate: None,
             menu_language: MenuLanguage::En,
             language_bridge: None,
-            parallel_bridge: None,
         }
     }
 }
@@ -153,7 +132,6 @@ impl GroupPreference {
                 .language_bridge
                 .as_ref()
                 .is_none_or(LanguageBridge::is_empty)
-            && self.parallel_bridge.is_none()
     }
 }
 
@@ -168,8 +146,6 @@ pub struct GroupPreferencesStore {
     groups: RwLock<HashMap<String, GroupPreference>>,
     /// sidecar internal_id → (main internal_id, lang code); rebuilt on load/mutate.
     sidecar_index: RwLock<HashMap<String, (String, String)>>,
-    /// parallel internal_id → main internal_id
-    parallel_index: RwLock<HashMap<String, String>>,
     rate_limits: RwLock<HashMap<String, Vec<Instant>>>,
     max_per_minute: u32,
     dstack: Option<Arc<DstackClient>>,
@@ -184,7 +160,6 @@ impl GroupPreferencesStore {
         Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
             sidecar_index: RwLock::new(HashMap::new()),
-            parallel_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
             dstack: None,
@@ -204,7 +179,6 @@ impl GroupPreferencesStore {
         let store = Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
             sidecar_index: RwLock::new(HashMap::new()),
-            parallel_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
             dstack: if persist { Some(dstack) } else { None },
@@ -233,7 +207,6 @@ impl GroupPreferencesStore {
         let store = Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
             sidecar_index: RwLock::new(HashMap::new()),
-            parallel_index: RwLock::new(HashMap::new()),
             rate_limits: RwLock::new(HashMap::new()),
             max_per_minute,
             dstack: Some(Arc::new(dstack)),
@@ -255,16 +228,6 @@ impl GroupPreferencesStore {
             }
         }
         *self.sidecar_index.write().unwrap() = index;
-    }
-
-    fn rebuild_parallel_index(&self) {
-        let mut index = HashMap::new();
-        for (main_id, pref) in self.groups.read().unwrap().iter() {
-            if let Some(bridge) = &pref.parallel_bridge {
-                index.insert(bridge.parallel_internal_id.clone(), main_id.clone());
-            }
-        }
-        *self.parallel_index.write().unwrap() = index;
     }
 
     // --- Transcription (per group) ---
@@ -452,96 +415,6 @@ impl GroupPreferencesStore {
         removed
     }
 
-    // --- Parallel Translation (keyed by main group internal_id) ---
-
-    pub fn get_parallel(&self, main_group_id: &str) -> Option<ParallelBridge> {
-        self.groups
-            .read()
-            .unwrap()
-            .get(main_group_id)
-            .and_then(|p| p.parallel_bridge.clone())
-    }
-
-    pub fn has_parallel(&self, main_group_id: &str) -> bool {
-        self.get_parallel(main_group_id).is_some()
-    }
-
-    /// Resolve parallel internal_id → main_id.
-    pub fn lookup_parallel(&self, parallel_internal_id: &str) -> Option<String> {
-        self.parallel_index
-            .read()
-            .unwrap()
-            .get(parallel_internal_id)
-            .cloned()
-    }
-
-    pub fn set_parallel(self: &Arc<Self>, main_group_id: &str, bridge: ParallelBridge) {
-        {
-            let mut groups = self.groups.write().unwrap();
-            let entry = groups.entry(main_group_id.to_string()).or_default();
-            entry.parallel_bridge = Some(bridge);
-        }
-        self.rebuild_parallel_index();
-        self.schedule_persist();
-    }
-
-    pub fn clear_parallel(self: &Arc<Self>, main_group_id: &str) -> bool {
-        let had = {
-            let mut groups = self.groups.write().unwrap();
-            let Some(entry) = groups.get_mut(main_group_id) else {
-                return false;
-            };
-            let had = entry.parallel_bridge.is_some();
-            entry.parallel_bridge = None;
-            if entry.is_default() {
-                groups.remove(main_group_id);
-            }
-            had
-        };
-        self.rebuild_parallel_index();
-        self.schedule_persist();
-        had
-    }
-
-    pub fn add_parallel_member(
-        self: &Arc<Self>,
-        main_group_id: &str,
-        user: &str,
-        address: String,
-    ) -> bool {
-        let ok = {
-            let mut groups = self.groups.write().unwrap();
-            let Some(entry) = groups.get_mut(main_group_id) else {
-                return false;
-            };
-            let Some(bridge) = entry.parallel_bridge.as_mut() else {
-                return false;
-            };
-            bridge.members.insert(user.to_string(), address);
-            true
-        };
-        if ok {
-            self.schedule_persist();
-        }
-        ok
-    }
-
-    /// Returns invite address if the user was a member.
-    pub fn remove_parallel_member(
-        self: &Arc<Self>,
-        main_group_id: &str,
-        user: &str,
-    ) -> Option<String> {
-        let removed = {
-            let mut groups = self.groups.write().unwrap();
-            let entry = groups.get_mut(main_group_id)?;
-            let bridge = entry.parallel_bridge.as_mut()?;
-            bridge.members.remove(user)
-        };
-        self.schedule_persist();
-        removed
-    }
-
     /// Returns false when the group exceeded `max_per_minute` in the rolling window.
     pub fn allow_message(&self, group_id: &str) -> bool {
         if self.max_per_minute == 0 {
@@ -719,7 +592,6 @@ impl GroupPreferencesStore {
         let count = snapshot.groups.len();
         *self.groups.write().unwrap() = snapshot.groups;
         self.rebuild_sidecar_index();
-        self.rebuild_parallel_index();
         Ok(count)
     }
 
@@ -847,33 +719,6 @@ mod tests {
         let removed = store.clear_bridge_member(main, "user-a").unwrap();
         assert_eq!(removed.0, "en");
         assert!(store.member_lang(main, "user-a").is_none());
-    }
-
-    #[test]
-    fn parallel_bridge_members_and_index() {
-        let store = GroupPreferencesStore::new_in_memory(0);
-        let main = "main-p";
-        store.set_parallel(
-            main,
-            ParallelBridge {
-                main_lang: "en".into(),
-                parallel_lang: "es".into(),
-                parallel_send_id: "group.par".into(),
-                parallel_internal_id: "par-int".into(),
-                members: HashMap::new(),
-            },
-        );
-        assert!(store.has_parallel(main));
-        assert_eq!(store.lookup_parallel("par-int").as_deref(), Some(main));
-        assert!(store.add_parallel_member(main, "u1", "+1555".into()));
-        assert!(store.get_parallel(main).unwrap().is_member("u1"));
-        assert_eq!(
-            store.remove_parallel_member(main, "u1").as_deref(),
-            Some("+1555")
-        );
-        assert!(store.clear_parallel(main));
-        assert!(!store.has_parallel(main));
-        assert!(store.lookup_parallel("par-int").is_none());
     }
 
     #[tokio::test]

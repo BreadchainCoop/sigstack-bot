@@ -6,8 +6,7 @@ Interoperable Signal products (see [issue #10](https://github.com/BreadchainCoop
 
 1. **Voice transcription** — own CVM (`BOT__ROLE=transcription`)
 2. **In-chat group translation** — translation CVM (see [`docs/in-chat-translation.md`](../../docs/in-chat-translation.md))
-3. **Parallel Translation** — translation CVM MVP (see [`docs/parallel-translation.md`](../../docs/parallel-translation.md))
-4. **Language Threads** — translation CVM (see [`docs/language-threads.md`](../../docs/language-threads.md))
+3. **Language Threads** — translation CVM, multilingual main + N sidecars (see [`docs/language-threads.md`](../../docs/language-threads.md))
 
 Architecture overview: [`docs/two-cvm-architecture.md`](../../docs/two-cvm-architecture.md).
 

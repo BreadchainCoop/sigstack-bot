@@ -69,8 +69,13 @@ Deploy each compose to its **own** CVM. Do not co-locate Whisper with the transl
 |---------|-----|-----|
 | Voice transcription | Transcription | [voice-transcription.md](voice-transcription.md) |
 | In-chat (group) translation | Translation | [in-chat-translation.md](in-chat-translation.md) |
-| Parallel Translation (MVP) | Translation | [parallel-translation.md](parallel-translation.md) |
 | Language Threads | Translation | [language-threads.md](language-threads.md) |
+
+### Interoperability
+
+- **Transcription** composes with either translation product in the same Signal group (pair via `!transcription` on the translation bot).
+- **In-chat** translates inside one group thread (quote-reply).
+- **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-on`).
 
 ## Why split
 

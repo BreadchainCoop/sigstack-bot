@@ -1,9 +1,8 @@
-//! Nested product menus: `!translation`, `!transcription`, `!in-chat`, `!parallel`.
+//! Nested product menus: `!translation`, `!transcription`, `!in-chat`.
 
 use crate::commands::menu_locale::{
-    help_menu, in_chat_menu, is_exact_command, menu_language_for_message, parallel_menu,
-    transcription_group_only, transcription_invited, transcription_unavailable,
-    translation_products_menu,
+    help_menu, in_chat_menu, is_exact_command, menu_language_for_message, transcription_group_only,
+    transcription_invited, transcription_unavailable, translation_products_menu,
 };
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
@@ -231,32 +230,6 @@ impl CommandHandler for InChatMenuHandler {
     }
 }
 
-pub struct ParallelMenuHandler {
-    group_prefs: Arc<GroupPreferencesStore>,
-}
-
-impl ParallelMenuHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>) -> Self {
-        Self { group_prefs }
-    }
-}
-
-#[async_trait]
-impl CommandHandler for ParallelMenuHandler {
-    fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!parallel")
-    }
-
-    fn label(&self) -> &'static str {
-        "parallel_menu"
-    }
-
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(parallel_menu(language).into())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,10 +260,6 @@ mod tests {
         let t = TranslationMenuHandler::new(store.clone());
         assert!(t.matches(&msg("!translation")));
         assert!(!t.matches(&msg("!translation-on es en")));
-
-        let p = ParallelMenuHandler::new(store.clone());
-        assert!(p.matches(&msg("!parallel")));
-        assert!(!p.matches(&msg("!parallel-on en es")));
 
         let i = InChatMenuHandler::new(store.clone(), true);
         assert!(i.matches(&msg("!in-chat")));

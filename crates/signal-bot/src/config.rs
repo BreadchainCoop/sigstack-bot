@@ -266,7 +266,7 @@ impl Config {
             .add_source(
                 config::Environment::default()
                     .separator("__")
-                    // Note: try_parsing(true) would parse +16504928286 as a positive number
+                    // Note: try_parsing(true) would parse +15551234567 as a positive number
                     // stripping the + prefix. Keep strings as strings.
                     .try_parsing(false),
             )

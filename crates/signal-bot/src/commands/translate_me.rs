@@ -5,7 +5,7 @@
 //! sidecar→main (relay) + other sidecars (translate). Bot never relays itself.
 
 use crate::bot_identity::BotIdentity;
-use crate::commands::translate_lang::resolve_language;
+use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::translate_service::{detect_text_language, near_ai_translate};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -197,11 +197,9 @@ impl TranslateMeHandler {
                 ));
             }
         } else {
-            let name = format!("Language Thread {}", lang.name);
-            let description = format!(
-                "{} sidecar bridged to the main mutual-aid group.",
-                lang.name
-            );
+            // Localize title/description/welcome before create+invite so the sidecar
+            // opens in the member's language.
+            let (name, description, welcome) = localize_sidecar_copy(&self.near_ai, lang).await;
             match self
                 .signal
                 .create_group(bot, &name, vec![address.clone()], Some(&description))
@@ -213,10 +211,6 @@ impl TranslateMeHandler {
                         lang.code,
                         group.id.clone(),
                         group.internal_id.clone(),
-                    );
-                    let welcome = format!(
-                        "Welcome to Language Thread {}. Messages here are bridged with the main group.",
-                        lang.name
                     );
                     if let Err(e) = self.signal.send(bot, &group.id, &welcome).await {
                         warn!(error = %e, "Failed to send sidecar welcome");
@@ -429,6 +423,60 @@ fn format_attribution(display_name: &str, body: &str) -> String {
     format!("{display_name}:\n{body}")
 }
 
+/// English title / description / welcome, optionally localized via NEAR.
+async fn localize_sidecar_copy(
+    near_ai: &NearAiClient,
+    lang: &Language,
+) -> (String, String, String) {
+    let name_en = format!("Language Thread {}", lang.name);
+    let description_en = format!(
+        "{} sidecar bridged to the main mutual-aid group.",
+        lang.name
+    );
+    let welcome_en = format!(
+        "Welcome to Language Thread {}. Messages here are bridged with the main group.",
+        lang.name
+    );
+
+    if lang.code == "en" {
+        return (name_en, description_en, welcome_en);
+    }
+
+    let (name_r, description_r, welcome_r) = tokio::join!(
+        near_ai_translate(near_ai, &name_en, lang),
+        near_ai_translate(near_ai, &description_en, lang),
+        near_ai_translate(near_ai, &welcome_en, lang),
+    );
+
+    (
+        take_translation(name_r, name_en, "sidecar name"),
+        take_translation(description_r, description_en, "sidecar description"),
+        take_translation(welcome_r, welcome_en, "sidecar welcome"),
+    )
+}
+
+fn take_translation(
+    result: Result<String, near_ai_client::NearAiError>,
+    fallback: String,
+    label: &str,
+) -> String {
+    match result {
+        Ok(s) => {
+            let trimmed = s.trim();
+            if trimmed.is_empty() {
+                warn!(label, "Empty NEAR translation; using English");
+                fallback
+            } else {
+                trimmed.to_string()
+            }
+        }
+        Err(e) => {
+            warn!(error = %e, label, "NEAR translation failed; using English");
+            fallback
+        }
+    }
+}
+
 fn starts_with_word(text: &str, prefix: &str) -> bool {
     text == prefix
         || text
@@ -509,6 +557,51 @@ mod tests {
             attachments: vec![],
             quote: None,
         }
+    }
+
+    #[tokio::test]
+    async fn localize_sidecar_copy_uses_near_then_falls_back() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let near = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "  Hilo de idioma español  "}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .mount(&near)
+            .await;
+
+        let client =
+            NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5)).unwrap();
+        let es = resolve_language("es").unwrap();
+        let (name, description, welcome) = localize_sidecar_copy(&client, es).await;
+        assert_eq!(name, "Hilo de idioma español");
+        assert_eq!(description, "Hilo de idioma español");
+        assert_eq!(welcome, "Hilo de idioma español");
+
+        let en = resolve_language("en").unwrap();
+        let (name, description, welcome) = localize_sidecar_copy(&client, en).await;
+        assert_eq!(name, "Language Thread English");
+        assert!(description.contains("English sidecar"));
+        assert!(welcome.starts_with("Welcome to Language Thread English"));
+
+        let down = NearAiClient::new(
+            "key",
+            "http://127.0.0.1:9",
+            "m",
+            std::time::Duration::from_millis(50),
+        )
+        .unwrap();
+        let (name, _, welcome) = localize_sidecar_copy(&down, es).await;
+        assert_eq!(name, "Language Thread Spanish");
+        assert!(welcome.starts_with("Welcome to Language Thread Spanish"));
     }
 
     #[test]
@@ -657,25 +750,25 @@ mod tests {
     #[tokio::test]
     async fn create_sidecar_on_existing_add_switch_and_off() {
         use serde_json::json;
+        use std::sync::atomic::{AtomicUsize, Ordering};
         use wiremock::matchers::{method, path, path_regex};
         use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
-        struct CreateGroupResponder;
+        struct CreateGroupResponder {
+            count: Arc<AtomicUsize>,
+        }
         impl Respond for CreateGroupResponder {
-            fn respond(&self, request: &Request) -> ResponseTemplate {
-                let body: serde_json::Value =
-                    serde_json::from_slice(&request.body).unwrap_or_else(|_| json!({}));
-                let name = body["name"].as_str().unwrap_or("");
-                let id = if name.contains("French") {
-                    "group.fr"
-                } else {
-                    "group.es"
-                };
+            fn respond(&self, _request: &Request) -> ResponseTemplate {
+                // Call order: first subscribe creates es, language switch creates fr.
+                let n = self.count.fetch_add(1, Ordering::SeqCst);
+                let id = if n == 0 { "group.es" } else { "group.fr" };
                 ResponseTemplate::new(200).set_body_json(json!({"id": id}))
             }
         }
 
         let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        mount_near(&near).await;
         Mock::given(method("POST"))
             .and(path("/v2/send"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
@@ -683,7 +776,9 @@ mod tests {
             .await;
         Mock::given(method("POST"))
             .and(path("/v1/groups/%2B15550001111"))
-            .respond_with(CreateGroupResponder)
+            .respond_with(CreateGroupResponder {
+                count: Arc::new(AtomicUsize::new(0)),
+            })
             .mount(&signal)
             .await;
         Mock::given(method("GET"))
@@ -714,7 +809,7 @@ mod tests {
             .await;
 
         let store = GroupPreferencesStore::new_in_memory(0);
-        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+        let handler = handler_pair(store.clone(), signal.uri(), near.uri());
 
         let mut msg = group_msg("+15550002222", "!translate-me-on es");
         msg.group_id = Some("main-internal".into());

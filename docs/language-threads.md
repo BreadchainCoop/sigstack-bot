@@ -66,7 +66,7 @@ Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out
 
 1. User in main: `!translate-me-on es`
 2. Resolve language; need invite address (`sourceNumber` preferred, else usable `source`)
-3. **First subscriber for that lang:** `POST /v1/groups/{bot}` → name `Language Thread Spanish` → persist send id + internal id → welcome in sidecar → confirm in main
+3. **First subscriber for that lang:** localize title/description/welcome via NEAR → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
 4. **Later subscribers:** `add_members` on existing sidecar
 5. Language switch: remove from old sidecar, add/create new
 6. `!translate-me-off`: remove from Signal group + store

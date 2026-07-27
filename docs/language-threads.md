@@ -37,7 +37,7 @@ Main (bilingual)
 
 Aliases: `!translate-me on es`, `!translation-me-on es`, etc.
 
-**Also on the translation bot** (separate products): in-chat `!translate-on` / `!translate-off` and quote `!translate` (via `!in-chat` menu); Parallel via `!parallel` / `!parallel-on`. Language Threads refactor is deferred — see product hub `!translation`.
+**Also on the translation bot** (separate products): [in-chat translation](in-chat-translation.md) (`!translate-on` / quote `!translate` via `!in-chat`); [Parallel Translation](parallel-translation.md) (`!parallel` / `!parallel-on`). Language Threads refactor is deferred — see product hub `!translation`.
 
 **Not registered:** `!ask`, DM chat, voice/`!transcribe*` (transcription CVM).
 

@@ -1,5 +1,5 @@
 # Phala Cloud TEE — translation CVM (4 GB / tdx.medium)
-# Hosts in-chat translation + Language Threads (+ Parallel Translation later).
+# Hosts in-chat translation + Parallel Translation + Language Threads.
 #
 # Build & push (linux/amd64):
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-bot-tee:latest -f docker/Dockerfile --push .

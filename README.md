@@ -11,11 +11,11 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 | Voice transcription | `BOT__ROLE=transcription` | Own CVM / Compose stack (with Whisper) |
 | In-chat (group) translation | `BOT__ROLE=translation` | Shared translation CVM |
 | Language Threads | `BOT__ROLE=translation` | Shared translation CVM |
-| Parallel Translation | planned | Shared translation CVM |
+| Parallel Translation | `BOT__ROLE=translation` (MVP) | Shared translation CVM |
 
 Pair products by adding **both bots** (two phone numbers) to the same Signal group. Signal is the bus — there is no Docker network between CVMs.
 
-Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/language-threads.md](docs/language-threads.md)
+Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/parallel-translation.md](docs/parallel-translation.md) · [docs/language-threads.md](docs/language-threads.md)
 
 ## Architecture
 

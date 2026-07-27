@@ -4,7 +4,7 @@ Status: **MVP implemented** on the translation bot.
 
 One **monolingual** main Signal group plus one **parallel** Signal group. The bot translates both directions so each lane stays in its language.
 
-Distinct from [Language Threads](language-threads.md) (bilingual main + N sidecars).
+Distinct from [In-chat translation](in-chat-translation.md) (bilingual main, quote-reply in-thread) and [Language Threads](language-threads.md) (bilingual main + N sidecars).
 
 ## Setup
 

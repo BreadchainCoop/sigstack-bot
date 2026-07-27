@@ -16,7 +16,8 @@ cargo build --release -p signal-bot
 npm test                 # cargo test --workspace
 npm run test:cov:report  # summary only (ignores main.rs)
 npm run test:cov:ci      # LCOV + fail under 90% lines (same gate as CI / prepush)
-npm run prepush          # lint + coverage gate + commitlint:branch
+npm run ci               # all GitHub Actions gates (fmt + clippy + coverage + commitlint)
+npm run prepush          # lint (rust+web) + coverage gate + commitlint:branch
 
 cp docker/transcription.env.example docker/transcription.env
 cp docker/translation.env.example docker/translation.env

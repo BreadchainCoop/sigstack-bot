@@ -189,7 +189,7 @@ impl NearAiClient {
         }
 
         let stream = response.bytes_stream().map(|result| {
-            result.map_err(NearAiError::from).and_then(|bytes| {
+            result.map_err(NearAiError::from).map(|bytes| {
                 // Parse SSE data
                 let text = String::from_utf8_lossy(&bytes);
                 let mut content = String::new();
@@ -209,7 +209,7 @@ impl NearAiClient {
                     }
                 }
 
-                Ok(content)
+                content
             })
         });
 

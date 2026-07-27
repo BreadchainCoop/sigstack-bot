@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 
-# Lint the commit message being created.
-npx --no -- commitlint --edit "$1"
+# Lint the commit message being created (conventional commits).
+# Use PATH binary — husky prepends node_modules/.bin (works with npm and pnpm).
+# Do not use bare `pnpm ci` / `npm ci` for this; those are install commands.
+commitlint --edit "$1"

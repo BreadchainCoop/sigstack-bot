@@ -7,9 +7,9 @@ Interoperable Signal products (see [issue #10](https://github.com/BreadchainCoop
 1. **Voice transcription** — own CVM (`BOT__ROLE=transcription`)
 2. **In-chat group translation** — translation CVM (`BOT__ROLE=translation`)
 3. **Parallel Translation** — planned on translation CVM
-4. **Language Threads** — translation CVM (see [`language-threads.md`](language-threads.md))
+4. **Language Threads** — translation CVM (see [`docs/language-threads.md`](../docs/language-threads.md))
 
-Architecture overview: [`two-cvm-architecture.md`](two-cvm-architecture.md).
+Architecture overview: [`docs/two-cvm-architecture.md`](../docs/two-cvm-architecture.md).
 
 Fork legacy removed: general AI chat, tool use (`crates/tools`), x402 payments, in-memory conversation store.
 

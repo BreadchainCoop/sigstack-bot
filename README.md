@@ -89,7 +89,7 @@ See `.env.example` and the docker `*.env.example` files.
 
 ## Security
 
-See [docs/CLAUDE.md](docs/CLAUDE.md) for the TEE trust model, why Signal CLI must run in the TEE, and attestation (`!verify`).
+See [.agents/DEVELOPMENT.md](.agents/DEVELOPMENT.md) for the TEE trust model, why Signal CLI must run in the TEE, and attestation (`!verify`).
 
 ## License
 

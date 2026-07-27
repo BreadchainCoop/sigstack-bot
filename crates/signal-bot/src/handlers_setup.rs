@@ -130,14 +130,6 @@ pub async fn build_translation_handlers(
 
     let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
 
-    handlers.push(Box::new(TranslateParallelHandler::new(
-        group_prefs.clone(),
-        near_ai.clone(),
-        signal.clone(),
-        bot_identity.clone(),
-    )));
-    info!("Parallel Translation enabled: !parallel-on / !parallel-join");
-
     handlers.push(Box::new(TranslateMeHandler::new(
         group_prefs.clone(),
         near_ai.clone(),
@@ -158,7 +150,10 @@ pub async fn build_translation_handlers(
         info!("In-chat translation enabled: !translate-on / !translate-off");
     }
 
-    handlers.push(Box::new(TranslationMenuHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(TranslationMenuHandler::new(
+        group_prefs.clone(),
+        config.translate_all.enabled,
+    )));
     handlers.push(Box::new(TranscriptionPairingHandler::new(
         group_prefs.clone(),
         signal.clone(),
@@ -168,7 +163,6 @@ pub async fn build_translation_handlers(
         group_prefs.clone(),
         config.translate_all.enabled,
     )));
-    handlers.push(Box::new(ParallelMenuHandler::new(group_prefs.clone())));
 
     handlers.push(Box::new(TranslateHandler::new(
         near_ai.clone(),
@@ -188,7 +182,7 @@ pub async fn build_translation_handlers(
     )));
     handlers.push(Box::new(ModelsHandler::new(near_ai)));
 
-    info!("Translation role: hub menus + Parallel + in-chat + Language Threads");
+    info!("Translation role: hub menus + in-chat + Language Threads");
     Ok(handlers)
 }
 
@@ -297,14 +291,15 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 14);
+        assert_eq!(handlers.len(), 12);
         let got = labels(&handlers);
-        assert!(got.contains(&"translate_parallel"));
+        assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"translate_all"));
         assert!(got.contains(&"translation_menu"));
         assert!(got.contains(&"transcription_pairing"));
         assert!(got.contains(&"in_chat_menu"));
-        assert!(got.contains(&"parallel_menu"));
+        assert!(!got.contains(&"translate_parallel"));
+        assert!(!got.contains(&"parallel_menu"));
         assert!(got.contains(&"translate"));
         assert!(got.contains(&"translate_langs"));
         assert!(got.contains(&"set_language"));
@@ -338,9 +333,9 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 13);
+        assert_eq!(handlers.len(), 11);
         assert!(!labels(&handlers).contains(&"translate_all"));
-        assert!(labels(&handlers).contains(&"translate_parallel"));
+        assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));
     }
 

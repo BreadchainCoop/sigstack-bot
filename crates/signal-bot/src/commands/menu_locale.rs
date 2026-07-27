@@ -25,26 +25,15 @@ pub fn help_menu(language: MenuLanguage, role: BotRole) -> &'static str {
     }
 }
 
-pub fn translation_products_menu(language: MenuLanguage) -> &'static str {
-    match language {
-        MenuLanguage::En => TRANSLATION_PRODUCTS_EN,
-        MenuLanguage::Es => TRANSLATION_PRODUCTS_ES,
-    }
-}
-
-pub fn in_chat_menu(language: MenuLanguage, translate_all_enabled: bool) -> &'static str {
+pub fn translation_products_menu(
+    language: MenuLanguage,
+    translate_all_enabled: bool,
+) -> &'static str {
     match (language, translate_all_enabled) {
-        (MenuLanguage::En, true) => IN_CHAT_EN,
-        (MenuLanguage::En, false) => IN_CHAT_DISABLED_EN,
-        (MenuLanguage::Es, true) => IN_CHAT_ES,
-        (MenuLanguage::Es, false) => IN_CHAT_DISABLED_ES,
-    }
-}
-
-pub fn parallel_menu(language: MenuLanguage) -> &'static str {
-    match language {
-        MenuLanguage::En => PARALLEL_MENU_EN,
-        MenuLanguage::Es => PARALLEL_MENU_ES,
+        (MenuLanguage::En, true) => TRANSLATION_MENU_EN,
+        (MenuLanguage::En, false) => TRANSLATION_MENU_AUTO_DISABLED_EN,
+        (MenuLanguage::Es, true) => TRANSLATION_MENU_ES,
+        (MenuLanguage::Es, false) => TRANSLATION_MENU_AUTO_DISABLED_ES,
     }
 }
 
@@ -109,7 +98,7 @@ Las notas de voz en este chat se transcriben a texto (Whisper, dentro del TEE).
 
 const HELP_HUB_EN: &str = r#"Sigstack
 
-- !translation — Translation products
+- !translation — Translation
 - !transcription — Voice transcription
 - !privacy — Privacy & TEE
 
@@ -118,110 +107,82 @@ Menu language: !set-en / !set-es
 
 const HELP_HUB_ES: &str = r#"Sigstack
 
-- !translation — Productos de traducción
+- !translation — Traducción
 - !transcription — Transcripción de voz
 - !privacy — Privacidad y TEE
 
 Idioma del menú: !set-en / !set-es
 !help — Mostrar este menú"#;
 
-const TRANSLATION_PRODUCTS_EN: &str = r#"Translation products
+const TRANSLATION_MENU_EN: &str = r#"Translation
 
-- !in-chat — Translate inside this group (auto or one message)
-- !parallel — Parallel chat (this group + one translated lane)
-- Language Threads — coming in a later update (main bilingual + many language sidecars)
-
-Also: !list-langs · !models · !verify <challenge>
-!help — Back to main menu"#;
-
-const TRANSLATION_PRODUCTS_ES: &str = r#"Productos de traducción
-
-- !in-chat — Traducir en este grupo (auto o un mensaje)
-- !parallel — Chat paralelo (este grupo + un hilo traducido)
-- Language Threads — próximamente (principal bilingüe + varios sidecars)
-
-También: !list-langs · !models · !verify <challenge>
-!help — Volver al menú principal"#;
-
-const IN_CHAT_EN: &str = r#"In-chat translation
-
-**Auto-translate** (detect language, quote-reply the other side):
-- !translate-on <lang1> <lang2> — e.g. !translate-on es en
-- !translate-off — stop auto-translate
+Language Threads (recommended)
+Multilingual main + language sidecars.
+- !translate-me-on <lang> — join/create a Language Thread (from main)
+- !translate-me-off — leave your Language Thread
 - !list-langs — language codes
 
-**Manual** (one message):
+In-chat (same group only)
+Stay in this thread; auto or quote one message.
+- !translate-on <lang1> <lang2> — e.g. !translate-on es en
+- !translate-off — stop auto-translate
 - Reply to a message with !translate <lang>
 
-!translation — Back to products · !help — Main menu"#;
+Also: !models · !verify <challenge>
+!help — Main menu"#;
 
-const IN_CHAT_ES: &str = r#"Traducción en el chat
+const TRANSLATION_MENU_ES: &str = r#"Traducción
 
-**Auto-traducción** (detecta idioma y responde citando la otra lengua):
-- !translate-on <lang1> <lang2> — ej. !translate-on es en
-- !translate-off — detener auto-traducción
+Language Threads (recomendado)
+Principal multilingüe + sidecars por idioma.
+- !translate-me-on <lang> — unirte/crear un Language Thread (desde el principal)
+- !translate-me-off — salir de tu Language Thread
 - !list-langs — códigos de idioma
 
-**Manual** (un mensaje):
+En el chat (solo este grupo)
+Quédate en este hilo; auto o cita un mensaje.
+- !translate-on <lang1> <lang2> — ej. !translate-on es en
+- !translate-off — detener auto-traducción
 - Responde a un mensaje con !translate <lang>
 
-!translation — Volver a productos · !help — Menú principal"#;
+También: !models · !verify <challenge>
+!help — Menú principal"#;
 
-const IN_CHAT_DISABLED_EN: &str = r#"In-chat translation
+const TRANSLATION_MENU_AUTO_DISABLED_EN: &str = r#"Translation
 
+Language Threads (recommended)
+Multilingual main + language sidecars.
+- !translate-me-on <lang> — join/create a Language Thread (from main)
+- !translate-me-off — leave your Language Thread
+- !list-langs — language codes
+
+In-chat (same group only)
 Auto-translate is disabled on this bot (!translate-on).
-
-**Manual** (one message):
 - Reply to a message with !translate <lang>
 
-!translation — Back to products · !help — Main menu"#;
+Also: !models · !verify <challenge>
+!help — Main menu"#;
 
-const IN_CHAT_DISABLED_ES: &str = r#"Traducción en el chat
+const TRANSLATION_MENU_AUTO_DISABLED_ES: &str = r#"Traducción
 
+Language Threads (recomendado)
+Principal multilingüe + sidecars por idioma.
+- !translate-me-on <lang> — unirte/crear un Language Thread (desde el principal)
+- !translate-me-off — salir de tu Language Thread
+- !list-langs — códigos de idioma
+
+En el chat (solo este grupo)
 La auto-traducción está desactivada en este bot (!translate-on).
-
-**Manual** (un mensaje):
 - Responde a un mensaje con !translate <lang>
 
-!translation — Volver a productos · !help — Menú principal"#;
-
-const PARALLEL_MENU_EN: &str = r#"Parallel Translation
-
-This chat stays in one language. The bot creates a parallel Signal group in the other language and relays both ways.
-
-**Setup** (in this group):
-- !parallel-on <lang_this_chat> <lang_parallel>
-  lang1 = THIS chat; lang2 = the parallel group the bot creates
-  Example: !parallel-on en es
-
-**Join** (each person in this group):
-- !parallel-join — add yourself to the parallel group
-- !parallel-leave — leave the parallel group
-- !parallel-off — stop Parallel for this group (in main)
-
-!list-langs · !translation — Back · !help — Main menu"#;
-
-const PARALLEL_MENU_ES: &str = r#"Traducción paralela
-
-Este chat queda en un idioma. El bot crea un grupo Signal paralelo en el otro idioma y retransmite en ambos sentidos.
-
-**Configurar** (en este grupo):
-- !parallel-on <lang_este_chat> <lang_paralelo>
-  lang1 = ESTE chat; lang2 = el grupo paralelo que crea el bot
-  Ejemplo: !parallel-on en es
-
-**Unirse** (cada persona en este grupo):
-- !parallel-join — añadirte al grupo paralelo
-- !parallel-leave — salir del grupo paralelo
-- !parallel-off — desactivar Parallel en este grupo (en el principal)
-
-!list-langs · !translation — Volver · !help — Menú principal"#;
+También: !models · !verify <challenge>
+!help — Menú principal"#;
 
 const TRANSCRIPTION_UNAVAILABLE_EN: &str = r#"Voice transcription is currently unavailable.
 
 The transcription bot is not paired with this group yet. Meanwhile, try translation:
 
-- !translation — Translation products (in-chat, parallel, …)
+- !translation — Translation
 
 !help — Main menu"#;
 
@@ -229,7 +190,7 @@ const TRANSCRIPTION_UNAVAILABLE_ES: &str = r#"La transcripción de voz no está 
 
 El bot de transcripción aún no está emparejado con este grupo. Mientras tanto, prueba la traducción:
 
-- !translation — Productos de traducción (en el chat, paralelo, …)
+- !translation — Traducción
 
 !help — Menú principal"#;
 
@@ -332,17 +293,29 @@ mod tests {
     }
 
     #[test]
-    fn translation_products_lists_modes() {
-        let h = translation_products_menu(MenuLanguage::En);
-        assert!(h.contains("!in-chat"));
-        assert!(h.contains("!parallel"));
-        assert!(h.contains("Language Threads"));
+    fn translation_menu_leads_with_language_threads() {
+        let h = translation_products_menu(MenuLanguage::En, true);
+        assert!(h.contains("Language Threads (recommended)"));
+        assert!(h.contains("!translate-me-on"));
+        assert!(h.contains("!translate-me-off"));
+        assert!(h.contains("!translate-on"));
+        assert!(h.contains("!translate <lang>"));
+        assert!(!h.contains("!parallel"));
+        assert!(!h.contains("!in-chat"));
+        let lt = h.find("Language Threads").expect("lt");
+        let in_chat = h.find("In-chat").expect("in-chat section");
+        assert!(
+            lt < in_chat,
+            "Language Threads should appear before In-chat"
+        );
     }
 
     #[test]
-    fn in_chat_menu_covers_auto_and_manual() {
-        let h = in_chat_menu(MenuLanguage::En, true);
-        assert!(h.contains("!translate-on"));
+    fn translation_menu_auto_disabled_hides_translate_on() {
+        let h = translation_products_menu(MenuLanguage::En, false);
+        assert!(h.contains("!translate-me-on"));
+        assert!(h.contains("Auto-translate is disabled"));
+        assert!(!h.contains("!translate-on <lang1>"));
         assert!(h.contains("!translate <lang>"));
     }
 
@@ -350,8 +323,8 @@ mod tests {
     fn exact_command_does_not_match_prefixed() {
         assert!(is_exact_command("!translation", "!translation"));
         assert!(!is_exact_command("!translation-on es en", "!translation"));
-        assert!(is_exact_command("!parallel", "!parallel"));
-        assert!(!is_exact_command("!parallel-on en es", "!parallel"));
+        assert!(is_exact_command("!in-chat", "!in-chat"));
+        assert!(!is_exact_command("!in-chat-extra", "!in-chat"));
     }
 
     #[test]

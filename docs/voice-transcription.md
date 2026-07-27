@@ -19,7 +19,7 @@ Both bots are members of the same Signal group (two phone numbers).
 
 1. Human sends a voice note.
 2. Transcription bot downloads the attachment, calls Whisper, quote-replies with text prefixed by `📝 Transcript:` (configurable via `WHISPER__REPLY_PREFIX`).
-3. Translation bot treats that text like any other group message (in-chat auto-translate, Parallel, Language Threads).
+3. Translation bot treats that text like any other group message (in-chat auto-translate, Language Threads).
 
 ## Pairing (translation leads)
 

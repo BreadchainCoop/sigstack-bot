@@ -124,13 +124,6 @@ impl TranslateAllHandler {
             return Ok("Choose two different languages. Example: !translate-on es en".into());
         }
 
-        if self.store.has_parallel(group_id) {
-            return Ok(
-                "Parallel Translation is active here. Run !parallel-off before enabling in-chat auto-translate."
-                    .into(),
-            );
-        }
-
         let mode = GroupTranslateMode::new(lang_a, lang_b);
         let pair_label = mode.display_pair();
         self.store.set(group_id.to_string(), mode);
@@ -327,63 +320,6 @@ mod tests {
 
         msg.text = "!help".into();
         assert!(!handler.matches(&msg));
-    }
-
-    #[tokio::test]
-    async fn setup_rejects_when_parallel_active() {
-        use crate::group_preferences_store::ParallelBridge;
-        use serde_json::json;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
-
-        let signal = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v2/send"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-            .mount(&signal)
-            .await;
-
-        let store = GroupPreferencesStore::new_in_memory(30);
-        store.set_parallel(
-            "group.main",
-            ParallelBridge {
-                main_lang: "en".into(),
-                parallel_lang: "es".into(),
-                parallel_send_id: "group.p".into(),
-                parallel_internal_id: "p-int".into(),
-                members: Default::default(),
-            },
-        );
-        let handler = TranslateAllHandler::new(
-            store,
-            Arc::new(
-                NearAiClient::new(
-                    "key",
-                    "http://127.0.0.1:9",
-                    "model",
-                    std::time::Duration::from_secs(2),
-                )
-                .unwrap(),
-            ),
-            Arc::new(SignalClient::new(signal.uri()).unwrap()),
-        );
-
-        let msg = BotMessage {
-            source: "+1".into(),
-            source_number: Some("+1".into()),
-            source_name: None,
-            text: "!translate-on en es".into(),
-            timestamp: 1,
-            message_timestamp: 1,
-            is_group: true,
-            group_id: Some("group.main".into()),
-            group_name: None,
-            receiving_account: "+2".into(),
-            attachments: vec![],
-            quote: None,
-        };
-        assert!(handler.execute(&msg).await.unwrap().is_empty());
-        assert!(!handler.store.is_active("group.main"));
     }
 
     #[tokio::test]

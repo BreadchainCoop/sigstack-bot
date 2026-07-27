@@ -4,7 +4,7 @@ Status: **MVP implemented** on the translation bot.
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 
-Distinct from [Parallel Translation](parallel-translation.md) (monolingual main + one parallel group) and [Language Threads](language-threads.md) (bilingual main + N sidecars).
+Distinct from [Language Threads](language-threads.md) (multilingual main + N sidecars). In-chat stays in one Signal group; Language Threads creates sidecar groups.
 
 ## Setup
 
@@ -23,7 +23,7 @@ Stop:
 !translate-off
 ```
 
-Menus: `!help` → `!translation` → `!in-chat`
+Menus: `!help` → `!translation` (in-chat commands listed under Language Threads on the same screen). `!in-chat` still works as a redirect to that flat menu.
 
 ## Behavior
 
@@ -38,10 +38,6 @@ Skip when language is undetected or not in the pair. Bot messages are never proc
 
 Voice notes: the **transcription** bot posts a transcript in-group; with auto-translate on, the **translation** bot then intercepts that text like any other message.
 
-## Mutual exclusion
-
-Cannot enable in-chat auto-translate while Parallel (`!parallel-on`) is active, and vice versa.
-
 ## Key code
 
 | Area | Path |
@@ -50,4 +46,4 @@ Cannot enable in-chat auto-translate while Parallel (`!parallel-on`) is active, 
 | Quote `!translate` | [`crates/signal-bot/src/commands/translate.rs`](../crates/signal-bot/src/commands/translate.rs) |
 | Detect / format helpers | [`crates/signal-bot/src/commands/translate_service.rs`](../crates/signal-bot/src/commands/translate_service.rs) |
 | Prefs (`GroupTranslateMode`) | [`crates/signal-bot/src/group_preferences_store.rs`](../crates/signal-bot/src/group_preferences_store.rs) |
-| Menus | [`crates/signal-bot/src/commands/menu_locale.rs`](../crates/signal-bot/src/commands/menu_locale.rs) (`!in-chat`) |
+| Menus | [`crates/signal-bot/src/commands/menu_locale.rs`](../crates/signal-bot/src/commands/menu_locale.rs) (flat `!translation`) |

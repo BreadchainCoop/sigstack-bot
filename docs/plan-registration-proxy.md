@@ -581,7 +581,7 @@ This means:
 
 #### Phase 5: Documentation & Polish
 19. Update README with registration proxy usage
-20. Update CLAUDE.md with security analysis
+20. Update .agents/DEVELOPMENT.md with security analysis
 21. Add OpenAPI/Swagger documentation
 22. Add metrics/monitoring endpoints
 

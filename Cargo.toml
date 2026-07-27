@@ -3,12 +3,9 @@ resolver = "2"
 members = [
     "crates/signal-bot",
     "crates/near-ai-client",
-    "crates/conversation-store",
     "crates/dstack-client",
     "crates/signal-client",
     "crates/signal-registration-proxy",
-    "crates/tools",
-    "crates/x402-payments",
     "crates/whisper-client",
 ]
 
@@ -17,7 +14,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 license = "Apache-2.0"
-repository = "https://github.com/zmanian/signal-bot-tee"
+repository = "https://github.com/BreadchainCoop/sigstack-bot"
 
 [workspace.dependencies]
 # Async runtime

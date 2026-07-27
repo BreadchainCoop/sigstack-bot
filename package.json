@@ -1,0 +1,28 @@
+{
+  "name": "sigstack-bot",
+  "private": true,
+  "description": "Dev tooling for commitlint / husky (Rust app lives in crates/)",
+  "scripts": {
+    "prepare": "husky",
+    "commitlint": "commitlint --edit",
+    "commitlint:last": "commitlint --last --verbose",
+    "commitlint:branch": "commitlint --from \"$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null || git rev-list --max-parents=0 HEAD)\" --to HEAD --verbose",
+    "fmt": "cargo fmt --all",
+    "fmt:check": "cargo fmt --all -- --check",
+    "clippy": "cargo clippy --workspace --all-targets -- -D warnings",
+    "lint:rust": "npm run fmt:check && npm run clippy",
+    "lint:web": "npm --prefix web run lint",
+    "lint": "npm run lint:rust && npm run lint:web",
+    "test": "cargo test --workspace",
+    "test:rust": "cargo test --workspace",
+    "build": "cargo build --release -p signal-bot",
+    "build:web": "npm --prefix web run build",
+    "check": "npm run lint && npm run test",
+    "prepush": "npm run check && npm run commitlint:branch"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "husky": "^9.1.7"
+  }
+}

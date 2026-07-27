@@ -1,12 +1,38 @@
 # Build artifacts
 /target/
 
+# Node (commitlint / husky at repo root)
+/node_modules/
+
 # Environment files (NEVER commit these)
 .env
 .env.*
 !.env.example
 docker/.env
+docker/*.env
+!docker/*.env.example
+!**/*.env.example
+phala.env
 **/secrets/
+
+# Local Phala / dstack CLI state
+**/.phala/
+
+# Vercel link metadata (project/org IDs — do not share)
+.vercel/
+
+# Keys, certs, and local credential material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+credentials.json
+**/service-account*.json
 
 # IDE
 .idea/
@@ -16,7 +42,6 @@ docker/.env
 
 # macOS
 .DS_Store
-phala.env
 
 # Git worktrees
 .worktrees/

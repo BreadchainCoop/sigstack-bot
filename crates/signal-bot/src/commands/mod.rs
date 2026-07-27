@@ -19,7 +19,8 @@ pub use help::HelpHandler;
 pub use models::ModelsHandler;
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
-    InChatMenuHandler, ParallelMenuHandler, TranscriptionStubHandler, TranslationMenuHandler,
+    InChatMenuHandler, ParallelMenuHandler, TranscriptionMenuHandler, TranscriptionPairingHandler,
+    TranslationMenuHandler,
 };
 pub use set_language::SetLanguageHandler;
 pub use signal_bot_core::CommandHandler;

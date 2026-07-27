@@ -70,6 +70,7 @@ pub async fn build_transcription_handlers(
         config.whisper.max_attachment_bytes,
         Arc::new(GroupTranscribePrefs(group_prefs.clone())),
     );
+    handlers.push(Box::new(TranscriptionMenuHandler::new(group_prefs.clone())));
     handlers.push(Box::new(VerifyHandler::new(dstack)));
     handlers.push(Box::new(HelpHandler::new(
         group_prefs.clone(),
@@ -80,7 +81,7 @@ pub async fn build_transcription_handlers(
         BotRole::Transcription,
     )));
 
-    info!("Transcription role: voice / !transcribe* / help / privacy / verify");
+    info!("Transcription role: voice / !transcribe* / !transcription / help / privacy / verify");
     Ok(handlers)
 }
 
@@ -158,7 +159,11 @@ pub async fn build_translation_handlers(
     }
 
     handlers.push(Box::new(TranslationMenuHandler::new(group_prefs.clone())));
-    handlers.push(Box::new(TranscriptionStubHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(TranscriptionPairingHandler::new(
+        group_prefs.clone(),
+        signal.clone(),
+        config.signal.peer_phone.clone(),
+    )));
     handlers.push(Box::new(InChatMenuHandler::new(
         group_prefs.clone(),
         config.translate_all.enabled,
@@ -252,13 +257,14 @@ mod tests {
             .await
             .expect("transcription handlers");
 
-        assert_eq!(handlers.len(), 6);
+        assert_eq!(handlers.len(), 7);
         assert_eq!(
             labels(&handlers),
             vec![
                 "voice",
                 "manual_transcribe",
                 "transcribe",
+                "transcription_menu",
                 "command", // verify
                 "help",
                 "privacy",
@@ -296,7 +302,7 @@ mod tests {
         assert!(got.contains(&"translate_parallel"));
         assert!(got.contains(&"translate_all"));
         assert!(got.contains(&"translation_menu"));
-        assert!(got.contains(&"transcription_stub"));
+        assert!(got.contains(&"transcription_pairing"));
         assert!(got.contains(&"in_chat_menu"));
         assert!(got.contains(&"parallel_menu"));
         assert!(got.contains(&"translate"));

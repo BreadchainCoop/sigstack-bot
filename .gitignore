@@ -1,6 +1,11 @@
 # Build artifacts
 /target/
 
+# Coverage reports (cargo-llvm-cov)
+/lcov.info
+**/lcov.info
+/coverage/
+
 # Node (commitlint / husky at repo root)
 /node_modules/
 

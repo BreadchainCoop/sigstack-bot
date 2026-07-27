@@ -47,3 +47,45 @@ impl CommandHandler for ModelsHandler {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn dm() -> BotMessage {
+        BotMessage {
+            source: "+1".into(),
+            source_number: None,
+            source_name: None,
+            text: "!models".into(),
+            timestamp: 0,
+            message_timestamp: 0,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+2".into(),
+            attachments: vec![],
+            quote: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn models_lists_known_near_ai_models() {
+        let near = Arc::new(
+            NearAiClient::new(
+                "key",
+                "http://127.0.0.1:9",
+                "test-model",
+                Duration::from_secs(2),
+            )
+            .unwrap(),
+        );
+        let handler = ModelsHandler::new(near);
+        assert!(handler.matches(&dm()));
+        let out = handler.execute(&dm()).await.unwrap();
+        assert!(out.contains("**Available Models:**"));
+        assert!(out.contains("deepseek-ai/DeepSeek-V3.1"));
+        assert!(out.contains("_Current: test-model_"));
+    }
+}

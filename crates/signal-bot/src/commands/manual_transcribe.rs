@@ -268,4 +268,109 @@ mod tests {
         msg.text = "!transcribe-off".into();
         assert!(!handler.matches(&msg));
     }
+
+    #[tokio::test]
+    async fn execute_without_quote_sends_usage_hint() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&signal_mock)
+            .await;
+
+        let handler = ManualTranscribeHandler::new(
+            Arc::new(
+                WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
+            "📝 Transcript:",
+            5_000_000,
+            VoiceAttachmentCache::new(10),
+        );
+
+        let msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!transcribe".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        let out = handler.execute(&msg).await.unwrap();
+        assert!(out.is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_transcribes_quoted_audio() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        let whisper_mock = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/cached-voice-id"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"audio"))
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/inference"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "text": "quoted transcript",
+                "language": "english"
+            })))
+            .mount(&whisper_mock)
+            .await;
+
+        let handler = ManualTranscribeHandler::new(
+            Arc::new(
+                WhisperClient::new(whisper_mock.uri(), std::time::Duration::from_secs(5)).unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
+            "📝 Transcript:",
+            5_000_000,
+            VoiceAttachmentCache::new(10),
+        );
+
+        let msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!transcribe".into(),
+            timestamp: 2,
+            message_timestamp: 2,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: Some(QuotedMessage {
+                id: 100,
+                author_number: Some("+15550003333".into()),
+                text: None,
+                audio_attachment: Some(sample_audio()),
+            }),
+        };
+        let out = handler.execute(&msg).await.unwrap();
+        assert!(out.is_empty());
+    }
 }

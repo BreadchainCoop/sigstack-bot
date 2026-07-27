@@ -311,4 +311,109 @@ mod tests {
         };
         assert_eq!(VoiceHandler::attachment_filename(&audio), "voice.m4a");
     }
+
+    fn dm_voice(size: Option<i64>) -> BotMessage {
+        BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: String::new(),
+            timestamp: 99,
+            message_timestamp: 99,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![Attachment {
+                content_type: "audio/aac".into(),
+                filename: Some("note.m4a".into()),
+                id: "att-1".into(),
+                size,
+                upload_timestamp: None,
+            }],
+            quote: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_without_audio_attachment() {
+        let whisper = Arc::new(
+            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 1024);
+        let mut msg = dm_voice(None);
+        msg.attachments.clear();
+        let out = handler.execute(&msg).await.unwrap();
+        assert!(out.contains("Could not read voice attachment"));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_oversized_declared_size() {
+        let whisper = Arc::new(
+            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 100);
+        let out = handler.execute(&dm_voice(Some(500))).await.unwrap();
+        assert!(out.contains("too long"));
+    }
+
+    #[tokio::test]
+    async fn execute_transcribes_via_whisper() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        let whisper_mock = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/att-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"fake-audio-bytes"))
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/inference"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "text": " Hola mundo\n",
+                "language": "spanish"
+            })))
+            .mount(&whisper_mock)
+            .await;
+
+        let whisper = Arc::new(
+            WhisperClient::new(whisper_mock.uri(), std::time::Duration::from_secs(5)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
+        let cache = VoiceAttachmentCache::with_default_capacity();
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000)
+            .with_voice_cache(cache.clone());
+
+        let msg = dm_voice(Some(16));
+        assert!(handler.matches(&msg));
+        let out = handler.execute(&msg).await.unwrap();
+        assert_eq!(out, "📝 Transcript:\nHola mundo");
+        assert!(cache.lookup(msg.reply_target(), msg.timestamp).is_some());
+    }
+
+    #[tokio::test]
+    async fn execute_handles_download_failure() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/att-1"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("fail"))
+            .mount(&signal_mock)
+            .await;
+
+        let whisper = Arc::new(
+            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+        );
+        let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000);
+        let out = handler.execute(&dm_voice(Some(10))).await.unwrap();
+        assert!(out.contains("Could not download"));
+    }
 }

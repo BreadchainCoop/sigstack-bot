@@ -194,4 +194,39 @@ mod tests {
         assert!(h.contains("!translate-me-on"));
         assert!(!h.contains("!ask"));
     }
+
+    #[test]
+    fn privacy_menus_cover_roles_and_languages() {
+        let en = privacy_menu(MenuLanguage::En, BotRole::Transcription);
+        assert!(en.contains("Sigstack transcription"));
+        let es = privacy_menu(MenuLanguage::Es, BotRole::Translation);
+        assert!(es.contains("Sigstack traducción"));
+    }
+
+    #[test]
+    fn menu_language_for_message_uses_group_pref_or_default() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_menu_language("g-es", MenuLanguage::Es);
+
+        let dm = BotMessage {
+            source: "+1".into(),
+            source_number: None,
+            source_name: None,
+            text: "!help".into(),
+            timestamp: 0,
+            message_timestamp: 0,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+2".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert_eq!(menu_language_for_message(&dm, &store), MenuLanguage::En);
+
+        let mut group = dm.clone();
+        group.is_group = true;
+        group.group_id = Some("g-es".into());
+        assert_eq!(menu_language_for_message(&group, &store), MenuLanguage::Es);
+    }
 }

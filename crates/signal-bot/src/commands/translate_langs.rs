@@ -71,4 +71,27 @@ mod tests {
         msg.text = "!list-langs-common".into();
         assert!(!h.matches(&msg));
     }
+
+    #[tokio::test]
+    async fn execute_lists_supported_languages() {
+        let h = TranslateLangsHandler::new();
+        let msg = BotMessage {
+            source: "+1".into(),
+            source_number: None,
+            source_name: None,
+            text: "!list-langs".into(),
+            timestamp: 0,
+            message_timestamp: 0,
+            is_group: true,
+            group_id: Some("g".into()),
+            group_name: None,
+            receiving_account: "+2".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        let out = h.execute(&msg).await.unwrap();
+        assert!(out.contains("**Supported languages**"));
+        assert!(out.contains("!translate-me-on"));
+        assert!(out.contains("es"));
+    }
 }

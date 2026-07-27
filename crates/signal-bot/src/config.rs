@@ -281,7 +281,7 @@ impl Config {
         Ok(cfg)
     }
 
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         match self.bot.role {
             BotRole::Transcription => {
                 if !self.whisper.enabled {
@@ -298,5 +298,108 @@ impl Config {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn transcription_config(whisper_enabled: bool) -> Config {
+        Config {
+            signal: SignalConfig::default(),
+            near_ai: None,
+            bot: BotConfig {
+                role: BotRole::Transcription,
+                signal_username: None,
+                github_repo: None,
+                log_level: "info".into(),
+            },
+            dstack: DstackConfig::default(),
+            whisper: WhisperConfig {
+                enabled: whisper_enabled,
+                ..WhisperConfig::default()
+            },
+            translate_all: TranslateAllConfig::default(),
+            group_preferences: GroupPreferencesConfig::default(),
+        }
+    }
+
+    fn translation_config(api_key: Option<&str>) -> Config {
+        Config {
+            signal: SignalConfig::default(),
+            near_ai: api_key.map(|k| NearAiConfig {
+                api_key: k.into(),
+                base_url: default_near_ai_url(),
+                model: default_model(),
+                timeout: default_timeout(),
+            }),
+            bot: BotConfig {
+                role: BotRole::Translation,
+                signal_username: None,
+                github_repo: None,
+                log_level: "info".into(),
+            },
+            dstack: DstackConfig::default(),
+            whisper: WhisperConfig {
+                enabled: false,
+                ..WhisperConfig::default()
+            },
+            translate_all: TranslateAllConfig::default(),
+            group_preferences: GroupPreferencesConfig::default(),
+        }
+    }
+
+    #[test]
+    fn transcription_requires_whisper_enabled() {
+        assert!(transcription_config(true).validate().is_ok());
+        let err = transcription_config(false).validate().unwrap_err();
+        assert!(err.to_string().contains("WHISPER__ENABLED"));
+    }
+
+    #[test]
+    fn translation_requires_near_ai_key() {
+        assert!(translation_config(Some("sk-test")).validate().is_ok());
+
+        let err = translation_config(None).validate().unwrap_err();
+        assert!(err.to_string().contains("NEAR_AI__API_KEY"));
+
+        let err = translation_config(Some("   ")).validate().unwrap_err();
+        assert!(err.to_string().contains("non-empty"));
+    }
+
+    #[test]
+    fn load_transcription_from_env() {
+        std::env::set_var("BOT__ROLE", "transcription");
+        std::env::remove_var("NEAR_AI__API_KEY");
+        let cfg = Config::load().expect("load transcription");
+        assert_eq!(cfg.bot.role, BotRole::Transcription);
+        assert!(cfg.whisper.enabled);
+        std::env::remove_var("BOT__ROLE");
+    }
+
+    #[test]
+    fn load_translation_from_env() {
+        std::env::set_var("BOT__ROLE", "translation");
+        std::env::set_var("NEAR_AI__API_KEY", "sk-test-key");
+        let cfg = Config::load().expect("load translation");
+        assert_eq!(cfg.bot.role, BotRole::Translation);
+        assert_eq!(
+            cfg.near_ai.as_ref().map(|n| n.api_key.as_str()),
+            Some("sk-test-key")
+        );
+        std::env::remove_var("BOT__ROLE");
+        std::env::remove_var("NEAR_AI__API_KEY");
+    }
+
+    #[test]
+    fn section_defaults() {
+        assert_eq!(
+            SignalConfig::default().service_url,
+            "http://signal-api:8080"
+        );
+        assert_eq!(WhisperConfig::default().model, "small");
+        assert!(TranslateAllConfig::default().enabled);
+        assert!(GroupPreferencesConfig::default().persist);
     }
 }

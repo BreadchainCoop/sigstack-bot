@@ -5,11 +5,11 @@ use crate::commands::*;
 use crate::config::{BotRole, Config};
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
-use crate::transcribe_store::TranscribeStore;
-use crate::voice_attachment_cache::VoiceAttachmentCache;
+use crate::transcribe_prefs::GroupTranscribePrefs;
 use anyhow::Context;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
+use signal_bot_transcription::build_voice_handlers;
 use signal_client::SignalClient;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -62,36 +62,23 @@ pub async fn build_transcription_handlers(
     )
     .await;
 
-    let transcribe_store = Arc::new(TranscribeStore::new(Some(group_prefs.clone())));
-    let voice_cache = VoiceAttachmentCache::with_default_capacity();
-
     // Voice only — no NEAR translate-on-voice; translation CVM handles posted text.
-    let handlers: Vec<Box<dyn CommandHandler>> = vec![
-        Box::new(
-            VoiceHandler::new(
-                whisper.clone(),
-                signal.clone(),
-                config.whisper.reply_prefix.clone(),
-                config.whisper.max_attachment_bytes,
-            )
-            .with_transcribe_store(transcribe_store.clone())
-            .with_voice_cache(voice_cache.clone()),
-        ),
-        Box::new(ManualTranscribeHandler::new(
-            whisper.clone(),
-            signal.clone(),
-            config.whisper.reply_prefix.clone(),
-            config.whisper.max_attachment_bytes,
-            voice_cache,
-        )),
-        Box::new(TranscribeHandler::new(transcribe_store, true)),
-        Box::new(VerifyHandler::new(dstack)),
-        Box::new(HelpHandler::new(
-            group_prefs.clone(),
-            BotRole::Transcription,
-        )),
-        Box::new(PrivacyHandler::new(group_prefs, BotRole::Transcription)),
-    ];
+    let mut handlers = build_voice_handlers(
+        whisper,
+        signal,
+        config.whisper.reply_prefix.clone(),
+        config.whisper.max_attachment_bytes,
+        Arc::new(GroupTranscribePrefs(group_prefs.clone())),
+    );
+    handlers.push(Box::new(VerifyHandler::new(dstack)));
+    handlers.push(Box::new(HelpHandler::new(
+        group_prefs.clone(),
+        BotRole::Transcription,
+    )));
+    handlers.push(Box::new(PrivacyHandler::new(
+        group_prefs,
+        BotRole::Transcription,
+    )));
 
     info!("Transcription role: voice / !transcribe* / help / privacy / verify");
     Ok(handlers)

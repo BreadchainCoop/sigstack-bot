@@ -2086,6 +2086,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "signal-bot-core",
+ "signal-bot-transcription",
  "signal-client",
  "tempfile",
  "thiserror",
@@ -2110,6 +2111,22 @@ dependencies = [
  "signal-client",
  "thiserror",
  "whisper-client",
+]
+
+[[package]]
+name = "signal-bot-transcription"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde_json",
+ "signal-bot-core",
+ "signal-client",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "whisper-client",
+ "wiremock",
 ]
 
 [[package]]

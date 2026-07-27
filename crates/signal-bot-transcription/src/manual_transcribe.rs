@@ -1,10 +1,9 @@
 //! `!transcribe` — quote-reply manual voice transcription via Whisper.
 
-use crate::commands::voice::VoiceHandler;
-use crate::commands::CommandHandler;
-use crate::error::AppResult;
+use crate::voice::VoiceHandler;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
+use signal_bot_core::{AppResult, CommandHandler};
 use signal_client::{Attachment, BotMessage, QuotedMessage, SignalClient};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
@@ -206,7 +205,6 @@ impl CommandHandler for ManualTranscribeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::voice_attachment_cache::VoiceAttachmentCache;
     use signal_client::{BotMessage, QuotedMessage};
 
     fn sample_audio() -> signal_client::Attachment {

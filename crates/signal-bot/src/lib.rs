@@ -6,5 +6,4 @@ pub mod error;
 pub mod group_preferences_store;
 pub mod handlers_setup;
 pub mod menu_language;
-pub mod transcribe_store;
-pub mod voice_attachment_cache;
+pub mod transcribe_prefs;

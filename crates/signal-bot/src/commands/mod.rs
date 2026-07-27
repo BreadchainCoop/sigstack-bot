@@ -1,13 +1,11 @@
 //! Bot command handlers.
 
 mod help;
-mod manual_transcribe;
 mod menu_locale;
 mod models;
 mod privacy;
 mod product_menus;
 mod set_language;
-mod transcribe;
 mod translate;
 mod translate_all;
 pub mod translate_lang;
@@ -16,10 +14,8 @@ mod translate_me;
 mod translate_parallel;
 mod translate_service;
 mod verify;
-mod voice;
 
 pub use help::HelpHandler;
-pub use manual_transcribe::ManualTranscribeHandler;
 pub use models::ModelsHandler;
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
@@ -27,11 +23,9 @@ pub use product_menus::{
 };
 pub use set_language::SetLanguageHandler;
 pub use signal_bot_core::CommandHandler;
-pub use transcribe::TranscribeHandler;
 pub use translate::TranslateHandler;
 pub use translate_all::TranslateAllHandler;
 pub use translate_langs::TranslateLangsHandler;
 pub use translate_me::TranslateMeHandler;
 pub use translate_parallel::TranslateParallelHandler;
 pub use verify::VerifyHandler;
-pub use voice::VoiceHandler;

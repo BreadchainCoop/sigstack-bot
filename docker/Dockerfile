@@ -15,6 +15,7 @@ ENV CARGO_NET_RETRY=10 \
 COPY Cargo.toml Cargo.lock ./
 COPY crates/signal-bot/Cargo.toml crates/signal-bot/
 COPY crates/signal-bot-core/Cargo.toml crates/signal-bot-core/
+COPY crates/signal-bot-transcription/Cargo.toml crates/signal-bot-transcription/
 COPY crates/near-ai-client/Cargo.toml crates/near-ai-client/
 COPY crates/dstack-client/Cargo.toml crates/dstack-client/
 COPY crates/signal-client/Cargo.toml crates/signal-client/
@@ -23,14 +24,15 @@ COPY crates/whisper-client/Cargo.toml crates/whisper-client/
 
 # Minimal stubs so `cargo fetch` can resolve path dependencies
 RUN mkdir -p crates/signal-bot/src/commands && \
-    echo "pub mod commands; pub mod config; pub mod error; pub mod group_preferences_store; pub mod transcribe_store;" > crates/signal-bot/src/lib.rs && \
+    echo "pub mod commands; pub mod config; pub mod error; pub mod group_preferences_store; pub mod transcribe_prefs;" > crates/signal-bot/src/lib.rs && \
     echo "fn main() {}" > crates/signal-bot/src/main.rs && \
     echo "" > crates/signal-bot/src/commands/mod.rs && \
     echo "" > crates/signal-bot/src/config.rs && \
     echo "" > crates/signal-bot/src/error.rs && \
     echo "" > crates/signal-bot/src/group_preferences_store.rs && \
-    echo "" > crates/signal-bot/src/transcribe_store.rs && \
+    echo "" > crates/signal-bot/src/transcribe_prefs.rs && \
     mkdir -p crates/signal-bot-core/src && echo "pub fn dummy() {}" > crates/signal-bot-core/src/lib.rs && \
+    mkdir -p crates/signal-bot-transcription/src && echo "pub fn dummy() {}" > crates/signal-bot-transcription/src/lib.rs && \
     mkdir -p crates/near-ai-client/src && echo "pub fn dummy() {}" > crates/near-ai-client/src/lib.rs && \
     mkdir -p crates/dstack-client/src && echo "pub fn dummy() {}" > crates/dstack-client/src/lib.rs && \
     mkdir -p crates/signal-client/src && echo "pub fn dummy() {}" > crates/signal-client/src/lib.rs && \

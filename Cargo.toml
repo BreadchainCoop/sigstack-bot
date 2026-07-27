@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/signal-bot",
     "crates/signal-bot-core",
+    "crates/signal-bot-transcription",
     "crates/near-ai-client",
     "crates/dstack-client",
     "crates/signal-client",

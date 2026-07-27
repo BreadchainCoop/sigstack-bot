@@ -106,3 +106,36 @@ impl From<reqwest::Error> for ProxyError {
         ProxyError::SignalApi(e.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse;
+
+    #[test]
+    fn into_response_status_codes() {
+        let cases = [
+            (
+                ProxyError::AlreadyRegistered("+1".into()),
+                StatusCode::CONFLICT,
+            ),
+            (ProxyError::NotFound("+1".into()), StatusCode::NOT_FOUND),
+            (
+                ProxyError::InvalidPhoneNumber("x".into()),
+                StatusCode::BAD_REQUEST,
+            ),
+            (ProxyError::OwnershipProofMismatch, StatusCode::FORBIDDEN),
+            (ProxyError::PendingVerification, StatusCode::CONFLICT),
+            (ProxyError::SignalApi("x".into()), StatusCode::BAD_GATEWAY),
+            (ProxyError::RateLimitExceeded, StatusCode::TOO_MANY_REQUESTS),
+            (
+                ProxyError::Internal("x".into()),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+        ];
+        for (err, expected) in cases {
+            let response = err.into_response();
+            assert_eq!(response.status(), expected);
+        }
+    }
+}

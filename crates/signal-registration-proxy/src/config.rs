@@ -195,3 +195,46 @@ impl Config {
             .context("Failed to deserialize configuration")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn section_defaults() {
+        let signal = SignalConfig::default();
+        assert_eq!(signal.api_url, "http://signal-api:8080");
+
+        let registry = RegistryConfig::default();
+        assert!(registry.persist);
+        assert_eq!(registry.path, PathBuf::from("/data/registry.enc"));
+
+        let server = ServerConfig::default();
+        assert_eq!(server.listen_addr, "0.0.0.0");
+        assert_eq!(server.port, 8081);
+
+        let rate = RateLimitConfig::default();
+        assert_eq!(rate.global_per_minute, 10);
+        assert_eq!(rate.per_number_per_hour, 3);
+
+        let log = LogConfig::default();
+        assert_eq!(log.level, "info");
+    }
+
+    #[test]
+    fn load_applies_environment_overrides() {
+        // Isolate from ambient env used by other crates/tests in the process.
+        std::env::set_var("SIGNAL__API_URL", "http://signal.test:9090");
+        std::env::set_var("SERVER__LISTEN_ADDR", "127.0.0.1");
+        std::env::set_var("LOG__LEVEL", "debug");
+
+        let cfg = Config::load().expect("config load");
+        assert_eq!(cfg.signal.api_url, "http://signal.test:9090");
+        assert_eq!(cfg.server.listen_addr, "127.0.0.1");
+        assert_eq!(cfg.log.level, "debug");
+
+        std::env::remove_var("SIGNAL__API_URL");
+        std::env::remove_var("SERVER__LISTEN_ADDR");
+        std::env::remove_var("LOG__LEVEL");
+    }
+}

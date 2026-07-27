@@ -350,7 +350,8 @@ mod tests {
     #[test]
     fn test_registry_serialization_round_trip() {
         let mut registry = Registry::new();
-        let record = PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None);
+        let record =
+            PhoneNumberRecord::new_pending("+14155551234".into(), Some("secret"), None, None);
         registry.insert("+14155551234".into(), record);
 
         // Serialize
@@ -367,7 +368,10 @@ mod tests {
         let restored: Registry = serde_json::from_slice(&decrypted).unwrap();
 
         assert!(restored.get("+14155551234").is_some());
-        assert!(restored.get("+14155551234").unwrap().verify_ownership(Some("secret")));
+        assert!(restored
+            .get("+14155551234")
+            .unwrap()
+            .verify_ownership(Some("secret")));
     }
 
     #[test]

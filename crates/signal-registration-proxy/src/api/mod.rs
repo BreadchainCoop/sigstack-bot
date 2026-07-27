@@ -34,11 +34,7 @@ pub struct AppState {
 
 impl AppState {
     /// Create new application state.
-    pub fn new(
-        registry: Registry,
-        store: Store,
-        signal_client: SignalRegistrationClient,
-    ) -> Self {
+    pub fn new(registry: Registry, store: Store, signal_client: SignalRegistrationClient) -> Self {
         Self {
             registry: Arc::new(RwLock::new(registry)),
             store: Arc::new(store),
@@ -68,8 +64,14 @@ pub fn create_router_with_rate_limit(state: AppState, rate_limit: RateLimitState
         .route("/v1/unregister/:number", delete(handlers::unregister))
         // Profile and username management (requires ownership_secret)
         .route("/v1/profiles/:number", put(handlers::update_profile))
-        .route("/v1/accounts/:number/username", post(handlers::set_username))
-        .route("/v1/accounts/:number/username", delete(handlers::delete_username))
+        .route(
+            "/v1/accounts/:number/username",
+            post(handlers::set_username),
+        )
+        .route(
+            "/v1/accounts/:number/username",
+            delete(handlers::delete_username),
+        )
         // Adopt existing Signal CLI account into registry
         .route("/v1/accounts/:number/adopt", post(handlers::adopt_account))
         // Bot configuration management
@@ -77,8 +79,14 @@ pub fn create_router_with_rate_limit(state: AppState, rate_limit: RateLimitState
         .route("/v1/bots/:number", get(handlers::get_bot_config))
         .route("/v1/bots/:number", put(handlers::update_bot_config))
         // Debug endpoints
-        .route("/v1/debug/signal-accounts", get(handlers::debug_signal_accounts))
-        .route("/v1/debug/force-unregister/:number", post(handlers::debug_force_unregister))
+        .route(
+            "/v1/debug/signal-accounts",
+            get(handlers::debug_signal_accounts),
+        )
+        .route(
+            "/v1/debug/force-unregister/:number",
+            post(handlers::debug_force_unregister),
+        )
         .layer(axum_middleware::from_fn_with_state(
             rate_limit.clone(),
             rate_limit_middleware,
@@ -89,8 +97,14 @@ pub fn create_router_with_rate_limit(state: AppState, rate_limit: RateLimitState
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
-                .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]),
         )
         .with_state(state)
 }

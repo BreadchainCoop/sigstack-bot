@@ -24,8 +24,8 @@ async fn main() {
     };
 
     // Initialize logging
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&config.log.level));
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.log.level));
 
     tracing_subscriber::registry()
         .with(filter)
@@ -78,7 +78,11 @@ async fn main() {
 
     // Bind to address
     let addr = SocketAddr::new(
-        config.server.listen_addr.parse().unwrap_or([0, 0, 0, 0].into()),
+        config
+            .server
+            .listen_addr
+            .parse()
+            .unwrap_or([0, 0, 0, 0].into()),
         config.server.port,
     );
 

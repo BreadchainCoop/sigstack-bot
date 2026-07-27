@@ -13,5 +13,5 @@ pub mod signal;
 
 pub use config::Config;
 pub use error::ProxyError;
-pub use registry::{PhoneNumberRecord, Registry, RegistrationStatus, Store};
+pub use registry::{PhoneNumberRecord, RegistrationStatus, Registry, Store};
 pub use signal::SignalRegistrationClient;

@@ -113,7 +113,9 @@ impl SignalRegistrationClient {
             warn!(status = %status, body = %body, "Signal verification failed");
 
             if body.contains("Invalid verification code") || body.contains("incorrect") {
-                return Err(ProxyError::SignalApi("Invalid verification code".to_string()));
+                return Err(ProxyError::SignalApi(
+                    "Invalid verification code".to_string(),
+                ));
             }
 
             return Err(ProxyError::SignalApi(format!(
@@ -298,7 +300,10 @@ impl SignalRegistrationClient {
     /// Get identity/fingerprint information for a phone number.
     /// Returns the safety number that users can compare with their Signal app.
     #[instrument(skip(self))]
-    pub async fn get_identity(&self, phone_number: &str) -> Result<Option<IdentityInfo>, ProxyError> {
+    pub async fn get_identity(
+        &self,
+        phone_number: &str,
+    ) -> Result<Option<IdentityInfo>, ProxyError> {
         let encoded_number = encode(phone_number);
         let url = format!("{}/v1/identities/{}", self.base_url, encoded_number);
 
@@ -392,10 +397,201 @@ pub struct IdentityInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use wiremock::matchers::{method, path, path_regex};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    const PHONE: &str = "+14155551234";
+    const PHONE_ENC: &str = "%2B14155551234";
+
+    async fn client_on(server: &MockServer) -> SignalRegistrationClient {
+        SignalRegistrationClient::new(server.uri()).unwrap()
+    }
 
     #[test]
     fn test_client_creation() {
         let client = SignalRegistrationClient::new("http://localhost:8080");
         assert!(client.is_ok());
+    }
+
+    #[tokio::test]
+    async fn health_check_success_and_failure() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/health"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let client = client_on(&server).await;
+        assert!(client.health_check().await);
+
+        let dead = SignalRegistrationClient::new("http://127.0.0.1:9").unwrap();
+        assert!(!dead.health_check().await);
+    }
+
+    #[tokio::test]
+    async fn register_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/register/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(201))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        client_on(&server)
+            .await
+            .register(PHONE, Some("captcha-token"), false)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn register_captcha_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/register/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(400).set_body_string("captcha required"))
+            .mount(&server)
+            .await;
+
+        let err = client_on(&server)
+            .await
+            .register(PHONE, None, false)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("CAPTCHA"));
+    }
+
+    #[tokio::test]
+    async fn verify_success_and_invalid_code() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/register/{PHONE_ENC}/verify/123456")))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/register/{PHONE_ENC}/verify/000000")))
+            .respond_with(ResponseTemplate::new(400).set_body_string("Invalid verification code"))
+            .mount(&server)
+            .await;
+
+        let client = client_on(&server).await;
+        client.verify(PHONE, "123456", Some("pin")).await.unwrap();
+        let err = client.verify(PHONE, "000000", None).await.unwrap_err();
+        assert!(err.to_string().contains("Invalid verification code"));
+    }
+
+    #[tokio::test]
+    async fn unregister_success_and_failure() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/unregister/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(200))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/unregister/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+            .mount(&server)
+            .await;
+
+        let client = client_on(&server).await;
+        client.unregister(PHONE).await.unwrap();
+        assert!(client.unregister(PHONE).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_and_list_accounts() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(format!("/v1/accounts/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "number": PHONE,
+                "uuid": "uuid-1",
+                "username": "bot.01"
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/accounts"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([PHONE, "+15551234567"])))
+            .mount(&server)
+            .await;
+
+        let client = client_on(&server).await;
+        let account = client.get_account(PHONE).await.unwrap();
+        assert_eq!(account.number, PHONE);
+        assert_eq!(account.username.as_deref(), Some("bot.01"));
+        let list = client.list_accounts().await.unwrap();
+        assert_eq!(list.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn profile_and_username_ops() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path(format!("/v1/profiles/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path(format!("/v1/accounts/{PHONE_ENC}/username")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "username": "sigstack.12",
+                "username_link": "https://signal.me/#eu/abc"
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(path(format!("/v1/accounts/{PHONE_ENC}/username")))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&server)
+            .await;
+
+        let client = client_on(&server).await;
+        client
+            .update_profile(PHONE, Some("Bot"), Some("hello"))
+            .await
+            .unwrap();
+        let info = client.set_username(PHONE, "sigstack").await.unwrap();
+        assert_eq!(info.username.as_deref(), Some("sigstack.12"));
+        client.delete_username(PHONE).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_identity_found_missing_and_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(format!("/v1/identities/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "number": PHONE,
+                "status": "TRUSTED_VERIFIED",
+                "fingerprint": "aa bb",
+                "safety_number": "12345 67890",
+                "uuid": "u1"
+            }])))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!("/v1/identities/{PHONE_ENC}")))
+            .respond_with(ResponseTemplate::new(404))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path_regex(r"/v1/identities/.*"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("fail"))
+            .mount(&server)
+            .await;
+
+        let client = client_on(&server).await;
+        let id = client.get_identity(PHONE).await.unwrap().unwrap();
+        assert_eq!(id.safety_number, "12345 67890");
+        assert!(client.get_identity(PHONE).await.unwrap().is_none());
+        assert!(client.get_identity(PHONE).await.is_err());
     }
 }

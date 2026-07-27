@@ -89,7 +89,9 @@ See `.env.example` and the docker `*.env.example` files.
 
 ## Security
 
-See [.agents/DEVELOPMENT.md](.agents/DEVELOPMENT.md) for the TEE trust model, why Signal CLI must run in the TEE, and attestation (`!verify`).
+See [.agents/docs/DEVELOPMENT.md](.agents/docs/DEVELOPMENT.md) for the TEE trust model, why Signal CLI must run in the TEE, and attestation (`!verify`).
+
+For coding agents, see [AGENTS.md](AGENTS.md).
 
 ## License
 

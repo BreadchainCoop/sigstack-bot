@@ -1,6 +1,10 @@
 # Build artifacts
 /target/
 
+# Node (commitlint / husky at repo root)
+/node_modules/
+
+
 # Environment files (NEVER commit these)
 .env
 .env.*

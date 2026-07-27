@@ -34,3 +34,4 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 - Required env: `BOT__ROLE=transcription|translation`
 - Do not reintroduce tools, x402, or general chat paths
 - Image digests stay pinned in compose for attestation
+- Commits must pass [commitlint](https://github.com/conventional-changelog/commitlint) (`type: subject`); run `npm install` so husky `commit-msg` / `pre-push` hooks are active

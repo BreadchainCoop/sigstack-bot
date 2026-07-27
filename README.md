@@ -75,6 +75,15 @@ cargo build --release
 cargo test
 ```
 
+## Commit messages
+
+This repo uses [commitlint](https://github.com/conventional-changelog/commitlint) with `@commitlint/config-conventional`. After clone, run `npm install` once so Husky can install hooks.
+
+- **commit-msg** — rejects non-conventional messages at commit time  
+- **pre-push** — rejects a push if any commit being pushed fails lint  
+
+Format: `type(scope): subject` — e.g. `feat: add whisper timeout`, `fix(docker): pin signal-api digest`. Common types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`.
+
 ## Configuration
 
 | Variable | Description |

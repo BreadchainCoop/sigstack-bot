@@ -12,7 +12,7 @@ TEE-hosted Signal bots for **voice transcription** and **group translation** (no
 cargo test
 cargo build --release -p signal-bot
 
-# Coverage (requires cargo-llvm-cov + rustup component llvm-tools-preview)
+# Coverage (requires cargo-llvm-cov + rustup component llvm-tools)
 npm test                 # cargo test --workspace
 npm run test:cov:report  # summary only (ignores main.rs)
 npm run test:cov:ci      # LCOV + fail under 90% lines (same gate as CI / prepush)
@@ -42,3 +42,4 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 - Do not reintroduce tools, x402, or general chat paths
 - Image digests stay pinned in compose for attestation
 - Commits must pass [commitlint](https://github.com/conventional-changelog/commitlint) (`type: subject`); run `npm install` so husky `commit-msg` / `pre-push` hooks are active
+- **CI style gates are not optional.** GitHub Actions fails on `cargo fmt --check` and `cargo clippy --workspace --all-targets -- -D warnings` (Clippy style/idiom lints, not broken tests). Before finishing Rust work: `npm run lint:rust` (fast) or `npm run ci` (full Actions parity). Husky `pre-push` runs `npm run ci`. Cursor auto-runs `cargo fmt` on `.rs` edits and re-prompts on stop if fmt/clippy would fail CI.

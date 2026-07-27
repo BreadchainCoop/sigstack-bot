@@ -65,36 +65,33 @@ pub async fn build_transcription_handlers(
     let transcribe_store = Arc::new(TranscribeStore::new(Some(group_prefs.clone())));
     let voice_cache = VoiceAttachmentCache::with_default_capacity();
 
-    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
-
     // Voice only — no NEAR translate-on-voice; translation CVM handles posted text.
-    handlers.push(Box::new(
-        VoiceHandler::new(
+    let handlers: Vec<Box<dyn CommandHandler>> = vec![
+        Box::new(
+            VoiceHandler::new(
+                whisper.clone(),
+                signal.clone(),
+                config.whisper.reply_prefix.clone(),
+                config.whisper.max_attachment_bytes,
+            )
+            .with_transcribe_store(transcribe_store.clone())
+            .with_voice_cache(voice_cache.clone()),
+        ),
+        Box::new(ManualTranscribeHandler::new(
             whisper.clone(),
             signal.clone(),
             config.whisper.reply_prefix.clone(),
             config.whisper.max_attachment_bytes,
-        )
-        .with_transcribe_store(transcribe_store.clone())
-        .with_voice_cache(voice_cache.clone()),
-    ));
-    handlers.push(Box::new(ManualTranscribeHandler::new(
-        whisper.clone(),
-        signal.clone(),
-        config.whisper.reply_prefix.clone(),
-        config.whisper.max_attachment_bytes,
-        voice_cache,
-    )));
-    handlers.push(Box::new(TranscribeHandler::new(transcribe_store, true)));
-    handlers.push(Box::new(VerifyHandler::new(dstack)));
-    handlers.push(Box::new(HelpHandler::new(
-        group_prefs.clone(),
-        BotRole::Transcription,
-    )));
-    handlers.push(Box::new(PrivacyHandler::new(
-        group_prefs,
-        BotRole::Transcription,
-    )));
+            voice_cache,
+        )),
+        Box::new(TranscribeHandler::new(transcribe_store, true)),
+        Box::new(VerifyHandler::new(dstack)),
+        Box::new(HelpHandler::new(
+            group_prefs.clone(),
+            BotRole::Transcription,
+        )),
+        Box::new(PrivacyHandler::new(group_prefs, BotRole::Transcription)),
+    ];
 
     info!("Transcription role: voice / !transcribe* / help / privacy / verify");
     Ok(handlers)

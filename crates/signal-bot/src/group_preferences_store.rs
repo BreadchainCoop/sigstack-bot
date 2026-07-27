@@ -399,12 +399,8 @@ impl GroupPreferencesStore {
     ) -> Option<(String, Option<String>)> {
         let removed = {
             let mut groups = self.groups.write().unwrap();
-            let Some(entry) = groups.get_mut(main_group_id) else {
-                return None;
-            };
-            let Some(bridge) = entry.language_bridge.as_mut() else {
-                return None;
-            };
+            let entry = groups.get_mut(main_group_id)?;
+            let bridge = entry.language_bridge.as_mut()?;
             let lang = bridge.members.remove(user)?;
             let address = bridge.member_addresses.remove(user);
             if bridge.is_empty() {

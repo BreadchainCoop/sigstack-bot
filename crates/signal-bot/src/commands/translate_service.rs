@@ -34,10 +34,11 @@ fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Op
         return Some(code);
     }
     // Iberian romance often transcribed as Portuguese; treat as Spanish when es is in the pair.
-    if matches!(code.as_str(), "pt" | "ca" | "gl") && (mode.lang_a == "es" || mode.lang_b == "es") {
-        if mode.target_for_source("es").is_some() {
-            return Some("es".into());
-        }
+    if matches!(code.as_str(), "pt" | "ca" | "gl")
+        && (mode.lang_a == "es" || mode.lang_b == "es")
+        && mode.target_for_source("es").is_some()
+    {
+        return Some("es".into());
     }
     None
 }

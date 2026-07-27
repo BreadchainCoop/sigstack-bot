@@ -201,7 +201,7 @@ pub fn format_language_list(languages: &[Language]) -> String {
         .iter()
         .map(|lang| format!("{} {} — {}", lang.flag, lang.code, lang.name))
         .collect();
-    lines.sort_by(|a, b| a.cmp(b));
+    lines.sort();
     lines.join("\n")
 }
 

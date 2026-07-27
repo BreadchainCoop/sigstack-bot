@@ -25,7 +25,7 @@ pub(crate) fn is_translate_on_or_off_command(text: &str) -> bool {
     TRANSLATE_ON_PREFIXES
         .iter()
         .any(|prefix| text.starts_with(prefix))
-        || TRANSLATE_OFF_COMMANDS.iter().any(|cmd| text == *cmd)
+        || TRANSLATE_OFF_COMMANDS.contains(&text)
 }
 
 fn strip_translate_on_prefix(text: &str) -> Option<&str> {
@@ -38,7 +38,7 @@ fn strip_translate_on_prefix(text: &str) -> Option<&str> {
 
 fn is_bare_translate_on(text: &str) -> bool {
     let text = text.trim();
-    TRANSLATE_ON_PREFIXES.iter().any(|prefix| text == *prefix)
+    TRANSLATE_ON_PREFIXES.contains(&text)
 }
 
 pub struct TranslateAllHandler {
@@ -204,7 +204,7 @@ impl TranslateAllHandler {
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
     async fn handle_command(&self, message: &BotMessage) -> AppResult<String> {
         let text = message.text.trim();
-        if TRANSLATE_OFF_COMMANDS.iter().any(|cmd| text == *cmd) {
+        if TRANSLATE_OFF_COMMANDS.contains(&text) {
             self.handle_off(message).await
         } else {
             self.handle_setup(message).await

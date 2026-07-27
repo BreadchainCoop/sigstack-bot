@@ -22,9 +22,10 @@ need cargo-llvm-cov "Run: cargo install cargo-llvm-cov --locked"
 need node "Install Node.js (https://nodejs.org)"
 need npm "Install npm (comes with Node.js)"
 
-if ! rustup component list --installed 2>/dev/null | grep -q '^llvm-tools-preview'; then
-  echo "error: missing rustup component llvm-tools-preview." >&2
-  echo "  Run: rustup component add llvm-tools-preview" >&2
+# Stable toolchains ship `llvm-tools-*`; older ones used `llvm-tools-preview-*`.
+if ! rustup component list --installed 2>/dev/null | grep -qE '^llvm-tools(-preview)?-'; then
+  echo "error: missing rustup component llvm-tools (needed for cargo-llvm-cov)." >&2
+  echo "  Run: rustup component add llvm-tools" >&2
   exit 1
 fi
 
@@ -39,6 +40,8 @@ step() {
   echo "==> $1"
 }
 
+STARTED_AT="$(date +%s)"
+
 # --- .github/workflows/test.yml ---
 
 step "Format (cargo fmt --check)"
@@ -48,6 +51,7 @@ step "Clippy (-D warnings)"
 cargo clippy --workspace --all-targets -- -D warnings
 
 step "Test with coverage gate (≥90% lines)"
+echo "Running full workspace test suite under llvm-cov (this usually takes minutes)..."
 # Same flags as .github/workflows/test.yml (llvm-cov runs the test suite)
 cargo llvm-cov --workspace --lcov --output-path lcov.info \
   --fail-under-lines 90 \
@@ -67,8 +71,9 @@ fi
 echo "commitlint: checking commits ${FROM}..HEAD"
 npx --no -- commitlint --from "$FROM" --to HEAD --verbose
 
+ELAPSED="$(( $(date +%s) - STARTED_AT ))"
 echo ""
-echo "All GitHub Actions checks passed locally."
+echo "All GitHub Actions checks passed locally in ${ELAPSED}s."
 echo "  - test.yml: format, clippy, coverage (≥90%)"
 echo "  - commitlint.yml: conventional commit messages"
 echo "LCOV written to lcov.info"

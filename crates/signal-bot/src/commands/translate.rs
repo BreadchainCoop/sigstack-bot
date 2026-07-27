@@ -131,6 +131,9 @@ impl CommandHandler for TranslateHandler {
         text.starts_with("!translate")
             && !is_translate_on_or_off_command(text)
             && !text.starts_with("!translate-me")
+            && !text.starts_with("!translation")
+            && !text.starts_with("!transcription")
+            && text != "!in-chat"
             && !text.starts_with("!list-langs")
     }
 
@@ -279,6 +282,9 @@ mod tests {
         assert!(!handler.matches(&msg));
 
         msg.text = "!translation-on".into();
+        assert!(!handler.matches(&msg));
+
+        msg.text = "!translation".into();
         assert!(!handler.matches(&msg));
 
         msg.text = "!list-langs".into();

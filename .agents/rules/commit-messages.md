@@ -1,0 +1,27 @@
+# Commit message subject lines
+
+When drafting a git commit subject (conventional `type: subject`):
+
+- Use **all lowercase** for the subject (after the `type: ` prefix). Types stay lowercase (`feat`, `fix`, `ci`, `docs`, `test`, `chore`, `refactor`).
+- **Do not** end the subject with a period.
+- Prefer **dashes** over snake_case for multi-word tokens in the subject (`parallel-translation`, not `parallel_translation`).
+
+## Examples
+
+Good:
+
+```text
+feat: add translation product hub menus and parallel-translation mvp
+ci: harden local actions mirror and commitlint hook
+fix: reject in-chat auto-translate when parallel is active
+```
+
+Bad:
+
+```text
+feat: Add translation product hub menus.
+feat: add parallel_translation MVP
+ci: Harden local Actions mirror.
+```
+
+Commits must still pass commitlint (`type: subject`).

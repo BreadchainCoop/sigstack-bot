@@ -26,20 +26,20 @@ Main (bilingual)
 
 ## Commands (alpha surface)
 
-Registered handlers are slimmed for alpha:
-
 | Command | Where | Effect |
 |---------|--------|--------|
 | `!translate-me-on <lang>` | Main only | Create/join sidecar; invite user |
 | `!translate-me-off` | Main or sidecar | Leave sidecar |
 | `!list-langs` | Any | Language codes |
-| `!help` / `!privacy` | Any | Menus |
+| `!help` / `!privacy` | Any | Hub / privacy menus |
 | `!set-en` / `!set-es` | Group | Menu language |
-| `!verify` / `!clear` / `!models` | As before | TEE / session |
+| `!verify` / `!models` | As before | TEE / session |
 
 Aliases: `!translate-me on es`, `!translation-me-on es`, etc.
 
-**Not registered** (code kept in tree): `!ask`, DM chat, `!translate-on`/`off`, quote `!translate`, voice/`!transcribe*`.
+**Also on the translation bot** (separate products): in-chat `!translate-on` / `!translate-off` and quote `!translate` (via `!in-chat` menu); Parallel via `!parallel` / `!parallel-on`. Language Threads refactor is deferred — see product hub `!translation`.
+
+**Not registered:** `!ask`, DM chat, voice/`!transcribe*` (transcription CVM).
 
 ## Relay rules
 

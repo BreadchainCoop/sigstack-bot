@@ -2085,6 +2085,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "signal-bot-core",
  "signal-client",
  "tempfile",
  "thiserror",
@@ -2096,6 +2097,19 @@ dependencies = [
  "whatlang",
  "whisper-client",
  "wiremock",
+]
+
+[[package]]
+name = "signal-bot-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dstack-client",
+ "near-ai-client",
+ "signal-client",
+ "thiserror",
+ "whisper-client",
 ]
 
 [[package]]

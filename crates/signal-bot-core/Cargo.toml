@@ -1,0 +1,16 @@
+[package]
+name = "signal-bot-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Workspace crates (AppError From impls)
+near-ai-client = { path = "../near-ai-client" }
+dstack-client = { path = "../dstack-client" }
+signal-client = { path = "../signal-client" }
+whisper-client = { path = "../whisper-client" }
+
+# Workspace dependencies
+anyhow.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true

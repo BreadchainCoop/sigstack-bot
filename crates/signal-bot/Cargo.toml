@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Workspace crates
+signal-bot-core = { path = "../signal-bot-core" }
 near-ai-client = { path = "../near-ai-client" }
 dstack-client = { path = "../dstack-client" }
 signal-client = { path = "../signal-client" }

@@ -14,6 +14,7 @@ ENV CARGO_NET_RETRY=10 \
 # downloads inside the container; use the image's native musl target instead)
 COPY Cargo.toml Cargo.lock ./
 COPY crates/signal-bot/Cargo.toml crates/signal-bot/
+COPY crates/signal-bot-core/Cargo.toml crates/signal-bot-core/
 COPY crates/near-ai-client/Cargo.toml crates/near-ai-client/
 COPY crates/dstack-client/Cargo.toml crates/dstack-client/
 COPY crates/signal-client/Cargo.toml crates/signal-client/
@@ -29,6 +30,7 @@ RUN mkdir -p crates/signal-bot/src/commands && \
     echo "" > crates/signal-bot/src/error.rs && \
     echo "" > crates/signal-bot/src/group_preferences_store.rs && \
     echo "" > crates/signal-bot/src/transcribe_store.rs && \
+    mkdir -p crates/signal-bot-core/src && echo "pub fn dummy() {}" > crates/signal-bot-core/src/lib.rs && \
     mkdir -p crates/near-ai-client/src && echo "pub fn dummy() {}" > crates/near-ai-client/src/lib.rs && \
     mkdir -p crates/dstack-client/src && echo "pub fn dummy() {}" > crates/dstack-client/src/lib.rs && \
     mkdir -p crates/signal-client/src && echo "pub fn dummy() {}" > crates/signal-client/src/lib.rs && \

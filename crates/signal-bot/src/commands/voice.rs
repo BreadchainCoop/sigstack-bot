@@ -1,18 +1,13 @@
 //! Implicit voice note handler — transcribe via Whisper and quote-reply.
 
-use crate::commands::translate_service::{
-    format_voice_auto_translation, near_ai_translate, resolve_translate_all_voice_pair,
-};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
-use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_store::TranscribeStore;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
-use near_ai_client::NearAiClient;
 use signal_client::{Attachment, BotMessage, SignalClient};
 use std::sync::Arc;
-use tracing::{debug, info, instrument, warn};
+use tracing::{info, instrument, warn};
 use whisper_client::{WhisperClient, WhisperError};
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -23,8 +18,6 @@ pub struct VoiceHandler {
     signal: Arc<SignalClient>,
     reply_prefix: String,
     max_attachment_bytes: usize,
-    group_translate: Option<Arc<GroupPreferencesStore>>,
-    near_ai: Option<Arc<NearAiClient>>,
     transcribe_store: Option<Arc<TranscribeStore>>,
     voice_cache: Option<Arc<VoiceAttachmentCache>>,
 }
@@ -41,8 +34,6 @@ impl VoiceHandler {
             signal,
             reply_prefix: reply_prefix.into(),
             max_attachment_bytes,
-            group_translate: None,
-            near_ai: None,
             transcribe_store: None,
             voice_cache: None,
         }
@@ -55,16 +46,6 @@ impl VoiceHandler {
 
     pub fn with_voice_cache(mut self, cache: Arc<VoiceAttachmentCache>) -> Self {
         self.voice_cache = Some(cache);
-        self
-    }
-
-    pub fn with_translate_all(
-        mut self,
-        store: Arc<GroupPreferencesStore>,
-        near_ai: Arc<NearAiClient>,
-    ) -> Self {
-        self.group_translate = Some(store);
-        self.near_ai = Some(near_ai);
         self
     }
 
@@ -96,81 +77,6 @@ impl VoiceHandler {
                 "Could not transcribe voice note. Try again later."
             }
         }
-    }
-
-    async fn translate_all_voice(
-        &self,
-        _message: &BotMessage,
-        audio: &Attachment,
-        bytes: &[u8],
-        group_id: &str,
-    ) -> AppResult<String> {
-        let store = self
-            .group_translate
-            .as_ref()
-            .expect("translate-all store required");
-        let near_ai = self
-            .near_ai
-            .as_ref()
-            .expect("near_ai required for translate-all");
-        let mode = store
-            .get(group_id)
-            .expect("translate-all mode must be active");
-
-        let filename = Self::attachment_filename(audio);
-        let content_type = &audio.content_type;
-
-        let transcript = self
-            .whisper
-            .transcribe(bytes, &filename, content_type)
-            .await?;
-        let transcript_text = transcript.trimmed_text();
-        let whisper_lang = transcript.language.as_deref();
-
-        let (source, target) =
-            match resolve_translate_all_voice_pair(&mode, whisper_lang, transcript_text) {
-                Some(pair) => pair,
-                None => {
-                    info!(
-                        group_id,
-                        whisper_lang,
-                        "Voice transcript language not in translate-all pair — transcript only"
-                    );
-                    return Ok(Self::format_transcript(transcript_text, &self.reply_prefix));
-                }
-            };
-
-        debug!(
-            group_id,
-            whisper_lang,
-            source_lang = source.code,
-            target_lang = target.code,
-            whisper_translate = target.code == "en" && source.code != "en",
-            "translate-all voice pipeline"
-        );
-
-        let translation = if target.code == "en" && source.code != "en" {
-            match self
-                .whisper
-                .translate_to_english(bytes, &filename, content_type)
-                .await
-            {
-                Ok(r) => r.trimmed_text().to_string(),
-                Err(e) => {
-                    warn!("Whisper translate failed, falling back to NEAR AI: {}", e);
-                    near_ai_translate(near_ai, transcript_text, target).await?
-                }
-            }
-        } else {
-            near_ai_translate(near_ai, transcript_text, target).await?
-        };
-
-        Ok(format_voice_auto_translation(
-            source,
-            transcript_text,
-            target,
-            &translation,
-        ))
     }
 }
 
@@ -230,38 +136,6 @@ impl CommandHandler for VoiceHandler {
                 "Downloaded voice attachment exceeds size limit"
             );
             return Ok("Voice note too long (max 5 min). Send a shorter clip.".into());
-        }
-
-        let translate_all_active = message.group_id.as_ref().is_some_and(|gid| {
-            self.group_translate
-                .as_ref()
-                .is_some_and(|s| s.is_active(gid))
-        });
-
-        if translate_all_active {
-            let group_id = message.group_id.as_deref().unwrap();
-            let store = self.group_translate.as_ref().unwrap();
-            if store.allow_message(group_id) {
-                match self
-                    .translate_all_voice(message, audio, &bytes, group_id)
-                    .await
-                {
-                    Ok(response) => {
-                        info!(
-                            source = %message.source,
-                            chars = response.len(),
-                            "Voice note translated (translate-all)"
-                        );
-                        return Ok(response);
-                    }
-                    Err(e) => {
-                        warn!("translate-all voice failed: {}", e);
-                        return Ok("Could not transcribe voice note. Try again later.".into());
-                    }
-                }
-            } else {
-                warn!(group_id, "translate-all rate limited — transcript only");
-            }
         }
 
         let filename = Self::attachment_filename(audio);

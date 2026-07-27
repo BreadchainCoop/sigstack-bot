@@ -8,25 +8,6 @@ use whatlang::Lang;
 
 const MIN_DETECT_CONFIDENCE: f64 = 0.2;
 
-/// Resolve source/target languages for `!translate-on` on a voice note.
-pub fn resolve_translate_all_voice_pair(
-    mode: &GroupTranslateMode,
-    whisper_lang: Option<&str>,
-    transcript: &str,
-) -> Option<(&'static Language, &'static Language)> {
-    for code in voice_language_candidates(whisper_lang, transcript) {
-        if let Some(normalized) = normalize_for_translate_all_pair(mode, &code) {
-            if let (Some(target), Some(source)) = (
-                mode.target_for_source(&normalized),
-                mode.source_language(&normalized),
-            ) {
-                return Some((source, target));
-            }
-        }
-    }
-    None
-}
-
 /// Map a detected code into one side of the active pair when possible.
 fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Option<String> {
     let code = code.to_lowercase();
@@ -43,27 +24,7 @@ fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Op
     None
 }
 
-fn voice_language_candidates(whisper_lang: Option<&str>, transcript: &str) -> Vec<String> {
-    let mut codes = Vec::new();
-    let mut push = |code: &str| {
-        if !codes.iter().any(|c| c == code) {
-            codes.push(code.to_string());
-        }
-    };
-
-    if let Some(lang) = whisper_lang {
-        push(lang);
-    }
-    if let Some(lang) = detect_text_language_voice(transcript) {
-        push(&lang);
-    }
-    for hint in casual_language_hints(transcript) {
-        push(hint);
-    }
-    codes
-}
-
-/// Like [`detect_text_language`] but tuned for short Whisper transcripts.
+/// Like [`detect_text_language`] but tuned for short / casual messages.
 fn detect_text_language_voice(text: &str) -> Option<String> {
     const MIN_VOICE_CONFIDENCE: f64 = 0.08;
 
@@ -222,23 +183,6 @@ pub fn format_text_auto_translation(target: &Language, translation: &str) -> Str
     format!("{} {}", target.flag, translation.trim())
 }
 
-/// Voice auto-translate reply: transcript + translation in one quote-reply.
-pub fn format_voice_auto_translation(
-    source: &Language,
-    transcript: &str,
-    target: &Language,
-    translation: &str,
-) -> String {
-    format!(
-        "📝 ({}) {}\n{} ({}) {}",
-        source.code,
-        transcript.trim(),
-        target.flag,
-        target.code,
-        translation.trim()
-    )
-}
-
 /// Resolve target language for a text message in translate-all mode.
 pub fn target_for_message_text(
     mode: &GroupTranslateMode,
@@ -291,55 +235,21 @@ mod tests {
     }
 
     #[test]
-    fn resolve_voice_pair_from_whisper_english() {
+    fn resolve_text_pair_maps_portuguese_to_spanish_in_es_en_pair() {
         let mode = GroupTranslateMode::new(
             resolve_language("es").unwrap(),
             resolve_language("en").unwrap(),
         );
-        let pair = resolve_translate_all_voice_pair(
-            &mode,
-            Some("en"),
-            "Hello, I'm speaking in English now. How was your day?",
-        );
-        let (source, target) = pair.expect("should resolve en -> es");
-        assert_eq!(source.code, "en");
-        assert_eq!(target.code, "es");
-    }
-
-    #[test]
-    fn resolve_voice_pair_spanish_from_whisper_or_hints() {
-        let mode = GroupTranslateMode::new(
-            resolve_language("es").unwrap(),
-            resolve_language("en").unwrap(),
-        );
-        let pair =
-            resolve_translate_all_voice_pair(&mode, Some("es"), "Como está? Como foi tu dia oi?")
-                .or_else(|| {
-                    resolve_translate_all_voice_pair(&mode, None, "Como está? Como foi tu dia oi?")
-                });
-        let (source, target) = pair.expect("should resolve es -> en");
+        let pair = resolve_translate_all_text_pair(&mode, "Como foi tu dia?");
+        let (source, target) = pair.expect("pt-like text should map to es in es/en pair");
         assert_eq!(source.code, "es");
         assert_eq!(target.code, "en");
     }
 
     #[test]
-    fn resolve_voice_pair_maps_portuguese_to_spanish_in_es_en_pair() {
-        let mode = GroupTranslateMode::new(
-            resolve_language("es").unwrap(),
-            resolve_language("en").unwrap(),
-        );
-        let pair = resolve_translate_all_voice_pair(&mode, Some("pt"), "Como foi tu dia?");
-        let (source, target) = pair.expect("pt should map to es in es/en pair");
-        assert_eq!(source.code, "es");
-        assert_eq!(target.code, "en");
-    }
-
-    #[test]
-    fn format_voice_bilingual() {
+    fn format_text_auto_includes_flag() {
         let es = resolve_language("es").unwrap();
-        let en = resolve_language("en").unwrap();
-        let out = format_voice_auto_translation(es, "Hola", en, "Hello");
-        assert!(out.contains("📝 (es) Hola"));
-        assert!(out.contains("🇺🇸 (en) Hello"));
+        let out = format_text_auto_translation(es, " Buenos días ");
+        assert_eq!(out, format!("{} Buenos días", es.flag));
     }
 }

@@ -65,12 +65,12 @@ Deploy each compose to its **own** CVM. Do not co-locate Whisper with the transl
 
 ## Products on each CVM
 
-| Product | CVM |
-|---------|-----|
-| Voice transcription | Transcription |
-| In-chat (group) translation | Translation |
-| Parallel Translation (not implemented yet) | Translation |
-| Language Threads | Translation |
+| Product | CVM | Doc |
+|---------|-----|-----|
+| Voice transcription | Transcription | — |
+| In-chat (group) translation | Translation | [in-chat-translation.md](in-chat-translation.md) |
+| Parallel Translation (MVP) | Translation | [parallel-translation.md](parallel-translation.md) |
+| Language Threads | Translation | [language-threads.md](language-threads.md) |
 
 ## Why split
 

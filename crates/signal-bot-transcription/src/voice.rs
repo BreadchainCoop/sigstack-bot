@@ -1,10 +1,9 @@
 //! Implicit voice note handler — transcribe via Whisper and quote-reply.
 
-use crate::commands::CommandHandler;
-use crate::error::AppResult;
 use crate::transcribe_store::TranscribeStore;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
+use signal_bot_core::{AppResult, CommandHandler};
 use signal_client::{Attachment, BotMessage, SignalClient};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};

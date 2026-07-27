@@ -34,6 +34,7 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 |-----|-----|
 | [`.agents/docs/DEVELOPMENT.md`](.agents/docs/DEVELOPMENT.md) | TEE trust model, `BOT__ROLE`, Phala dual-CVM ops |
 | [`docs/two-cvm-architecture.md`](docs/two-cvm-architecture.md) | Architecture diagram and compose/Phala split |
+| [`docs/voice-transcription.md`](docs/voice-transcription.md) | Voice transcription product + pairing |
 | [`docs/in-chat-translation.md`](docs/in-chat-translation.md) | In-chat (group) bilingual auto/manual translate |
 | [`docs/parallel-translation.md`](docs/parallel-translation.md) | Parallel Translation product behavior |
 | [`docs/language-threads.md`](docs/language-threads.md) | Language Threads product behavior |

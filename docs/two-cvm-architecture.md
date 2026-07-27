@@ -67,7 +67,7 @@ Deploy each compose to its **own** CVM. Do not co-locate Whisper with the transl
 
 | Product | CVM | Doc |
 |---------|-----|-----|
-| Voice transcription | Transcription | — |
+| Voice transcription | Transcription | [voice-transcription.md](voice-transcription.md) |
 | In-chat (group) translation | Translation | [in-chat-translation.md](in-chat-translation.md) |
 | Parallel Translation (MVP) | Translation | [parallel-translation.md](parallel-translation.md) |
 | Language Threads | Translation | [language-threads.md](language-threads.md) |

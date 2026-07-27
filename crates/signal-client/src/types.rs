@@ -50,6 +50,43 @@ pub struct Group {
     pub id: String,
     #[serde(rename = "internal_id")]
     pub internal_id: String,
+    /// Active members (E.164 phones and/or UUIDs), when the API includes them.
+    #[serde(default)]
+    pub members: Vec<String>,
+    /// Pending invites (not yet accepted).
+    #[serde(default)]
+    pub pending_invites: Vec<String>,
+    /// Pending join requests.
+    #[serde(default)]
+    pub pending_requests: Vec<String>,
+    /// Group admins.
+    #[serde(default)]
+    pub admins: Vec<String>,
+}
+
+impl Group {
+    /// True if `identity` (phone or UUID) appears in members or pending invites/requests.
+    pub fn contains_member_or_pending(&self, identity: &str) -> bool {
+        self.members
+            .iter()
+            .chain(self.pending_invites.iter())
+            .chain(self.pending_requests.iter())
+            .any(|m| identities_match(m, identity))
+    }
+}
+
+/// Compare Signal identities: exact match, or digit-only match for E.164 phones.
+pub fn identities_match(a: &str, b: &str) -> bool {
+    if a == b {
+        return true;
+    }
+    let da = digits_only(a);
+    let db = digits_only(b);
+    !da.is_empty() && da == db
+}
+
+fn digits_only(s: &str) -> String {
+    s.chars().filter(|c| c.is_ascii_digit()).collect()
 }
 
 /// Request body for `POST /v1/groups/{number}`.
@@ -323,4 +360,46 @@ fn quoted_attachment_as_audio(quoted: &QuotedAttachment) -> Option<Attachment> {
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn group_deserializes_members_and_pending() {
+        let g: Group = serde_json::from_value(serde_json::json!({
+            "name": "Main",
+            "id": "group.abc=",
+            "internal_id": "internal-1",
+            "members": ["+15551110001", "uuid-x"],
+            "pending_invites": ["+15551110002"],
+            "pending_requests": [],
+            "admins": ["+15551110001"]
+        }))
+        .unwrap();
+        assert_eq!(g.members.len(), 2);
+        assert!(g.contains_member_or_pending("+15551110001"));
+        assert!(g.contains_member_or_pending("15551110002")); // digit match on pending
+        assert!(!g.contains_member_or_pending("+19999999999"));
+    }
+
+    #[test]
+    fn group_members_default_empty_when_omitted() {
+        let g: Group = serde_json::from_value(serde_json::json!({
+            "name": "Main",
+            "id": "group.abc=",
+            "internal_id": "internal-1"
+        }))
+        .unwrap();
+        assert!(g.members.is_empty());
+        assert!(g.pending_invites.is_empty());
+    }
+
+    #[test]
+    fn identities_match_phones_and_exact_uuid() {
+        assert!(identities_match("+15551234567", "15551234567"));
+        assert!(identities_match("uuid-abc", "uuid-abc"));
+        assert!(!identities_match("uuid-abc", "uuid-xyz"));
+    }
 }

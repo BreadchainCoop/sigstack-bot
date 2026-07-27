@@ -52,6 +52,7 @@ services:
       - BOT__ROLE=transcription
       - SIGNAL__SERVICE_URL=http://signal-api:8080
       - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
+      - SIGNAL__PEER_PHONE=${PEER_PHONE:-}
       - WHISPER__ENABLED=true
       - WHISPER__SERVICE_URL=http://whisper-api:9000
       - WHISPER__MODEL=${WHISPER_MODEL:-small}

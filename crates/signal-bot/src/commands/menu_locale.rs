@@ -55,6 +55,20 @@ pub fn transcription_unavailable(language: MenuLanguage) -> &'static str {
     }
 }
 
+pub fn transcription_invited(language: MenuLanguage) -> &'static str {
+    match language {
+        MenuLanguage::En => TRANSCRIPTION_INVITED_EN,
+        MenuLanguage::Es => TRANSCRIPTION_INVITED_ES,
+    }
+}
+
+pub fn transcription_group_only(language: MenuLanguage) -> &'static str {
+    match language {
+        MenuLanguage::En => TRANSCRIPTION_GROUP_ONLY_EN,
+        MenuLanguage::Es => TRANSCRIPTION_GROUP_ONLY_ES,
+    }
+}
+
 pub fn privacy_menu(language: MenuLanguage, role: BotRole) -> &'static str {
     match (role, language) {
         (BotRole::Transcription, MenuLanguage::En) => PRIVACY_TRANSCRIPTION_EN,
@@ -74,6 +88,7 @@ const HELP_TRANSCRIPTION_EN: &str = r#"Voice transcription:
 Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
 
 **Commands:**
+- !transcription — This menu
 - !transcribe-on / !transcribe-off — toggle auto transcription
 - !transcribe — quote a voice note to transcribe it
 - !privacy — Privacy & TEE
@@ -85,6 +100,7 @@ const HELP_TRANSCRIPTION_ES: &str = r#"Transcripción de voz:
 Las notas de voz en este chat se transcriben a texto (Whisper, dentro del TEE).
 
 **Comandos:**
+- !transcription — Este menú
 - !transcribe-on / !transcribe-off — activar/desactivar transcripción automática
 - !transcribe — cita una nota de voz para transcribirla
 - !privacy — Privacidad y TEE
@@ -214,6 +230,30 @@ const TRANSCRIPTION_UNAVAILABLE_ES: &str = r#"La transcripción de voz no está 
 El bot de transcripción aún no está emparejado con este grupo. Mientras tanto, prueba la traducción:
 
 - !translation — Productos de traducción (en el chat, paralelo, …)
+
+!help — Menú principal"#;
+
+const TRANSCRIPTION_INVITED_EN: &str = r#"Invited the transcription bot to this group.
+
+Accept the Signal invite on that number, then send !transcription again (the transcription bot will answer with its menu).
+
+!help — Main menu"#;
+
+const TRANSCRIPTION_INVITED_ES: &str = r#"Se invitó al bot de transcripción a este grupo.
+
+Acepta la invitación de Signal en ese número y luego envía !transcription de nuevo (el bot de transcripción responderá con su menú).
+
+!help — Menú principal"#;
+
+const TRANSCRIPTION_GROUP_ONLY_EN: &str = r#"Voice transcription pairing works in a Signal group.
+
+Add both bots to a group, then send !transcription there.
+
+!help — Main menu"#;
+
+const TRANSCRIPTION_GROUP_ONLY_ES: &str = r#"El emparejamiento de transcripción funciona en un grupo de Signal.
+
+Añade ambos bots a un grupo y envía !transcription allí.
 
 !help — Menú principal"#;
 

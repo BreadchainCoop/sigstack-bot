@@ -99,19 +99,23 @@ Local Docker without dstack may not persist prefs across restarts; Phala with ds
 ## Local testing
 
 ```bash
-cd docker
-docker compose build signal-bot && docker compose up -d signal-bot
+cp docker/translation.env.example docker/translation.env
+# Set SIGNAL_PHONE (phone B) and NEAR_AI_API_KEY
+
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env build signal-bot
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
 ```
 
-Only **signal-bot** needs rebuild. Smoke: main group → `!translate-me-on es` → accept invite → message in main appears in Language Thread (translated or relayed).
+Only **signal-bot** on the translation stack needs rebuild for Language Threads changes. Smoke: main group → `!translate-me-on es` → accept invite → message in main appears in Language Thread (translated or relayed).
+
+Whisper / voice live on the **transcription** stack — see [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
 
 ## Phala / TEE (paused)
 
-- Deploy uses **Docker images** in compose, not a public git clone. Pushing `daopunk/signal-bot-tee:latest` is what the CVM pulls.
-- Target was a **4 GB** CVM (`tdx.medium`) named `dstack-app-hqvaf`; previous `dstack-app-cxswu` was removed.
-- Env: `deploy/dstack-app-cxswu/phala.env` (secrets; do not commit).
+- Deploy uses **Docker images** in compose, not a public git clone.
+- Translation CVM target: **4 GB** (`tdx.medium`) via [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) — **no Whisper** on this box.
+- Env template: [`docker/phala.translation.env.example`](../docker/phala.translation.env.example) (secrets; do not commit filled env).
 - Fresh CVM ⇒ expect **re-register** Signal phone (volume died with old CVM).
-- Image already pushed: `daopunk/signal-bot-tee:latest` @ `sha256:09bb7aca…` (linux/amd64).
 
 ## Trust / privacy notes
 
@@ -124,5 +128,4 @@ Only **signal-bot** needs rebuild. Smoke: main group → `!translate-me-on es` �
 
 - Resume Phala deploy at 4 GB; confirm memory with `phala cvms get`
 - Pin image digest in compose for stronger attestation
-- Capacity: whisper + bot + signal-api may be tight on 4 GB
 - Optional: delete empty sidecars after last member leaves

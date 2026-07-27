@@ -1,9 +1,8 @@
 //! `!transcribe-on` / `!transcribe-off` — per-chat voice transcription toggle.
 
-use crate::commands::CommandHandler;
-use crate::error::AppResult;
 use crate::transcribe_store::TranscribeStore;
 use async_trait::async_trait;
+use signal_bot_core::{AppResult, CommandHandler};
 use signal_client::BotMessage;
 use std::sync::Arc;
 
@@ -58,7 +57,31 @@ impl CommandHandler for TranscribeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::group_preferences_store::GroupPreferencesStore;
+    use crate::prefs::{SharedTranscribeGroupPrefs, TranscribeGroupPrefs};
+    use std::collections::HashMap;
+    use std::sync::RwLock;
+
+    struct MemoryPrefs {
+        enabled: RwLock<HashMap<String, bool>>,
+    }
+
+    impl TranscribeGroupPrefs for MemoryPrefs {
+        fn is_transcribe_enabled(&self, group_id: &str) -> bool {
+            self.enabled
+                .read()
+                .unwrap()
+                .get(group_id)
+                .copied()
+                .unwrap_or(true)
+        }
+
+        fn set_transcribe_enabled(&self, group_id: &str, enabled: bool) {
+            self.enabled
+                .write()
+                .unwrap()
+                .insert(group_id.to_string(), enabled);
+        }
+    }
 
     fn msg(text: &str, group: bool) -> BotMessage {
         BotMessage {
@@ -89,7 +112,9 @@ mod tests {
 
     #[tokio::test]
     async fn execute_toggles_dm_and_group() {
-        let prefs = GroupPreferencesStore::new_in_memory(0);
+        let prefs: SharedTranscribeGroupPrefs = Arc::new(MemoryPrefs {
+            enabled: RwLock::new(HashMap::new()),
+        });
         let store = Arc::new(TranscribeStore::new(Some(prefs)));
         let handler = TranscribeHandler::new(store.clone(), true);
 

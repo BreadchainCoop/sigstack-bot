@@ -55,7 +55,9 @@ Fail-fast if role is missing/invalid or required deps are missing.
 
 ```
 crates/
-  signal-bot/                 # Binary
+  signal-bot/                 # Binary (role-selected handlers)
+  signal-bot-core/            # CommandHandler + AppResult
+  signal-bot-transcription/   # Voice / !transcribe* product crate
   whisper-client/
   near-ai-client/
   signal-client/
@@ -69,6 +71,7 @@ docker/
   Dockerfile / Dockerfile.whisper / Dockerfile.proxy
 docs/
   two-cvm-architecture.md
+  voice-transcription.md
   language-threads.md
 ```
 
@@ -77,6 +80,8 @@ docs/
 ```bash
 cp docker/transcription.env.example docker/transcription.env
 cp docker/translation.env.example docker/translation.env
+# Different SIGNAL_PHONE values; PEER_PHONE on translation = transcription phone;
+# NEAR_AI_API_KEY in translation.env
 
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
@@ -93,11 +98,15 @@ docker buildx build --platform linux/amd64 -t YOUR/signal-bot-tee:latest -f dock
 docker buildx build --platform linux/amd64 -t YOUR/signal-whisper-api:latest -f docker/Dockerfile.whisper --push .
 docker buildx build --platform linux/amd64 -t YOUR/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
 
-phala deploy … -c docker/phala.transcription.yaml …
-phala deploy … -c docker/phala.translation.yaml …
+phala deploy … -c docker/phala.transcription.yaml -e docker/phala.transcription.env --wait -t tdx.medium
+phala deploy … -c docker/phala.translation.yaml -e docker/phala.translation.env --wait -t tdx.medium
 ```
 
-Encrypted secrets: phone numbers per CVM; `NEAR_AI_API_KEY` on translation only.
+Env templates: `docker/phala.transcription.env.example`, `docker/phala.translation.env.example`.
+
+Encrypted secrets: phone numbers per CVM; `PEER_PHONE` for pairing; `NEAR_AI_API_KEY` on translation only.
+
+Health (transcription): Whisper `GET /health` on `:9000`, Signal CLI `GET /v1/health` on `:8080`. Attestation: `!verify <challenge>`.
 
 ## Configuration
 
@@ -105,6 +114,8 @@ Encrypted secrets: phone numbers per CVM; `NEAR_AI_API_KEY` on translation only.
 |----------|-------|
 | `BOT__ROLE` | `transcription` \| `translation` |
 | `SIGNAL__SERVICE_URL` | Default `http://signal-api:8080` |
+| `SIGNAL__PHONE_NUMBER` | Ops phone for this CVM |
+| `SIGNAL__PEER_PHONE` | Peer product bot (translation invites transcription) |
 | `NEAR_AI__*` | Translation role |
 | `WHISPER__*` | Transcription role |
 | `TRANSLATE_ALL__*` | In-chat translation |

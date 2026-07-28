@@ -6,7 +6,7 @@ Current product direction:
 
 - [two-cvm-architecture.md](two-cvm-architecture.md)
 - [language-threads.md](language-threads.md)
-- [../.agents/DEVELOPMENT.md](../.agents/DEVELOPMENT.md)
+- [../.agents/docs/DEVELOPMENT.md](../.agents/docs/DEVELOPMENT.md)
 - [../README.md](../README.md)
 - [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)
 

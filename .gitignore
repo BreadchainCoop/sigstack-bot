@@ -50,3 +50,7 @@ credentials.json
 
 # Git worktrees
 .worktrees/
+
+# Compound Engineering machine-local config (keep *.example.yaml tracked)
+.compound-engineering/*.local.yaml
+.compound-engineering/config.local.yaml

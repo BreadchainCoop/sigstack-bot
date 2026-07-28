@@ -2,6 +2,8 @@
 
 Third-party [SkillsMP](https://skillsmp.com/search) / GitHub skills installed for Cursor via `npx skills add … -a cursor --copy`.
 
+These are **domain** skills (Rust, Docker, Stripe). Feature workflow uses the Compound Engineering marketplace plugin (`/ce-brainstorm`, `/ce-plan`, `/ce-work`, …) — see [AGENTS.md](../../AGENTS.md). Prefer CE for planning/shipping; reach for these skills when writing or reviewing stack-specific code.
+
 **Review before trust** — skills run with full agent permissions. Prefer project docs under `.agents/docs/` and `docs/` for Signal/TEE domain rules.
 
 | Skill | Use for | Source |
@@ -19,4 +21,4 @@ npx skills add rbaumier/skills --skill docker -a cursor --copy -y
 npx skills add midudev/autoskills --skill stripe-best-practices -a cursor --copy -y
 ```
 
-Domain ops (TEE, `BOT__ROLE`, dual CVM): [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md). Agent entrypoint: [../../AGENTS.md](../../AGENTS.md).
+Domain ops (TEE, `BOT__ROLE`, dual CVM): [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md). Agent entrypoint: [../../AGENTS.md](../../AGENTS.md). Cursor project rules: [../../.cursor/rules/](../../.cursor/rules/).

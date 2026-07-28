@@ -99,7 +99,7 @@ See `.env.example` and the docker `*.env.example` files.
 
 See [.agents/docs/DEVELOPMENT.md](.agents/docs/DEVELOPMENT.md) for the TEE trust model, why Signal CLI must run in the TEE, and attestation (`!verify`).
 
-For coding agents, see [AGENTS.md](AGENTS.md).
+For coding agents, see [AGENTS.md](AGENTS.md) (includes Compound Engineering install: `/add-plugin compound-engineering`, then `/ce-setup`).
 
 ## License
 

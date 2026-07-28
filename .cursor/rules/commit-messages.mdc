@@ -1,3 +1,8 @@
+---
+description: Conventional commit subject line style for this repo
+alwaysApply: true
+---
+
 # Commit message subject lines
 
 When drafting a git commit subject (conventional `type: subject`):

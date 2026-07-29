@@ -1,0 +1,30 @@
+---
+description: Compound Engineering loop, artifact paths, and product constraints
+alwaysApply: true
+---
+
+# Compound Engineering
+
+Prefer the Compound Engineering loop for non-trivial work:
+
+brainstorm → plan → work → simplify → review → compound
+
+Core skills (after installing the marketplace plugin): `/ce-brainstorm`, `/ce-plan`, `/ce-work`, `/ce-simplify-code`, `/ce-code-review`, `/ce-compound`. After non-trivial fixes or features, prefer `/ce-compound` so learnings land in `docs/solutions/`.
+
+## Artifact paths
+
+| Path | Written by |
+|------|------------|
+| `docs/brainstorms/` | `/ce-brainstorm` |
+| `docs/plans/` | `/ce-plan` |
+| `docs/solutions/` | `/ce-compound` |
+| `todos/` | triage / review findings |
+
+Product docs stay as siblings under `docs/` (architecture, voice, translation). Full agent entrypoint: `AGENTS.md`.
+
+## Product constraints
+
+- Required env: `BOT__ROLE=transcription|translation`
+- Do not reintroduce tools, x402, or general chat paths
+- Image digests stay pinned in compose for attestation
+- Before finishing Rust work run `npm run ci` / `pnpm run ci` (never bare `pnpm ci`)

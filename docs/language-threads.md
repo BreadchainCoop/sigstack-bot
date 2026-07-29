@@ -35,7 +35,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!list-langs` | Any | Language codes |
 | `!help` / `!privacy` | Any | Hub / privacy menus |
 | `!set-en` / `!set-es` | Group | Menu language |
-| `!verify` / `!models` | As before | TEE / session |
+| `!verify` | As before | TEE attestation |
 
 Aliases: `!translate-me on es`, `!translation-me-on es`, etc.
 

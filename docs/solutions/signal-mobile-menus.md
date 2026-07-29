@@ -13,7 +13,7 @@ Source of truth for bot command menus: [`crates/signal-bot/src/commands/menu_loc
 3. **Each command** on its own line; **description** on the next line, indented with two spaces. No `cmd — desc` on one line.
 4. Prefer plain `!command` lines over `- !command` bullets.
 5. Keep descriptions short (aim ≤~40 chars when possible).
-6. **Footer** commands use the same stacked form (`!help` / `!set-en` / `!models`, etc.).
+6. **Footer** commands use the same stacked form (`!help` / `!set-en` / `!verify`, etc.).
 7. Prose blocks (privacy explanations, invite/status messages) stay paragraphs; only **command lists** (including footers) use the stacked form.
 8. EN and ES stay structural twins.
 

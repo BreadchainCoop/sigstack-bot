@@ -157,8 +157,6 @@ Stay in this thread; auto or quote one message.
 !translate <lang>
   Reply to a message
 
-!models
-  List AI models
 !verify <challenge>
   TEE attestation
 !help
@@ -186,8 +184,6 @@ Quédate en este hilo; auto o cita un mensaje.
 !translate <lang>
   Responde a un mensaje
 
-!models
-  Listar modelos de IA
 !verify <challenge>
   Attestation TEE
 !help
@@ -211,8 +207,6 @@ Auto-translate is disabled on this bot (!translate-on).
 !translate <lang>
   Reply to a message
 
-!models
-  List AI models
 !verify <challenge>
   TEE attestation
 !help
@@ -236,8 +230,6 @@ La auto-traducción está desactivada en este bot (!translate-on).
 !translate <lang>
   Responde a un mensaje
 
-!models
-  Listar modelos de IA
 !verify <challenge>
   Attestation TEE
 !help
@@ -320,8 +312,6 @@ Empareja con el bot de traducción en el mismo grupo si también quieres traducc
 const PRIVACY_TRANSLATION_EN: &str = r#"**Sigstack translation** (Private & Verifiable)
 
 **TEE Commands:**
-!models
-  List AI models
 !verify <challenge>
   Get TEE attestation with your challenge
 
@@ -341,8 +331,6 @@ Neither the bot operator nor NEAR AI can read your messages in plaintext outside
 const PRIVACY_TRANSLATION_ES: &str = r#"**Sigstack traducción** (Privado y verificable)
 
 **Comandos TEE:**
-!models
-  Listar modelos de IA
 !verify <challenge>
   Obtener attestation TEE con tu challenge
 
@@ -449,7 +437,8 @@ mod tests {
         assert!(!en.contains("!verify <challenge> -"));
         let es = privacy_menu(MenuLanguage::Es, BotRole::Translation);
         assert!(es.contains("Sigstack traducción"));
-        assert!(es.contains("!models\n  "));
+        assert!(es.contains("!verify <challenge>\n  "));
+        assert!(!es.contains("!models"));
     }
 
     #[test]

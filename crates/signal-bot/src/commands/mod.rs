@@ -2,7 +2,6 @@
 
 mod help;
 mod menu_locale;
-mod models;
 mod privacy;
 mod product_menus;
 mod set_language;
@@ -15,7 +14,6 @@ mod translate_service;
 mod verify;
 
 pub use help::HelpHandler;
-pub use models::ModelsHandler;
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
     InChatMenuHandler, TranscriptionMenuHandler, TranscriptionPairingHandler,

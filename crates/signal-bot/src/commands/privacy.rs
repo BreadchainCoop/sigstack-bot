@@ -70,6 +70,7 @@ mod tests {
 
         let t = translation.execute(&dm("!privacy")).await.unwrap();
         assert!(t.contains("Sigstack translation"));
-        assert!(t.contains("!models"));
+        assert!(t.contains("!verify"));
+        assert!(!t.contains("!models"));
     }
 }

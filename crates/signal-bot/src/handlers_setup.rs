@@ -180,7 +180,6 @@ pub async fn build_translation_handlers(
         group_prefs,
         BotRole::Translation,
     )));
-    handlers.push(Box::new(ModelsHandler::new(near_ai)));
 
     info!("Translation role: hub menus + in-chat + Language Threads");
     Ok(handlers)
@@ -291,7 +290,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 12);
+        assert_eq!(handlers.len(), 11);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"translate_all"));
@@ -300,6 +299,7 @@ mod tests {
         assert!(got.contains(&"in_chat_menu"));
         assert!(!got.contains(&"translate_parallel"));
         assert!(!got.contains(&"parallel_menu"));
+        assert!(!got.contains(&"models"));
         assert!(got.contains(&"translate"));
         assert!(got.contains(&"translate_langs"));
         assert!(got.contains(&"set_language"));
@@ -333,7 +333,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 11);
+        assert_eq!(handlers.len(), 10);
         assert!(!labels(&handlers).contains(&"translate_all"));
         assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));

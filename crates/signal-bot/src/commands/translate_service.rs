@@ -253,3 +253,21 @@ mod tests {
         assert_eq!(out, format!("{} Buenos días", es.flag));
     }
 }
+    #[test]
+    fn probe_screenshot_english() {
+        let mode = GroupTranslateMode::new(
+            resolve_language("en").unwrap(),
+            resolve_language("es").unwrap(),
+        );
+        let text = "i'm doing quite fine thanks";
+        println!("detect={:?}", detect_text_language(text));
+        println!("candidates={:?}", text_language_candidates(text));
+        println!("hints={:?}", casual_language_hints(text));
+        println!("pair={:?}", resolve_translate_all_text_pair(&mode, text));
+        if let Some(info) = whatlang::detect(text) {
+            println!("whatlang={:?} conf={} reliable={}", info.lang(), info.confidence(), info.is_reliable());
+        }
+        let pair = resolve_translate_all_text_pair(&mode, text);
+        assert!(pair.is_some(), "expected en->es for screenshot english");
+    }
+

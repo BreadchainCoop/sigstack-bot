@@ -236,9 +236,9 @@ impl TranslateMeHandler {
         );
 
         Ok(format!(
-            "Joined the {} sidecar (Language Thread {}). Accept the Signal group invite if prompted. \
-Use !translate-me-off to leave.",
-            lang.name, lang.name
+            "{} joined {} thread",
+            message.display_name(),
+            lang.name
         ))
     }
 

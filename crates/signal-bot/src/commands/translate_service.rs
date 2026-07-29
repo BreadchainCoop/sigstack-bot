@@ -4,9 +4,12 @@ use crate::commands::translate_lang::Language;
 use crate::group_preferences_store::GroupTranslateMode;
 use near_ai_client::{Message, NearAiClient, NearAiError, Role};
 use tracing::debug;
-use whatlang::Lang;
+use whatlang::{Detector, Lang};
 
 const MIN_DETECT_CONFIDENCE: f64 = 0.2;
+/// Pair-constrained detection can use a lower bar: false positives stay inside the pair
+/// (or Iberian→Spanish when `es` is active).
+const MIN_PAIR_DETECT_CONFIDENCE: f64 = 0.1;
 
 /// Map a detected code into one side of the active pair when possible.
 fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Option<String> {
@@ -22,6 +25,67 @@ fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Op
         return Some("es".into());
     }
     None
+}
+
+fn iso_to_whatlang(code: &str) -> Option<Lang> {
+    Some(match code {
+        "en" => Lang::Eng,
+        "es" => Lang::Spa,
+        "zh" => Lang::Cmn,
+        "hi" => Lang::Hin,
+        "bn" => Lang::Ben,
+        "fr" => Lang::Fra,
+        "ar" => Lang::Ara,
+        "pt" => Lang::Por,
+        "ru" => Lang::Rus,
+        "ja" => Lang::Jpn,
+        "de" => Lang::Deu,
+        "ko" => Lang::Kor,
+        "it" => Lang::Ita,
+        "nl" => Lang::Nld,
+        "pl" => Lang::Pol,
+        "tr" => Lang::Tur,
+        "uk" => Lang::Ukr,
+        "sv" => Lang::Swe,
+        "cs" => Lang::Ces,
+        "el" => Lang::Ell,
+        "he" => Lang::Heb,
+        "ro" => Lang::Ron,
+        "hu" => Lang::Hun,
+        "fi" => Lang::Fin,
+        "da" => Lang::Dan,
+        "no" => Lang::Nob,
+        "fa" => Lang::Pes,
+        "vi" => Lang::Vie,
+        "th" => Lang::Tha,
+        "id" => Lang::Ind,
+        "ca" => Lang::Cat,
+        _ => return None,
+    })
+}
+
+/// Detect language restricted to the active bilingual pair.
+///
+/// Open-vocabulary whatlang often mislabels short English as Norwegian (etc.)
+/// at tiny confidence; constraining to the pair recovers both directions.
+fn detect_text_language_in_pair(mode: &GroupTranslateMode, text: &str) -> Option<String> {
+    let allowlist: Vec<Lang> = [mode.lang_a.as_str(), mode.lang_b.as_str()]
+        .into_iter()
+        .filter_map(iso_to_whatlang)
+        .collect();
+    if allowlist.len() < 2 {
+        return None;
+    }
+
+    let info = Detector::with_allowlist(allowlist).detect(text)?;
+    if info.confidence() < MIN_PAIR_DETECT_CONFIDENCE {
+        debug!(
+            confidence = info.confidence(),
+            "Pair-constrained language detection below confidence threshold"
+        );
+        return None;
+    }
+    lang_to_iso639_1(info.lang()).map(str::to_string)
 }
 
 /// Like [`detect_text_language`] but tuned for short / casual messages.
@@ -43,7 +107,7 @@ fn detect_text_language_voice(text: &str) -> Option<String> {
     }
 }
 
-fn text_language_candidates(text: &str) -> Vec<String> {
+fn text_language_candidates(mode: &GroupTranslateMode, text: &str) -> Vec<String> {
     let mut codes = Vec::new();
     let mut push = |code: &str| {
         if !codes.iter().any(|c| c == code) {
@@ -51,46 +115,17 @@ fn text_language_candidates(text: &str) -> Vec<String> {
         }
     };
 
+    // Prefer pair-constrained whatlang so short messages aren't lost to open-vocab mislabels.
+    if let Some(lang) = detect_text_language_in_pair(mode, text) {
+        push(&lang);
+    }
     if let Some(lang) = detect_text_language(text) {
         push(&lang);
     }
     if let Some(lang) = detect_text_language_voice(text) {
         push(&lang);
     }
-    for hint in casual_language_hints(text) {
-        push(hint);
-    }
     codes
-}
-
-fn casual_language_hints(text: &str) -> Vec<&'static str> {
-    let lower = text.to_lowercase();
-    let mut hints = Vec::new();
-
-    let english_markers = [
-        " the ",
-        " i'm ",
-        " how ",
-        " your ",
-        "hello",
-        "english",
-        " day?",
-        "speaking in english",
-        "how are",
-        "doing?",
-    ];
-    if english_markers.iter().any(|m| lower.contains(m)) {
-        hints.push("en");
-    }
-
-    let spanish_markers = [
-        "¿", "cómo", "como ", "está", "está?", "hola", "gracias", "día", "hablo",
-    ];
-    if spanish_markers.iter().any(|m| lower.contains(m)) {
-        hints.push("es");
-    }
-
-    hints
 }
 
 /// Detect ISO 639-1 language code from text (for `!translate-on` text messages).
@@ -138,6 +173,7 @@ fn lang_to_iso639_1(lang: Lang) -> Option<&'static str> {
         Lang::Vie => "vi",
         Lang::Tha => "th",
         Lang::Ind => "id",
+        Lang::Cat => "ca",
         _ => return None,
     })
 }
@@ -196,7 +232,7 @@ pub fn resolve_translate_all_text_pair(
     mode: &GroupTranslateMode,
     text: &str,
 ) -> Option<(&'static Language, &'static Language)> {
-    for code in text_language_candidates(text) {
+    for code in text_language_candidates(mode, text) {
         if let Some(normalized) = normalize_for_translate_all_pair(mode, &code) {
             if let (Some(target), Some(source)) = (
                 mode.target_for_source(&normalized),
@@ -235,6 +271,24 @@ mod tests {
     }
 
     #[test]
+    fn resolve_text_pair_short_english_both_directions() {
+        let mode = GroupTranslateMode::new(
+            resolve_language("en").unwrap(),
+            resolve_language("es").unwrap(),
+        );
+        // Open whatlang labels this as Norwegian at ~3% confidence; pair allowlist recovers en→es.
+        let pair = resolve_translate_all_text_pair(&mode, "i'm doing quite fine thanks")
+            .expect("short English should translate to Spanish");
+        assert_eq!(pair.0.code, "en");
+        assert_eq!(pair.1.code, "es");
+
+        let pair = resolve_translate_all_text_pair(&mode, "estoy bien!")
+            .expect("short Spanish should translate to English");
+        assert_eq!(pair.0.code, "es");
+        assert_eq!(pair.1.code, "en");
+    }
+
+    #[test]
     fn resolve_text_pair_maps_portuguese_to_spanish_in_es_en_pair() {
         let mode = GroupTranslateMode::new(
             resolve_language("es").unwrap(),
@@ -253,21 +307,3 @@ mod tests {
         assert_eq!(out, format!("{} Buenos días", es.flag));
     }
 }
-    #[test]
-    fn probe_screenshot_english() {
-        let mode = GroupTranslateMode::new(
-            resolve_language("en").unwrap(),
-            resolve_language("es").unwrap(),
-        );
-        let text = "i'm doing quite fine thanks";
-        println!("detect={:?}", detect_text_language(text));
-        println!("candidates={:?}", text_language_candidates(text));
-        println!("hints={:?}", casual_language_hints(text));
-        println!("pair={:?}", resolve_translate_all_text_pair(&mode, text));
-        if let Some(info) = whatlang::detect(text) {
-            println!("whatlang={:?} conf={} reliable={}", info.lang(), info.confidence(), info.is_reliable());
-        }
-        let pair = resolve_translate_all_text_pair(&mode, text);
-        assert!(pair.is_some(), "expected en->es for screenshot english");
-    }
-

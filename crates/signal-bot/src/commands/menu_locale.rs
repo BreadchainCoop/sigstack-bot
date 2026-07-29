@@ -1,4 +1,7 @@
 //! Localized `!help`, product, and `!privacy` menu text.
+//!
+//! Command-list layout follows the Signal mobile menu standard:
+//! [`docs/solutions/signal-mobile-menus.md`](../../../../docs/solutions/signal-mobile-menus.md).
 
 use crate::config::BotRole;
 use crate::group_preferences_store::GroupPreferencesStore;
@@ -72,44 +75,60 @@ pub fn is_exact_command(text: &str, command: &str) -> bool {
     text.trim() == command
 }
 
-const HELP_TRANSCRIPTION_EN: &str = r#"Voice transcription:
+const HELP_TRANSCRIPTION_EN: &str = r#"Voice transcription
 
 Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
 
-**Commands:**
-- !transcription — This menu
-- !transcribe-on / !transcribe-off — toggle auto transcription
-- !transcribe — quote a voice note to transcribe it
-- !privacy — Privacy & TEE
-- !help — Show this menu
-- !verify <challenge> — TEE attestation"#;
+!transcription
+  This menu
+!transcribe-on / !transcribe-off
+  Toggle auto transcription
+!transcribe
+  Quote a voice note to transcribe
+!privacy
+  Privacy & TEE
+!help
+  Show this menu
+!verify <challenge>
+  TEE attestation"#;
 
-const HELP_TRANSCRIPTION_ES: &str = r#"Transcripción de voz:
+const HELP_TRANSCRIPTION_ES: &str = r#"Transcripción de voz
 
 Las notas de voz en este chat se transcriben a texto (Whisper, dentro del TEE).
 
-**Comandos:**
-- !transcription — Este menú
-- !transcribe-on / !transcribe-off — activar/desactivar transcripción automática
-- !transcribe — cita una nota de voz para transcribirla
-- !privacy — Privacidad y TEE
-- !help — Mostrar este menú
-- !verify <challenge> — attestation TEE"#;
+!transcription
+  Este menú
+!transcribe-on / !transcribe-off
+  Activar/desactivar auto-transcripción
+!transcribe
+  Cita una nota de voz para transcribir
+!privacy
+  Privacidad y TEE
+!help
+  Mostrar este menú
+!verify <challenge>
+  Attestation TEE"#;
 
 const HELP_HUB_EN: &str = r#"Sigstack
 
-- !translation — Translation
-- !transcription — Voice transcription
-- !privacy — Privacy & TEE
+!translation
+  Translation
+!transcription
+  Voice transcription
+!privacy
+  Privacy & TEE
 
 Menu language: !set-en / !set-es
 !help — Show this menu"#;
 
 const HELP_HUB_ES: &str = r#"Sigstack
 
-- !translation — Traducción
-- !transcription — Transcripción de voz
-- !privacy — Privacidad y TEE
+!translation
+  Traducción
+!transcription
+  Transcripción de voz
+!privacy
+  Privacidad y TEE
 
 Idioma del menú: !set-en / !set-es
 !help — Mostrar este menú"#;
@@ -118,15 +137,23 @@ const TRANSLATION_MENU_EN: &str = r#"Translation
 
 Language Threads (recommended)
 Multilingual main + language sidecars.
-- !translate-me-on <lang> — join/create a Language Thread (from main)
-- !translate-me-off — leave your Language Thread
-- !list-langs — language codes
+
+!translate-me-on <lang>
+  Join/create a Language Thread (from main)
+!translate-me-off
+  Leave your Language Thread
+!list-langs
+  Language codes
 
 In-chat (same group only)
 Stay in this thread; auto or quote one message.
-- !translate-on <lang1> <lang2> — e.g. !translate-on es en
-- !translate-off — stop auto-translate
-- Reply to a message with !translate <lang>
+
+!translate-on <lang1> <lang2>
+  e.g. !translate-on es en
+!translate-off
+  Stop auto-translate
+!translate <lang>
+  Reply to a message
 
 Also: !models · !verify <challenge>
 !help — Main menu"#;
@@ -135,15 +162,23 @@ const TRANSLATION_MENU_ES: &str = r#"Traducción
 
 Language Threads (recomendado)
 Principal multilingüe + sidecars por idioma.
-- !translate-me-on <lang> — unirte/crear un Language Thread (desde el principal)
-- !translate-me-off — salir de tu Language Thread
-- !list-langs — códigos de idioma
+
+!translate-me-on <lang>
+  Unirte/crear Language Thread (principal)
+!translate-me-off
+  Salir de tu Language Thread
+!list-langs
+  Códigos de idioma
 
 En el chat (solo este grupo)
 Quédate en este hilo; auto o cita un mensaje.
-- !translate-on <lang1> <lang2> — ej. !translate-on es en
-- !translate-off — detener auto-traducción
-- Responde a un mensaje con !translate <lang>
+
+!translate-on <lang1> <lang2>
+  ej. !translate-on es en
+!translate-off
+  Detener auto-traducción
+!translate <lang>
+  Responde a un mensaje
 
 También: !models · !verify <challenge>
 !help — Menú principal"#;
@@ -152,13 +187,19 @@ const TRANSLATION_MENU_AUTO_DISABLED_EN: &str = r#"Translation
 
 Language Threads (recommended)
 Multilingual main + language sidecars.
-- !translate-me-on <lang> — join/create a Language Thread (from main)
-- !translate-me-off — leave your Language Thread
-- !list-langs — language codes
+
+!translate-me-on <lang>
+  Join/create a Language Thread (from main)
+!translate-me-off
+  Leave your Language Thread
+!list-langs
+  Language codes
 
 In-chat (same group only)
 Auto-translate is disabled on this bot (!translate-on).
-- Reply to a message with !translate <lang>
+
+!translate <lang>
+  Reply to a message
 
 Also: !models · !verify <challenge>
 !help — Main menu"#;
@@ -167,13 +208,19 @@ const TRANSLATION_MENU_AUTO_DISABLED_ES: &str = r#"Traducción
 
 Language Threads (recomendado)
 Principal multilingüe + sidecars por idioma.
-- !translate-me-on <lang> — unirte/crear un Language Thread (desde el principal)
-- !translate-me-off — salir de tu Language Thread
-- !list-langs — códigos de idioma
+
+!translate-me-on <lang>
+  Unirte/crear Language Thread (principal)
+!translate-me-off
+  Salir de tu Language Thread
+!list-langs
+  Códigos de idioma
 
 En el chat (solo este grupo)
 La auto-traducción está desactivada en este bot (!translate-on).
-- Responde a un mensaje con !translate <lang>
+
+!translate <lang>
+  Responde a un mensaje
 
 También: !models · !verify <challenge>
 !help — Menú principal"#;
@@ -182,7 +229,8 @@ const TRANSCRIPTION_UNAVAILABLE_EN: &str = r#"Voice transcription is currently u
 
 The transcription bot is not paired with this group yet. Meanwhile, try translation:
 
-- !translation — Translation
+!translation
+  Translation
 
 !help — Main menu"#;
 
@@ -190,7 +238,8 @@ const TRANSCRIPTION_UNAVAILABLE_ES: &str = r#"La transcripción de voz no está 
 
 El bot de transcripción aún no está emparejado con este grupo. Mientras tanto, prueba la traducción:
 
-- !translation — Traducción
+!translation
+  Traducción
 
 !help — Menú principal"#;
 
@@ -221,7 +270,8 @@ Añade ambos bots a un grupo y envía !transcription allí.
 const PRIVACY_TRANSCRIPTION_EN: &str = r#"**Sigstack transcription** (Private & Verifiable)
 
 **TEE Commands:**
-- !verify <challenge> - Get TEE attestation with your challenge
+!verify <challenge>
+  Get TEE attestation with your challenge
 
 **Privacy:**
 Voice notes are decrypted by Signal CLI inside this TEE and transcribed with Whisper in the same CVM. Text transcripts are posted back to Signal.
@@ -233,7 +283,8 @@ Pair with the translation bot in the same group if you also want translation."#;
 const PRIVACY_TRANSCRIPTION_ES: &str = r#"**Sigstack transcripción** (Privado y verificable)
 
 **Comandos TEE:**
-- !verify <challenge> - Obtener attestation TEE con tu challenge
+!verify <challenge>
+  Obtener attestation TEE con tu challenge
 
 **Privacidad:**
 Las notas de voz se descifran con Signal CLI dentro de este TEE y se transcriben con Whisper en el mismo CVM. El texto se publica de nuevo en Signal.
@@ -245,8 +296,10 @@ Empareja con el bot de traducción en el mismo grupo si también quieres traducc
 const PRIVACY_TRANSLATION_EN: &str = r#"**Sigstack translation** (Private & Verifiable)
 
 **TEE Commands:**
-- !models - List AI models
-- !verify <challenge> - Get TEE attestation with your challenge
+!models
+  List AI models
+!verify <challenge>
+  Get TEE attestation with your challenge
 
 **Verification:**
 `!verify my-random-text` to get cryptographic proof this bot runs in a TEE. Your challenge is embedded in the TDX quote.
@@ -263,8 +316,10 @@ Neither the bot operator nor NEAR AI can read your messages in plaintext outside
 const PRIVACY_TRANSLATION_ES: &str = r#"**Sigstack traducción** (Privado y verificable)
 
 **Comandos TEE:**
-- !models - Listar modelos de IA
-- !verify <challenge> - Obtener attestation TEE con tu challenge
+!models
+  Listar modelos de IA
+!verify <challenge>
+  Obtener attestation TEE con tu challenge
 
 **Verificación:**
 `!verify my-random-text` para obtener prueba criptográfica de que este bot corre en un TEE. Tu challenge se incluye en la cita TDX.
@@ -290,6 +345,11 @@ mod tests {
         assert!(h.contains("!privacy"));
         assert!(!h.contains("!translate-me-on"));
         assert!(!h.contains("!transcribe-on"));
+        assert!(
+            h.contains("!translation\n  Translation"),
+            "hub commands should use stacked layout"
+        );
+        assert!(!h.contains("!translation —"));
     }
 
     #[test]
@@ -308,6 +368,11 @@ mod tests {
             lt < in_chat,
             "Language Threads should appear before In-chat"
         );
+        assert!(
+            h.contains("!translate-me-on <lang>\n  "),
+            "translation menu should use stacked layout"
+        );
+        assert!(!h.contains("!translate-me-on <lang> —"));
     }
 
     #[test]
@@ -317,6 +382,7 @@ mod tests {
         assert!(h.contains("Auto-translate is disabled"));
         assert!(!h.contains("!translate-on <lang1>"));
         assert!(h.contains("!translate <lang>"));
+        assert!(h.contains("!translate <lang>\n  "));
     }
 
     #[test]
@@ -333,6 +399,8 @@ mod tests {
         assert!(h.contains("!transcribe"));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!translate-me-on"));
+        assert!(h.contains("!transcribe-on / !transcribe-off\n  "));
+        assert!(!h.contains("!transcribe-on / !transcribe-off —"));
     }
 
     #[test]
@@ -340,14 +408,18 @@ mod tests {
         let h = help_menu(MenuLanguage::Es, BotRole::Translation);
         assert!(h.contains("!translation"));
         assert!(!h.contains("!ask"));
+        assert!(h.contains("!translation\n  Traducción"));
     }
 
     #[test]
     fn privacy_menus_cover_roles_and_languages() {
         let en = privacy_menu(MenuLanguage::En, BotRole::Transcription);
         assert!(en.contains("Sigstack transcription"));
+        assert!(en.contains("!verify <challenge>\n  "));
+        assert!(!en.contains("!verify <challenge> -"));
         let es = privacy_menu(MenuLanguage::Es, BotRole::Translation);
         assert!(es.contains("Sigstack traducción"));
+        assert!(es.contains("!models\n  "));
     }
 
     #[test]
@@ -355,6 +427,8 @@ mod tests {
         let m = transcription_unavailable(MenuLanguage::En);
         assert!(m.contains("unavailable"));
         assert!(m.contains("!translation"));
+        assert!(m.contains("!translation\n  Translation"));
+        assert!(!m.contains("!translation —"));
     }
 
     #[test]

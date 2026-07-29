@@ -7,9 +7,6 @@ use tracing::debug;
 use whatlang::{Detector, Lang};
 
 const MIN_DETECT_CONFIDENCE: f64 = 0.2;
-/// Pair-constrained detection can use a lower bar: false positives stay inside the pair
-/// (or Iberian→Spanish when `es` is active).
-const MIN_PAIR_DETECT_CONFIDENCE: f64 = 0.1;
 
 /// Map a detected code into one side of the active pair when possible.
 fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Option<String> {
@@ -68,6 +65,10 @@ fn iso_to_whatlang(code: &str) -> Option<Lang> {
 ///
 /// Open-vocabulary whatlang often mislabels short English as Norwegian (etc.)
 /// at tiny confidence; constraining to the pair recovers both directions.
+///
+/// Absolute confidence can stay very low even when the allowlist correctly
+/// picks the winner (e.g. Italian vs Spanish on "ciao buongiorno" ~0.02).
+/// Trust the allowlist result whenever it returns a language.
 fn detect_text_language_in_pair(mode: &GroupTranslateMode, text: &str) -> Option<String> {
     let allowlist: Vec<Lang> = [mode.lang_a.as_str(), mode.lang_b.as_str()]
         .into_iter()
@@ -78,13 +79,6 @@ fn detect_text_language_in_pair(mode: &GroupTranslateMode, text: &str) -> Option
     }
 
     let info = Detector::with_allowlist(allowlist).detect(text)?;
-    if info.confidence() < MIN_PAIR_DETECT_CONFIDENCE {
-        debug!(
-            confidence = info.confidence(),
-            "Pair-constrained language detection below confidence threshold"
-        );
-        return None;
-    }
     lang_to_iso639_1(info.lang()).map(str::to_string)
 }
 
@@ -190,7 +184,7 @@ pub async fn near_ai_translate(
     );
 
     near_ai
-        .chat(
+        .chat_with_retry(
             vec![
                 Message {
                     role: Role::System,
@@ -210,6 +204,7 @@ pub async fn near_ai_translate(
             ],
             Some(0.3),
             Some(1024),
+            Some(2),
         )
         .await
 }
@@ -305,5 +300,23 @@ mod tests {
         let es = resolve_language("es").unwrap();
         let out = format_text_auto_translation(es, " Buenos días ");
         assert_eq!(out, format!("{} Buenos días", es.flag));
+    }
+
+    #[test]
+    fn resolve_text_pair_short_italian_in_it_es_pair() {
+        let mode = GroupTranslateMode::new(
+            resolve_language("it").unwrap(),
+            resolve_language("es").unwrap(),
+        );
+        // Pair allowlist picks Italian at ~2% absolute confidence — still accept the winner.
+        let pair = resolve_translate_all_text_pair(&mode, "ciao buongiorno")
+            .expect("short Italian should translate to Spanish");
+        assert_eq!(pair.0.code, "it");
+        assert_eq!(pair.1.code, "es");
+
+        let pair = resolve_translate_all_text_pair(&mode, "buenos dias")
+            .expect("Spanish should translate to Italian");
+        assert_eq!(pair.0.code, "es");
+        assert_eq!(pair.1.code, "it");
     }
 }

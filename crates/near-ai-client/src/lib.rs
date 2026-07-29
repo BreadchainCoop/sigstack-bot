@@ -133,8 +133,8 @@ mod tests {
 
         assert!(result.is_ok());
         let models = result.unwrap();
-        assert_eq!(models.len(), 4);
-        assert_eq!(models[0].id, "deepseek-ai/DeepSeek-V3.1");
+        assert_eq!(models.len(), 5);
+        assert_eq!(models[0].id, "deepseek-ai/DeepSeek-V4-Flash");
     }
 
     #[tokio::test]
@@ -184,6 +184,52 @@ mod tests {
         let result = client.chat_with_retry(messages, None, None, Some(3)).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success on first try");
+    }
+
+    #[tokio::test]
+    async fn test_chat_with_retry_retries_empty_response() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "1",
+                "object": "chat.completion",
+                "created": 1,
+                "model": "test-model",
+                "choices": [{
+                    "index": 0,
+                    "message": { "role": "assistant", "content": "" },
+                    "finish_reason": "stop"
+                }]
+            })))
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "2",
+                "object": "chat.completion",
+                "created": 1,
+                "model": "test-model",
+                "choices": [{
+                    "index": 0,
+                    "message": { "role": "assistant", "content": "Hola" },
+                    "finish_reason": "stop"
+                }]
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let result = client
+            .chat_with_retry(vec![Message::user("hi")], None, None, Some(2))
+            .await;
+        assert_eq!(result.unwrap(), "Hola");
     }
 
     #[tokio::test]

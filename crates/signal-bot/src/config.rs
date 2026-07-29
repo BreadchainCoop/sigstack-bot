@@ -218,7 +218,7 @@ fn default_near_ai_url() -> String {
 }
 
 fn default_model() -> String {
-    "deepseek-ai/DeepSeek-V3.1".into()
+    "deepseek-ai/DeepSeek-V4-Flash".into()
 }
 
 fn default_timeout() -> Duration {

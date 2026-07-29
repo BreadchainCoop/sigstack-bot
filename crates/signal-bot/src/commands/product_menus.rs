@@ -167,7 +167,7 @@ impl CommandHandler for TranscriptionPairingHandler {
                     "Could not add the transcription bot ({peer}): {e}\n\n\
                      This bot must be a group admin to invite members. \
                      Or set SIGNAL__PEER_PHONE and try again.\n\n\
-                     !help — Main menu"
+                     !help\n  Main menu"
                 );
                 self.send(message, &body).await?;
             }

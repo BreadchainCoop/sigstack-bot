@@ -224,6 +224,12 @@ impl NearAiClient {
         // Return a list of known available models (as of Dec 2025)
         Ok(vec![
             Model {
+                id: "deepseek-ai/DeepSeek-V4-Flash".to_string(),
+                object: "model".to_string(),
+                created: 0,
+                owned_by: "deepseek".to_string(),
+            },
+            Model {
                 id: "deepseek-ai/DeepSeek-V3.1".to_string(),
                 object: "model".to_string(),
                 created: 0,
@@ -293,7 +299,6 @@ impl NearAiClient {
             match self.chat(messages.clone(), temperature, max_tokens).await {
                 Ok(response) => return Ok(response),
                 Err(NearAiError::Unauthorized) => return Err(NearAiError::Unauthorized),
-                Err(NearAiError::EmptyResponse) => return Err(NearAiError::EmptyResponse),
                 Err(e) => {
                     warn!("Chat request failed (attempt {}): {}", attempt + 1, e);
                     last_error = Some(e);

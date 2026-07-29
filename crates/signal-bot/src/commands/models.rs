@@ -85,7 +85,7 @@ mod tests {
         assert!(handler.matches(&dm()));
         let out = handler.execute(&dm()).await.unwrap();
         assert!(out.contains("**Available Models:**"));
-        assert!(out.contains("deepseek-ai/DeepSeek-V3.1"));
+        assert!(out.contains("deepseek-ai/DeepSeek-V4-Flash"));
         assert!(out.contains("_Current: test-model_"));
     }
 }

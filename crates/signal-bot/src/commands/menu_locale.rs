@@ -117,9 +117,10 @@ const HELP_HUB_EN: &str = r#"Sigstack
   Voice transcription
 !privacy
   Privacy & TEE
-
-Menu language: !set-en / !set-es
-!help — Show this menu"#;
+!set-en / !set-es
+  Menu language
+!help
+  Show this menu"#;
 
 const HELP_HUB_ES: &str = r#"Sigstack
 
@@ -129,9 +130,10 @@ const HELP_HUB_ES: &str = r#"Sigstack
   Transcripción de voz
 !privacy
   Privacidad y TEE
-
-Idioma del menú: !set-en / !set-es
-!help — Mostrar este menú"#;
+!set-en / !set-es
+  Idioma del menú
+!help
+  Mostrar este menú"#;
 
 const TRANSLATION_MENU_EN: &str = r#"Translation
 
@@ -155,8 +157,12 @@ Stay in this thread; auto or quote one message.
 !translate <lang>
   Reply to a message
 
-Also: !models · !verify <challenge>
-!help — Main menu"#;
+!models
+  List AI models
+!verify <challenge>
+  TEE attestation
+!help
+  Main menu"#;
 
 const TRANSLATION_MENU_ES: &str = r#"Traducción
 
@@ -180,8 +186,12 @@ Quédate en este hilo; auto o cita un mensaje.
 !translate <lang>
   Responde a un mensaje
 
-También: !models · !verify <challenge>
-!help — Menú principal"#;
+!models
+  Listar modelos de IA
+!verify <challenge>
+  Attestation TEE
+!help
+  Menú principal"#;
 
 const TRANSLATION_MENU_AUTO_DISABLED_EN: &str = r#"Translation
 
@@ -201,8 +211,12 @@ Auto-translate is disabled on this bot (!translate-on).
 !translate <lang>
   Reply to a message
 
-Also: !models · !verify <challenge>
-!help — Main menu"#;
+!models
+  List AI models
+!verify <challenge>
+  TEE attestation
+!help
+  Main menu"#;
 
 const TRANSLATION_MENU_AUTO_DISABLED_ES: &str = r#"Traducción
 
@@ -222,8 +236,12 @@ La auto-traducción está desactivada en este bot (!translate-on).
 !translate <lang>
   Responde a un mensaje
 
-También: !models · !verify <challenge>
-!help — Menú principal"#;
+!models
+  Listar modelos de IA
+!verify <challenge>
+  Attestation TEE
+!help
+  Menú principal"#;
 
 const TRANSCRIPTION_UNAVAILABLE_EN: &str = r#"Voice transcription is currently unavailable.
 
@@ -232,7 +250,8 @@ The transcription bot is not paired with this group yet. Meanwhile, try translat
 !translation
   Translation
 
-!help — Main menu"#;
+!help
+  Main menu"#;
 
 const TRANSCRIPTION_UNAVAILABLE_ES: &str = r#"La transcripción de voz no está disponible por ahora.
 
@@ -241,31 +260,36 @@ El bot de transcripción aún no está emparejado con este grupo. Mientras tanto
 !translation
   Traducción
 
-!help — Menú principal"#;
+!help
+  Menú principal"#;
 
 const TRANSCRIPTION_INVITED_EN: &str = r#"Invited the transcription bot to this group.
 
 Accept the Signal invite on that number, then send !transcription again (the transcription bot will answer with its menu).
 
-!help — Main menu"#;
+!help
+  Main menu"#;
 
 const TRANSCRIPTION_INVITED_ES: &str = r#"Se invitó al bot de transcripción a este grupo.
 
 Acepta la invitación de Signal en ese número y luego envía !transcription de nuevo (el bot de transcripción responderá con su menú).
 
-!help — Menú principal"#;
+!help
+  Menú principal"#;
 
 const TRANSCRIPTION_GROUP_ONLY_EN: &str = r#"Voice transcription pairing works in a Signal group.
 
 Add both bots to a group, then send !transcription there.
 
-!help — Main menu"#;
+!help
+  Main menu"#;
 
 const TRANSCRIPTION_GROUP_ONLY_ES: &str = r#"El emparejamiento de transcripción funciona en un grupo de Signal.
 
 Añade ambos bots a un grupo y envía !transcription allí.
 
-!help — Menú principal"#;
+!help
+  Menú principal"#;
 
 const PRIVACY_TRANSCRIPTION_EN: &str = r#"**Sigstack transcription** (Private & Verifiable)
 
@@ -311,7 +335,8 @@ Voice transcription is a separate bot/CVM. This bot only acts on text (including
 
 Neither the bot operator nor NEAR AI can read your messages in plaintext outside the TEEs.
 
-!help — Main menu"#;
+!help
+  Main menu"#;
 
 const PRIVACY_TRANSLATION_ES: &str = r#"**Sigstack traducción** (Privado y verificable)
 
@@ -331,7 +356,8 @@ La transcripción de voz es un bot/CVM aparte. Este bot solo actúa sobre texto 
 
 Ni el operador del bot ni NEAR AI pueden leer tus mensajes en texto plano fuera de los TEEs.
 
-!help — Menú principal"#;
+!help
+  Menú principal"#;
 
 #[cfg(test)]
 mod tests {
@@ -349,7 +375,11 @@ mod tests {
             h.contains("!translation\n  Translation"),
             "hub commands should use stacked layout"
         );
+        assert!(h.contains("!set-en / !set-es\n  Menu language"));
+        assert!(h.contains("!help\n  Show this menu"));
         assert!(!h.contains("!translation —"));
+        assert!(!h.contains("Menu language:"));
+        assert!(!h.contains("!help —"));
     }
 
     #[test]

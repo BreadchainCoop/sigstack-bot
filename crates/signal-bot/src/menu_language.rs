@@ -1,7 +1,9 @@
-//! UI menu language for `!help` and `!privacy` (per-group).
+//! Persisted menu-language field (legacy). UI menus are English-only for now.
 
 use serde::{Deserialize, Serialize};
 
+/// Kept for forward-compatible deserialize of older group-pref snapshots.
+/// Command paths no longer read this for UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum MenuLanguage {
@@ -25,7 +27,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn from_code_parses_supported_languages() {
+    fn from_code_parses_legacy_codes() {
         assert_eq!(MenuLanguage::from_code("en"), Some(MenuLanguage::En));
         assert_eq!(MenuLanguage::from_code("es"), Some(MenuLanguage::Es));
         assert_eq!(MenuLanguage::from_code("fr"), None);

@@ -13,16 +13,18 @@ In multilingual mutual-aid groups, organizers often dual-post by hand. Monolingu
 | Room | Role |
 |------|------|
 | **Main group** | Multilingual hub; bot already a member |
-| **Language Thread {Language}** | One Signal sidecar per subscribed language (e.g. `Language Thread Spanish`) |
+| **SigLang {Language} · {disambiguator}** | One Signal sidecar per subscribed language (e.g. `SigLang Spanish · Stacked`) |
 
 Users who want a monolingual lane run `!translate-me-on <lang>` in **main**. The bot creates or joins the sidecar and invites them. Messages fan out across main and all active threads.
 
 ```text
 Main (multilingual hub)
-  ├── Language Thread Spanish  ← monolingual ES users
-  ├── Language Thread English  ← monolingual EN users
+  ├── SigLang Spanish · Stacked  ← monolingual ES users
+  ├── SigLang English · Stacked  ← monolingual EN users
   └── … (any !list-langs code)
 ```
+
+Default title is English `SigLang {Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!help`.
 
 N=1 (one sidecar) uses the same relay rules as N=3 — add another language later with no reconfiguration.
 
@@ -32,10 +34,12 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 |---------|--------|--------|
 | `!translate-me-on <lang>` | Main only | Create/join sidecar; invite user |
 | `!translate-me-off` | Main or sidecar | Leave sidecar |
+| `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
 | `!list-langs` | Any | Language codes |
-| `!help` / `!privacy` | Any | Hub / privacy menus |
-| `!set-en` / `!set-es` | Group | Menu language |
+| `!help` / `!privacy` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu) |
 | `!verify` | As before | TEE attestation |
+
+Menus are English-only for now (multi-language UI deferred).
 
 Aliases: `!translate-me on es`, `!translation-me-on es`, etc.
 
@@ -66,10 +70,11 @@ Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out
 
 1. User in main: `!translate-me-on es`
 2. Resolve language; need invite address (`sourceNumber` preferred, else usable `source`)
-3. **First subscriber for that lang:** localize title/description/welcome via NEAR → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
+3. **First subscriber for that lang:** build English `SigLang …` title/description/welcome → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
 4. **Later subscribers:** `add_members` on existing sidecar
 5. Language switch: remove from old sidecar, add/create new
 6. `!translate-me-off`: remove from Signal group + store
+7. Sidecar `!help` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
 
 If Signal omits phone number, bot asks the user to DM once, then retry.
 

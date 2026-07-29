@@ -1,8 +1,9 @@
 //! Language Threads: `!translate-me-on` / `!translate-me-off` + relay engine.
 //!
-//! Main group stays multilingual. Each subscribed language gets a `Language Thread {Language}`
-//! Signal sidecar. Messages fan out: main→sidecars (relay/translate),
-//! sidecar→main (relay) + other sidecars (translate). Bot never relays itself.
+//! Main group stays multilingual. Each subscribed language gets a
+//! `SigLang {Language} · {disambiguator}` Signal sidecar. Messages fan out:
+//! main→sidecars (relay/translate), sidecar→main (relay) + other sidecars (translate).
+//! Bot never relays itself.
 
 use crate::bot_identity::BotIdentity;
 use crate::commands::translate_lang::{resolve_language, Language};
@@ -197,9 +198,9 @@ impl TranslateMeHandler {
                 ));
             }
         } else {
-            // Localize title/description/welcome before create+invite so the sidecar
-            // opens in the member's language.
-            let (name, description, welcome) = localize_sidecar_copy(&self.near_ai, lang).await;
+            // Default English SigLang title before create+invite.
+            let (name, description, welcome) =
+                sidecar_copy(lang, message.group_name.as_deref(), main_id);
             match self
                 .signal
                 .create_group(bot, &name, vec![address.clone()], Some(&description))
@@ -423,58 +424,59 @@ fn format_attribution(display_name: &str, body: &str) -> String {
     format!("{display_name}:\n{body}")
 }
 
-/// English title / description / welcome, optionally localized via NEAR.
-async fn localize_sidecar_copy(
-    near_ai: &NearAiClient,
+const DISAMBIGUATOR_MAX: usize = 24;
+
+/// English title / description / welcome for a new Language Thread sidecar.
+fn sidecar_copy(
     lang: &Language,
+    main_group_name: Option<&str>,
+    main_id: &str,
 ) -> (String, String, String) {
-    let name_en = format!("Language Thread {}", lang.name);
-    let description_en = format!(
-        "{} sidecar bridged to the main mutual-aid group.",
-        lang.name
+    let disambiguator = sidecar_disambiguator(main_group_name, main_id);
+    let name = format!("SigLang {} · {}", lang.name, disambiguator);
+    let description = format!(
+        "{} Language Thread bridged to the main group ({}).",
+        lang.name, disambiguator
     );
-    let welcome_en = format!(
-        "Welcome to Language Thread {}. Messages here are bridged with the main group.",
-        lang.name
+    let welcome = format!(
+        "Welcome to {name}. Messages here are bridged with the main group. Send !help for thread commands."
     );
-
-    if lang.code == "en" {
-        return (name_en, description_en, welcome_en);
-    }
-
-    let (name_r, description_r, welcome_r) = tokio::join!(
-        near_ai_translate(near_ai, &name_en, lang),
-        near_ai_translate(near_ai, &description_en, lang),
-        near_ai_translate(near_ai, &welcome_en, lang),
-    );
-
-    (
-        take_translation(name_r, name_en, "sidecar name"),
-        take_translation(description_r, description_en, "sidecar description"),
-        take_translation(welcome_r, welcome_en, "sidecar welcome"),
-    )
+    (name, description, welcome)
 }
 
-fn take_translation(
-    result: Result<String, near_ai_client::NearAiError>,
-    fallback: String,
-    label: &str,
-) -> String {
-    match result {
-        Ok(s) => {
-            let trimmed = s.trim();
-            if trimmed.is_empty() {
-                warn!(label, "Empty NEAR translation; using English");
-                fallback
-            } else {
-                trimmed.to_string()
-            }
-        }
-        Err(e) => {
-            warn!(error = %e, label, "NEAR translation failed; using English");
-            fallback
-        }
+fn sidecar_disambiguator(main_group_name: Option<&str>, main_id: &str) -> String {
+    if let Some(label) = truncate_main_label(main_group_name) {
+        return label;
     }
+    short_main_id_hash(main_id)
+}
+
+fn truncate_main_label(name: Option<&str>) -> Option<String> {
+    let raw = name?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let collapsed: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.is_empty() {
+        return None;
+    }
+    let truncated: String = collapsed.chars().take(DISAMBIGUATOR_MAX).collect();
+    let trimmed = truncated.trim().to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
+fn short_main_id_hash(main_id: &str) -> String {
+    // FNV-1a 32-bit — stable, no extra deps, enough for a 4-hex chat-list suffix.
+    let mut hash: u32 = 0x811c_9dc5;
+    for b in main_id.as_bytes() {
+        hash ^= u32::from(*b);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    format!("{:04x}", hash & 0xffff)
 }
 
 fn starts_with_word(text: &str, prefix: &str) -> bool {
@@ -559,49 +561,37 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn localize_sidecar_copy_uses_near_then_falls_back() {
-        use serde_json::json;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
+    #[test]
+    fn sidecar_copy_uses_main_group_name() {
+        let it = resolve_language("it").unwrap();
+        let (name, description, welcome) = sidecar_copy(it, Some("  Stacked  "), "main-id");
+        assert_eq!(name, "SigLang Italian · Stacked");
+        assert!(description.contains("Stacked"));
+        assert!(welcome.starts_with("Welcome to SigLang Italian · Stacked"));
+        assert!(welcome.contains("!help"));
+    }
 
-        let near = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/chat/completions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "id": "1",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "  Hilo de idioma español  "}, "finish_reason": "stop"}],
-                "created": 1,
-                "model": "m",
-                "object": "chat.completion"
-            })))
-            .mount(&near)
-            .await;
-
-        let client =
-            NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5)).unwrap();
+    #[test]
+    fn sidecar_copy_falls_back_to_hash_without_group_name() {
         let es = resolve_language("es").unwrap();
-        let (name, description, welcome) = localize_sidecar_copy(&client, es).await;
-        assert_eq!(name, "Hilo de idioma español");
-        assert_eq!(description, "Hilo de idioma español");
-        assert_eq!(welcome, "Hilo de idioma español");
+        let (name, _, _) = sidecar_copy(es, None, "main-internal-abc");
+        assert!(name.starts_with("SigLang Spanish · "));
+        assert!(!name.contains("None"));
+        let suffix = name.rsplit('·').next().unwrap().trim();
+        assert_eq!(suffix.len(), 4);
+        assert!(suffix.chars().all(|c| c.is_ascii_hexdigit()));
 
+        let (name2, _, _) = sidecar_copy(es, Some("   "), "main-internal-abc");
+        assert_eq!(name, name2);
+    }
+
+    #[test]
+    fn sidecar_copy_truncates_long_main_names() {
         let en = resolve_language("en").unwrap();
-        let (name, description, welcome) = localize_sidecar_copy(&client, en).await;
-        assert_eq!(name, "Language Thread English");
-        assert!(description.contains("English sidecar"));
-        assert!(welcome.starts_with("Welcome to Language Thread English"));
-
-        let down = NearAiClient::new(
-            "key",
-            "http://127.0.0.1:9",
-            "m",
-            std::time::Duration::from_millis(50),
-        )
-        .unwrap();
-        let (name, _, welcome) = localize_sidecar_copy(&down, es).await;
-        assert_eq!(name, "Language Thread Spanish");
-        assert!(welcome.starts_with("Welcome to Language Thread Spanish"));
+        let long = "A".repeat(40);
+        let (name, _, _) = sidecar_copy(en, Some(&long), "main");
+        let label = name.rsplit('·').next().unwrap().trim();
+        assert_eq!(label.chars().count(), DISAMBIGUATOR_MAX);
     }
 
     #[test]

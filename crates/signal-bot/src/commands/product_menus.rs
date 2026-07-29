@@ -1,27 +1,24 @@
 //! Product menus: flat `!translation`, `!transcription`, `!in-chat` (redirects to translation).
 
 use crate::commands::menu_locale::{
-    help_menu, is_exact_command, menu_language_for_message, transcription_group_only,
-    transcription_invited, transcription_unavailable, translation_products_menu,
+    help_menu, is_exact_command, transcription_group_only, transcription_invited,
+    transcription_unavailable, translation_products_menu,
 };
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
-use crate::group_preferences_store::GroupPreferencesStore;
 use async_trait::async_trait;
 use signal_client::{BotMessage, SignalClient};
 use std::sync::Arc;
 use tracing::warn;
 
 pub struct TranslationMenuHandler {
-    group_prefs: Arc<GroupPreferencesStore>,
     translate_all_enabled: bool,
 }
 
 impl TranslationMenuHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>, translate_all_enabled: bool) -> Self {
+    pub fn new(translate_all_enabled: bool) -> Self {
         Self {
-            group_prefs,
             translate_all_enabled,
         }
     }
@@ -37,27 +34,20 @@ impl CommandHandler for TranslationMenuHandler {
         "translation_menu"
     }
 
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(translation_products_menu(language, self.translate_all_enabled).into())
+    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
+        Ok(translation_products_menu(self.translate_all_enabled).into())
     }
 }
 
 /// Translation role: invite the transcription peer, or stay silent when already paired.
 pub struct TranscriptionPairingHandler {
-    group_prefs: Arc<GroupPreferencesStore>,
     signal: Arc<SignalClient>,
     peer_phone: Option<String>,
 }
 
 impl TranscriptionPairingHandler {
-    pub fn new(
-        group_prefs: Arc<GroupPreferencesStore>,
-        signal: Arc<SignalClient>,
-        peer_phone: Option<String>,
-    ) -> Self {
+    pub fn new(signal: Arc<SignalClient>, peer_phone: Option<String>) -> Self {
         Self {
-            group_prefs,
             signal,
             peer_phone: peer_phone.and_then(|p| {
                 let t = p.trim().to_string();
@@ -91,23 +81,18 @@ impl CommandHandler for TranscriptionPairingHandler {
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let language = menu_language_for_message(message, &self.group_prefs);
-
         if !message.is_group {
-            self.send(message, transcription_group_only(language))
-                .await?;
+            self.send(message, transcription_group_only()).await?;
             return Ok(String::new());
         }
 
         let Some(peer) = self.peer_phone.as_deref() else {
-            self.send(message, transcription_unavailable(language))
-                .await?;
+            self.send(message, transcription_unavailable()).await?;
             return Ok(String::new());
         };
 
         let Some(group_id) = message.group_id.as_deref() else {
-            self.send(message, transcription_unavailable(language))
-                .await?;
+            self.send(message, transcription_unavailable()).await?;
             return Ok(String::new());
         };
 
@@ -126,8 +111,7 @@ impl CommandHandler for TranscriptionPairingHandler {
             .iter()
             .find(|g| g.internal_id == group_id || g.id == group_id)
         else {
-            self.send(message, transcription_unavailable(language))
-                .await?;
+            self.send(message, transcription_unavailable()).await?;
             return Ok(String::new());
         };
 
@@ -159,7 +143,7 @@ impl CommandHandler for TranscriptionPairingHandler {
             .await
         {
             Ok(()) => {
-                self.send(message, transcription_invited(language)).await?;
+                self.send(message, transcription_invited()).await?;
             }
             Err(e) => {
                 warn!(error = %e, peer, "Failed to invite transcription bot");
@@ -178,13 +162,17 @@ impl CommandHandler for TranscriptionPairingHandler {
 }
 
 /// Transcription role: product menu for `!transcription`.
-pub struct TranscriptionMenuHandler {
-    group_prefs: Arc<GroupPreferencesStore>,
-}
+pub struct TranscriptionMenuHandler;
 
 impl TranscriptionMenuHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>) -> Self {
-        Self { group_prefs }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for TranscriptionMenuHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -198,21 +186,18 @@ impl CommandHandler for TranscriptionMenuHandler {
         "transcription_menu"
     }
 
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(help_menu(language, BotRole::Transcription).into())
+    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
+        Ok(help_menu(BotRole::Transcription).into())
     }
 }
 
 pub struct InChatMenuHandler {
-    group_prefs: Arc<GroupPreferencesStore>,
     translate_all_enabled: bool,
 }
 
 impl InChatMenuHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>, translate_all_enabled: bool) -> Self {
+    pub fn new(translate_all_enabled: bool) -> Self {
         Self {
-            group_prefs,
             translate_all_enabled,
         }
     }
@@ -228,10 +213,9 @@ impl CommandHandler for InChatMenuHandler {
         "in_chat_menu"
     }
 
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
         // Muscle-memory alias: same flat Translation menu as !translation.
-        let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(translation_products_menu(language, self.translate_all_enabled).into())
+        Ok(translation_products_menu(self.translate_all_enabled).into())
     }
 }
 
@@ -261,30 +245,27 @@ mod tests {
 
     #[test]
     fn menus_match_exact_only() {
-        let store = GroupPreferencesStore::new_in_memory(0);
-        let t = TranslationMenuHandler::new(store.clone(), true);
+        let t = TranslationMenuHandler::new(true);
         assert!(t.matches(&msg("!translation")));
         assert!(!t.matches(&msg("!translation-on es en")));
 
-        let i = InChatMenuHandler::new(store.clone(), true);
+        let i = InChatMenuHandler::new(true);
         assert!(i.matches(&msg("!in-chat")));
 
         let s = TranscriptionPairingHandler::new(
-            store.clone(),
             Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap()),
             None,
         );
         assert!(s.matches(&msg("!transcription")));
 
-        let m = TranscriptionMenuHandler::new(store);
+        let m = TranscriptionMenuHandler::new();
         assert!(m.matches(&msg("!transcription")));
     }
 
     #[tokio::test]
     async fn in_chat_redirects_to_flat_translation_menu() {
-        let store = GroupPreferencesStore::new_in_memory(0);
-        let translation = TranslationMenuHandler::new(store.clone(), true);
-        let in_chat = InChatMenuHandler::new(store, true);
+        let translation = TranslationMenuHandler::new(true);
+        let in_chat = InChatMenuHandler::new(true);
         let via_translation = translation.execute(&msg("!translation")).await.unwrap();
         let via_in_chat = in_chat.execute(&msg("!in-chat")).await.unwrap();
         assert_eq!(via_translation, via_in_chat);
@@ -312,9 +293,7 @@ mod tests {
             .mount(&signal_mock)
             .await;
 
-        let store = GroupPreferencesStore::new_in_memory(0);
         let handler = TranscriptionPairingHandler::new(
-            store,
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
             None,
         );
@@ -351,9 +330,7 @@ mod tests {
             .mount(&signal_mock)
             .await;
 
-        let store = GroupPreferencesStore::new_in_memory(0);
         let handler = TranscriptionPairingHandler::new(
-            store,
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
             Some("+15550009999".into()),
         );
@@ -378,9 +355,7 @@ mod tests {
             .mount(&signal_mock)
             .await;
 
-        let store = GroupPreferencesStore::new_in_memory(0);
         let handler = TranscriptionPairingHandler::new(
-            store,
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
             Some("+15550009999".into()),
         );
@@ -390,8 +365,7 @@ mod tests {
 
     #[tokio::test]
     async fn transcription_menu_returns_voice_help() {
-        let store = GroupPreferencesStore::new_in_memory(0);
-        let handler = TranscriptionMenuHandler::new(store);
+        let handler = TranscriptionMenuHandler::new();
         let out = handler.execute(&msg("!transcription")).await.unwrap();
         assert!(out.contains("!transcribe"));
         assert!(out.to_lowercase().contains("voice"));

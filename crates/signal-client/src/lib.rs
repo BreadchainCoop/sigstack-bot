@@ -523,6 +523,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_update_group() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/v1/groups/%2B15555555555/group.sidecarEs%3D%3D"))
+            .and(body_json(serde_json::json!({
+                "name": "SigLang Spanish · Stacked"
+            })))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        client
+            .update_group(
+                "+15555555555",
+                "group.sidecarEs==",
+                "SigLang Spanish · Stacked",
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn test_create_group_error() {
         let mock_server = MockServer::start().await;
 

@@ -1,22 +1,19 @@
-//! `!privacy` — privacy, security, and TEE commands menu.
+//! Privacy / TEE explanation menu.
 
-use crate::commands::menu_locale::{menu_language_for_message, privacy_menu};
+use crate::commands::menu_locale::privacy_menu;
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
-use crate::group_preferences_store::GroupPreferencesStore;
 use async_trait::async_trait;
 use signal_client::BotMessage;
-use std::sync::Arc;
 
 pub struct PrivacyHandler {
-    group_prefs: Arc<GroupPreferencesStore>,
     role: BotRole,
 }
 
 impl PrivacyHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>, role: BotRole) -> Self {
-        Self { group_prefs, role }
+    pub fn new(role: BotRole) -> Self {
+        Self { role }
     }
 }
 
@@ -30,9 +27,8 @@ impl CommandHandler for PrivacyHandler {
         "privacy"
     }
 
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(privacy_menu(language, self.role).into())
+    async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
+        Ok(privacy_menu(self.role).into())
     }
 }
 
@@ -42,35 +38,26 @@ mod tests {
 
     fn dm(text: &str) -> BotMessage {
         BotMessage {
-            source: "+15550002222".into(),
+            source: "+1".into(),
             source_number: None,
             source_name: None,
             text: text.into(),
-            timestamp: 1,
-            message_timestamp: 1,
+            timestamp: 0,
+            message_timestamp: 0,
             is_group: false,
             group_id: None,
             group_name: None,
-            receiving_account: "+15550001111".into(),
+            receiving_account: "+2".into(),
             attachments: vec![],
             quote: None,
         }
     }
 
     #[tokio::test]
-    async fn privacy_returns_role_menus() {
-        let store = GroupPreferencesStore::new_in_memory(0);
-        let transcription = PrivacyHandler::new(store.clone(), BotRole::Transcription);
-        let translation = PrivacyHandler::new(store, BotRole::Translation);
-
-        assert!(transcription.matches(&dm("!privacy")));
-        let t = transcription.execute(&dm("!privacy")).await.unwrap();
-        assert!(t.contains("Sigstack transcription"));
-        assert!(t.contains("!verify"));
-
-        let t = translation.execute(&dm("!privacy")).await.unwrap();
-        assert!(t.contains("Sigstack translation"));
-        assert!(t.contains("!verify"));
-        assert!(!t.contains("!models"));
+    async fn privacy_returns_role_menu() {
+        let handler = PrivacyHandler::new(BotRole::Translation);
+        let out = handler.execute(&dm("!privacy")).await.unwrap();
+        assert!(out.contains("Sigstack translation"));
+        assert!(out.contains("!verify"));
     }
 }

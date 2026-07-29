@@ -70,16 +70,13 @@ pub async fn build_transcription_handlers(
         config.whisper.max_attachment_bytes,
         Arc::new(GroupTranscribePrefs(group_prefs.clone())),
     );
-    handlers.push(Box::new(TranscriptionMenuHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(TranscriptionMenuHandler::new()));
     handlers.push(Box::new(VerifyHandler::new(dstack)));
     handlers.push(Box::new(HelpHandler::new(
-        group_prefs.clone(),
-        BotRole::Transcription,
-    )));
-    handlers.push(Box::new(PrivacyHandler::new(
         group_prefs,
         BotRole::Transcription,
     )));
+    handlers.push(Box::new(PrivacyHandler::new(BotRole::Transcription)));
 
     info!("Transcription role: voice / !transcribe* / !transcription / help / privacy / verify");
     Ok(handlers)
@@ -151,16 +148,13 @@ pub async fn build_translation_handlers(
     }
 
     handlers.push(Box::new(TranslationMenuHandler::new(
-        group_prefs.clone(),
         config.translate_all.enabled,
     )));
     handlers.push(Box::new(TranscriptionPairingHandler::new(
-        group_prefs.clone(),
         signal.clone(),
         config.signal.peer_phone.clone(),
     )));
     handlers.push(Box::new(InChatMenuHandler::new(
-        group_prefs.clone(),
         config.translate_all.enabled,
     )));
 
@@ -170,16 +164,16 @@ pub async fn build_translation_handlers(
         "📝 Transcript:",
     )));
     handlers.push(Box::new(TranslateLangsHandler::new()));
-    handlers.push(Box::new(SetLanguageHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(RenameHandler::new(
+        group_prefs.clone(),
+        signal.clone(),
+    )));
     handlers.push(Box::new(VerifyHandler::new(dstack)));
     handlers.push(Box::new(HelpHandler::new(
-        group_prefs.clone(),
-        BotRole::Translation,
-    )));
-    handlers.push(Box::new(PrivacyHandler::new(
         group_prefs,
         BotRole::Translation,
     )));
+    handlers.push(Box::new(PrivacyHandler::new(BotRole::Translation)));
 
     info!("Translation role: hub menus + in-chat + Language Threads");
     Ok(handlers)
@@ -302,7 +296,8 @@ mod tests {
         assert!(!got.contains(&"models"));
         assert!(got.contains(&"translate"));
         assert!(got.contains(&"translate_langs"));
-        assert!(got.contains(&"set_language"));
+        assert!(got.contains(&"rename"));
+        assert!(!got.contains(&"set_language"));
         assert!(got.contains(&"help"));
         assert!(got.contains(&"privacy"));
     }

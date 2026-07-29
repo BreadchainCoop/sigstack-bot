@@ -1,6 +1,6 @@
 //! Help command - displays feature menu.
 
-use crate::commands::menu_locale::{help_menu, menu_language_for_message};
+use crate::commands::menu_locale::{help_menu, thread_help_menu};
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
@@ -31,15 +31,20 @@ impl CommandHandler for HelpHandler {
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        let language = menu_language_for_message(message, &self.group_prefs);
-        Ok(help_menu(language, self.role).into())
+        if self.role == BotRole::Translation {
+            if let Some(group_id) = message.group_id.as_deref() {
+                if self.group_prefs.lookup_sidecar(group_id).is_some() {
+                    return Ok(thread_help_menu().into());
+                }
+            }
+        }
+        Ok(help_menu(self.role).into())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::menu_language::MenuLanguage;
 
     fn dm(text: &str) -> BotMessage {
         BotMessage {
@@ -81,14 +86,30 @@ mod tests {
         assert!(t.contains("!transcription"));
         assert!(t.contains("!privacy"));
         assert!(!t.contains("Voice notes in this chat"));
+        assert!(!t.contains("!set-en"));
     }
 
     #[tokio::test]
-    async fn help_uses_group_menu_language() {
+    async fn help_in_sidecar_returns_thread_menu() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        store.set_menu_language("g1", MenuLanguage::Es);
-        let handler = HelpHandler::new(store, BotRole::Transcription);
-        let out = handler.execute(&group("!help", "g1")).await.unwrap();
-        assert!(out.contains("Transcripción de voz"));
+        store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
+        let handler = HelpHandler::new(store, BotRole::Translation);
+        let out = handler
+            .execute(&group("!help", "it-internal"))
+            .await
+            .unwrap();
+        assert!(out.contains("!rename <name>"));
+        assert!(out.contains("!translate-me-off"));
+        assert!(!out.contains("!translation"));
+    }
+
+    #[tokio::test]
+    async fn help_in_main_stays_hub() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
+        let handler = HelpHandler::new(store, BotRole::Translation);
+        let out = handler.execute(&group("!help", "main-1")).await.unwrap();
+        assert!(out.contains("!translation"));
+        assert!(!out.contains("!rename"));
     }
 }

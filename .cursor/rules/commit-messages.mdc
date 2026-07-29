@@ -30,3 +30,5 @@ ci: Harden local Actions mirror.
 ```
 
 Commits must still pass commitlint (`type: subject`).
+
+Never add Cursor / AI `Co-authored-by` trailers — see [`no-cursor-coauthor.mdc`](no-cursor-coauthor.mdc).

@@ -14,6 +14,10 @@
 #   npm run ci
 #   pnpm run ci    # note: NOT `pnpm ci` (that is install-only)
 #
+# Remote re-run (no new commit; Actions tab, not PR checks):
+#   gh workflow run test.yml --ref <branch>
+#   gh workflow run commitlint.yml --ref <branch>
+#
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

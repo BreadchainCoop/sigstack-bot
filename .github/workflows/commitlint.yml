@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   commitlint:
@@ -21,6 +22,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             npx --no -- commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            git fetch origin "${{ github.event.repository.default_branch }}" --depth=0
+            npx --no -- commitlint --from "origin/${{ github.event.repository.default_branch }}" --to "${{ github.sha }}" --verbose
           else
             npx --no -- commitlint --from "${{ github.event.before }}" --to "${{ github.sha }}" --verbose
           fi

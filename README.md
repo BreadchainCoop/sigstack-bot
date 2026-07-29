@@ -39,6 +39,8 @@ docker compose -f docker/compose.transcription.yaml --env-file docker/transcript
 docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
 ```
 
+More thorough local setup (Signal captcha registration, verify SMS/voice codes, and `docker compose logs -f` monitoring): [docs/local-dev/](docs/local-dev/).
+
 ## Phala
 
 ```bash

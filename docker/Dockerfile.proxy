@@ -5,36 +5,44 @@ RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 
 WORKDIR /app
 
-# Cache dependencies (see docker/Dockerfile — no rust-toolchain.toml in image builds)
-COPY Cargo.toml Cargo.lock ./
-COPY crates/signal-bot/Cargo.toml crates/signal-bot/
-COPY crates/near-ai-client/Cargo.toml crates/near-ai-client/
-COPY crates/conversation-store/Cargo.toml crates/conversation-store/
-COPY crates/dstack-client/Cargo.toml crates/dstack-client/
-COPY crates/signal-client/Cargo.toml crates/signal-client/
-COPY crates/signal-registration-proxy/Cargo.toml crates/signal-registration-proxy/
-COPY crates/tools/Cargo.toml crates/tools/
-COPY crates/whisper-client/Cargo.toml crates/whisper-client/
-COPY crates/x402-payments/Cargo.toml crates/x402-payments/
-
+# Retry slow registry downloads inside Docker
 ENV CARGO_NET_RETRY=10 \
     CARGO_HTTP_TIMEOUT=300 \
     CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
-# Create dummy source files for dependency caching
-RUN mkdir -p crates/signal-registration-proxy/src && \
-    echo "fn main() {}" > crates/signal-registration-proxy/src/main.rs && \
+# Cache dependencies (omit rust-toolchain.toml — same pattern as docker/Dockerfile)
+COPY Cargo.toml Cargo.lock ./
+COPY crates/signal-bot/Cargo.toml crates/signal-bot/
+COPY crates/signal-bot-core/Cargo.toml crates/signal-bot-core/
+COPY crates/signal-bot-transcription/Cargo.toml crates/signal-bot-transcription/
+COPY crates/near-ai-client/Cargo.toml crates/near-ai-client/
+COPY crates/dstack-client/Cargo.toml crates/dstack-client/
+COPY crates/signal-client/Cargo.toml crates/signal-client/
+COPY crates/signal-registration-proxy/Cargo.toml crates/signal-registration-proxy/
+COPY crates/whisper-client/Cargo.toml crates/whisper-client/
+
+# Minimal stubs so `cargo fetch` can resolve path dependencies
+RUN mkdir -p crates/signal-bot/src/commands && \
+    echo "pub mod commands; pub mod config; pub mod error; pub mod group_preferences_store; pub mod transcribe_prefs;" > crates/signal-bot/src/lib.rs && \
+    echo "fn main() {}" > crates/signal-bot/src/main.rs && \
+    echo "" > crates/signal-bot/src/commands/mod.rs && \
+    echo "" > crates/signal-bot/src/config.rs && \
+    echo "" > crates/signal-bot/src/error.rs && \
+    echo "" > crates/signal-bot/src/group_preferences_store.rs && \
+    echo "" > crates/signal-bot/src/transcribe_prefs.rs && \
+    mkdir -p crates/signal-bot-core/src && echo "pub fn dummy() {}" > crates/signal-bot-core/src/lib.rs && \
+    mkdir -p crates/signal-bot-transcription/src && echo "pub fn dummy() {}" > crates/signal-bot-transcription/src/lib.rs && \
     mkdir -p crates/near-ai-client/src && echo "pub fn dummy() {}" > crates/near-ai-client/src/lib.rs && \
-    mkdir -p crates/conversation-store/src && echo "pub fn dummy() {}" > crates/conversation-store/src/lib.rs && \
     mkdir -p crates/dstack-client/src && echo "pub fn dummy() {}" > crates/dstack-client/src/lib.rs && \
     mkdir -p crates/signal-client/src && echo "pub fn dummy() {}" > crates/signal-client/src/lib.rs && \
     mkdir -p crates/whisper-client/src && echo "pub fn dummy() {}" > crates/whisper-client/src/lib.rs && \
-    mkdir -p crates/x402-payments/src && echo "pub fn dummy() {}" > crates/x402-payments/src/lib.rs && \
-    mkdir -p crates/tools/src && echo "pub fn dummy() {}" > crates/tools/src/lib.rs
+    mkdir -p crates/signal-registration-proxy/src && \
+    echo "fn main() {}" > crates/signal-registration-proxy/src/main.rs
 
+# Download all registry crates (cached layer; survives source COPY)
 RUN cargo fetch --locked
 
-# Build dependencies only (ignore errors from dummy files)
+# Warm compile cache (ignore stub compile errors)
 RUN cargo build --release -p signal-registration-proxy 2>/dev/null || true
 
 # Copy actual source

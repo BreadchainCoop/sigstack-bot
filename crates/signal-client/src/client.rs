@@ -148,6 +148,36 @@ impl SignalClient {
             .await
     }
 
+    /// Update a group's display name (`PUT /v1/groups/{number}/{groupid}`).
+    #[instrument(skip(self))]
+    pub async fn update_group(
+        &self,
+        phone_number: &str,
+        group_send_id: &str,
+        name: &str,
+    ) -> Result<(), SignalError> {
+        let encoded_number = encode(phone_number);
+        let encoded_group = encode(group_send_id);
+        let body = UpdateGroupRequest {
+            name: Some(name.to_string()),
+        };
+        let response = self
+            .client
+            .put(format!(
+                "{}/v1/groups/{}/{}",
+                self.base_url, encoded_number, encoded_group
+            ))
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+        Ok(())
+    }
+
     async fn change_members(
         &self,
         phone_number: &str,

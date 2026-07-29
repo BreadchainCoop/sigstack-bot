@@ -33,7 +33,7 @@ services:
       - SIGNAL__PEER_PHONE=${PEER_PHONE:-}
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}
       - NEAR_AI__BASE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
-      - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V3.1}
+      - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V4-Flash}
       - NEAR_AI__TIMEOUT=${NEAR_AI_TIMEOUT:-120s}
       - WHISPER__ENABLED=false
       - TRANSLATE_ALL__ENABLED=${TRANSLATE_ALL_ENABLED:-true}

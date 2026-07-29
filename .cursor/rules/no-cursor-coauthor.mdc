@@ -1,0 +1,35 @@
+---
+description: Never add Cursor or AI co-author trailers to git commits
+alwaysApply: true
+---
+
+# No Cursor / AI co-authors on commits
+
+Never attribute commits to Cursor, the agent, or any AI model.
+
+## Product setting (source of the problem)
+
+Cursor’s agent harness can **rewrite** `git commit` to inject
+`--trailer "Co-authored-by: Cursor <cursoragent@cursor.com>"` even when the
+agent did not write that flag. That is unwanted in this repo.
+
+- **IDE Agent:** turn off commit attribution at **Cursor Settings → Agent → Attribution** (commit / co-authored-by).
+- **CLI Agent:** set in `~/.cursor/cli-config.json`:
+  `"attribution": { "attributeCommitsToAgent": false, "attributePRsToAgent": false }`
+
+## Agent behavior
+
+- Do **not** add `Co-authored-by:` trailers for Cursor, Copilot, Claude, GPT, Grok, Composer, or any other AI/tool identity.
+- Do **not** set commit author/committer to a Cursor or AI email (`cursoragent@cursor.com`, etc.).
+- Commits use the human operator’s normal git identity only.
+- Prefer `git commit -m` / HEREDOC with **no** `--trailer`. If the harness still injects a trailer, use plumbing (`git commit-tree`) or strip it before push — never leave Cursor as co-author on a published commit.
+
+```text
+# BAD
+feat: add menu localization
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
+# GOOD
+feat: add menu localization
+```

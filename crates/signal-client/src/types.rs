@@ -110,6 +110,13 @@ pub struct ChangeGroupMembersRequest {
     pub members: Vec<String>,
 }
 
+/// Request body for `PUT /v1/groups/{number}/{groupid}`.
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdateGroupRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Attachment {
     #[serde(rename = "contentType")]

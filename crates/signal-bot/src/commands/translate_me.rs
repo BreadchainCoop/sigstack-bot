@@ -1,11 +1,12 @@
 //! Language Threads: `!translate-me-on` / `!translate-me-off` + relay engine.
 //!
-//! Main group stays multilingual. Each subscribed language gets a `Language Thread {Language}`
-//! Signal sidecar. Messages fan out: main→sidecars (relay/translate),
-//! sidecar→main (relay) + other sidecars (translate). Bot never relays itself.
+//! Main group stays multilingual. Each subscribed language gets a
+//! `SigLang {Language} · {disambiguator}` Signal sidecar. Messages fan out:
+//! main→sidecars (relay/translate), sidecar→main (relay) + other sidecars (translate).
+//! Bot never relays itself.
 
 use crate::bot_identity::BotIdentity;
-use crate::commands::translate_lang::resolve_language;
+use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::translate_service::{detect_text_language, near_ai_translate};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -197,11 +198,9 @@ impl TranslateMeHandler {
                 ));
             }
         } else {
-            let name = format!("Language Thread {}", lang.name);
-            let description = format!(
-                "{} sidecar bridged to the main mutual-aid group.",
-                lang.name
-            );
+            // Default English SigLang title before create+invite.
+            let (name, description, welcome) =
+                sidecar_copy(lang, message.group_name.as_deref(), main_id);
             match self
                 .signal
                 .create_group(bot, &name, vec![address.clone()], Some(&description))
@@ -213,10 +212,6 @@ impl TranslateMeHandler {
                         lang.code,
                         group.id.clone(),
                         group.internal_id.clone(),
-                    );
-                    let welcome = format!(
-                        "Welcome to Language Thread {}. Messages here are bridged with the main group.",
-                        lang.name
                     );
                     if let Err(e) = self.signal.send(bot, &group.id, &welcome).await {
                         warn!(error = %e, "Failed to send sidecar welcome");
@@ -242,9 +237,9 @@ impl TranslateMeHandler {
         );
 
         Ok(format!(
-            "Joined the {} sidecar (Language Thread {}). Accept the Signal group invite if prompted. \
-Use !translate-me-off to leave.",
-            lang.name, lang.name
+            "{} joined {} thread",
+            message.display_name(),
+            lang.name
         ))
     }
 
@@ -429,6 +424,61 @@ fn format_attribution(display_name: &str, body: &str) -> String {
     format!("{display_name}:\n{body}")
 }
 
+const DISAMBIGUATOR_MAX: usize = 24;
+
+/// English title / description / welcome for a new Language Thread sidecar.
+fn sidecar_copy(
+    lang: &Language,
+    main_group_name: Option<&str>,
+    main_id: &str,
+) -> (String, String, String) {
+    let disambiguator = sidecar_disambiguator(main_group_name, main_id);
+    let name = format!("SigLang {} · {}", lang.name, disambiguator);
+    let description = format!(
+        "{} Language Thread bridged to the main group ({}).",
+        lang.name, disambiguator
+    );
+    let welcome = format!(
+        "Welcome to {name}. Messages here are bridged with the main group. Send !help for thread commands."
+    );
+    (name, description, welcome)
+}
+
+fn sidecar_disambiguator(main_group_name: Option<&str>, main_id: &str) -> String {
+    if let Some(label) = truncate_main_label(main_group_name) {
+        return label;
+    }
+    short_main_id_hash(main_id)
+}
+
+fn truncate_main_label(name: Option<&str>) -> Option<String> {
+    let raw = name?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let collapsed: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.is_empty() {
+        return None;
+    }
+    let truncated: String = collapsed.chars().take(DISAMBIGUATOR_MAX).collect();
+    let trimmed = truncated.trim().to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
+fn short_main_id_hash(main_id: &str) -> String {
+    // FNV-1a 32-bit — stable, no extra deps, enough for a 4-hex chat-list suffix.
+    let mut hash: u32 = 0x811c_9dc5;
+    for b in main_id.as_bytes() {
+        hash ^= u32::from(*b);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    format!("{:04x}", hash & 0xffff)
+}
+
 fn starts_with_word(text: &str, prefix: &str) -> bool {
     text == prefix
         || text
@@ -509,6 +559,39 @@ mod tests {
             attachments: vec![],
             quote: None,
         }
+    }
+
+    #[test]
+    fn sidecar_copy_uses_main_group_name() {
+        let it = resolve_language("it").unwrap();
+        let (name, description, welcome) = sidecar_copy(it, Some("  Stacked  "), "main-id");
+        assert_eq!(name, "SigLang Italian · Stacked");
+        assert!(description.contains("Stacked"));
+        assert!(welcome.starts_with("Welcome to SigLang Italian · Stacked"));
+        assert!(welcome.contains("!help"));
+    }
+
+    #[test]
+    fn sidecar_copy_falls_back_to_hash_without_group_name() {
+        let es = resolve_language("es").unwrap();
+        let (name, _, _) = sidecar_copy(es, None, "main-internal-abc");
+        assert!(name.starts_with("SigLang Spanish · "));
+        assert!(!name.contains("None"));
+        let suffix = name.rsplit('·').next().unwrap().trim();
+        assert_eq!(suffix.len(), 4);
+        assert!(suffix.chars().all(|c| c.is_ascii_hexdigit()));
+
+        let (name2, _, _) = sidecar_copy(es, Some("   "), "main-internal-abc");
+        assert_eq!(name, name2);
+    }
+
+    #[test]
+    fn sidecar_copy_truncates_long_main_names() {
+        let en = resolve_language("en").unwrap();
+        let long = "A".repeat(40);
+        let (name, _, _) = sidecar_copy(en, Some(&long), "main");
+        let label = name.rsplit('·').next().unwrap().trim();
+        assert_eq!(label.chars().count(), DISAMBIGUATOR_MAX);
     }
 
     #[test]
@@ -657,25 +740,25 @@ mod tests {
     #[tokio::test]
     async fn create_sidecar_on_existing_add_switch_and_off() {
         use serde_json::json;
+        use std::sync::atomic::{AtomicUsize, Ordering};
         use wiremock::matchers::{method, path, path_regex};
         use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
-        struct CreateGroupResponder;
+        struct CreateGroupResponder {
+            count: Arc<AtomicUsize>,
+        }
         impl Respond for CreateGroupResponder {
-            fn respond(&self, request: &Request) -> ResponseTemplate {
-                let body: serde_json::Value =
-                    serde_json::from_slice(&request.body).unwrap_or_else(|_| json!({}));
-                let name = body["name"].as_str().unwrap_or("");
-                let id = if name.contains("French") {
-                    "group.fr"
-                } else {
-                    "group.es"
-                };
+            fn respond(&self, _request: &Request) -> ResponseTemplate {
+                // Call order: first subscribe creates es, language switch creates fr.
+                let n = self.count.fetch_add(1, Ordering::SeqCst);
+                let id = if n == 0 { "group.es" } else { "group.fr" };
                 ResponseTemplate::new(200).set_body_json(json!({"id": id}))
             }
         }
 
         let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        mount_near(&near).await;
         Mock::given(method("POST"))
             .and(path("/v2/send"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
@@ -683,7 +766,9 @@ mod tests {
             .await;
         Mock::given(method("POST"))
             .and(path("/v1/groups/%2B15550001111"))
-            .respond_with(CreateGroupResponder)
+            .respond_with(CreateGroupResponder {
+                count: Arc::new(AtomicUsize::new(0)),
+            })
             .mount(&signal)
             .await;
         Mock::given(method("GET"))
@@ -714,7 +799,7 @@ mod tests {
             .await;
 
         let store = GroupPreferencesStore::new_in_memory(0);
-        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+        let handler = handler_pair(store.clone(), signal.uri(), near.uri());
 
         let mut msg = group_msg("+15550002222", "!translate-me-on es");
         msg.group_id = Some("main-internal".into());

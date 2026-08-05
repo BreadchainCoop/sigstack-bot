@@ -70,23 +70,15 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
   Quote a voice note to transcribe
 !privacy
   Privacy & TEE
-!help
-  Show this menu
-!verify <challenge>
-  TEE attestation"#;
+!help"#;
 
 const HELP_HUB: &str = r#"Sigstack
 
 !translation-threads
-  Language Threads
 !translation-in-chat
-  In-chat translation
 !transcription
-  Voice transcription
 !privacy
-  Privacy & TEE
-!help
-  Show this menu"#;
+!help"#;
 
 const HELP_THREAD: &str = r#"Language Thread
 
@@ -94,8 +86,7 @@ const HELP_THREAD: &str = r#"Language Thread
   Change this group's name
 !leave
   Leave this Language Thread
-!help
-  Show this menu"#;
+!help"#;
 
 const TRANSLATION_THREADS_MENU: &str = r#"Language Threads
 
@@ -108,10 +99,7 @@ Multilingual main + language sidecars.
 !list-langs
   Language codes
 
-!verify <challenge>
-  TEE attestation
-!help
-  Main menu"#;
+!help"#;
 
 const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat translation
 
@@ -130,10 +118,7 @@ Stay in this thread; auto or quote one message.
 !translate <lang>
   Reply to a message
 
-!verify <challenge>
-  TEE attestation
-!help
-  Main menu"#;
+!help"#;
 
 const TRANSLATION_IN_CHAT_MENU_AUTO_DISABLED: &str = r#"In-chat translation
 
@@ -142,46 +127,35 @@ Auto-translate is disabled on this bot (!translate-all-on).
 !translate <lang>
   Reply to a message
 
-!verify <challenge>
-  TEE attestation
-!help
-  Main menu"#;
+!help"#;
 
 const TRANSLATION_SPLIT_REDIRECT: &str = r#"Translation has two menus:
 
 !translation-threads
-  Language Threads
 !translation-in-chat
-  In-chat translation
 
-!help
-  Main menu"#;
+!help"#;
 
 const TRANSCRIPTION_UNAVAILABLE: &str = r#"Voice transcription is currently unavailable.
 
 The transcription bot is not paired with this group yet. Meanwhile, try translation:
 
 !translation-threads
-  Language Threads
 !translation-in-chat
-  In-chat translation
 
-!help
-  Main menu"#;
+!help"#;
 
 const TRANSCRIPTION_INVITED: &str = r#"Invited the transcription bot to this group.
 
 Accept the Signal invite on that number, then send !transcription again (the transcription bot will answer with its menu).
 
-!help
-  Main menu"#;
+!help"#;
 
 const TRANSCRIPTION_GROUP_ONLY: &str = r#"Voice transcription pairing works in a Signal group.
 
 Add both bots to a group, then send !transcription there.
 
-!help
-  Main menu"#;
+!help"#;
 
 const PRIVACY_TRANSCRIPTION: &str = r#"**Sigstack transcription** (Private & Verifiable)
 
@@ -212,8 +186,7 @@ Voice transcription is a separate bot/CVM. This bot only acts on text (including
 
 Neither the bot operator nor NEAR AI can read your messages in plaintext outside the TEEs.
 
-!help
-  Main menu"#;
+!help"#;
 
 #[cfg(test)]
 mod tests {
@@ -226,6 +199,9 @@ mod tests {
         assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
         assert!(h.contains("!privacy"));
+        assert!(!h.contains("Language Threads\n"));
+        assert!(!h.contains("In-chat translation\n"));
+        assert!(!h.contains("  "));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!models"));
     }
@@ -286,6 +262,7 @@ mod tests {
         assert!(h.contains("!transcribe"));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!translate-me-on"));
+        assert!(!h.contains("!verify"));
         assert!(h.contains("!transcribe-on / !transcribe-off\n  "));
     }
 
@@ -296,7 +273,17 @@ mod tests {
         assert!(transcription.contains("!verify <challenge>\n  "));
         let translation = privacy_menu(BotRole::Translation);
         assert!(translation.contains("Sigstack translation"));
+        assert!(translation.contains("!verify <challenge>\n  "));
         assert!(!translation.contains("!models"));
+    }
+
+    #[test]
+    fn product_menus_omit_verify() {
+        assert!(!translation_threads_menu().contains("!verify"));
+        assert!(!translation_in_chat_menu(true).contains("!verify"));
+        assert!(!translation_in_chat_menu(false).contains("!verify"));
+        assert!(!help_menu(BotRole::Translation).contains("!verify"));
+        assert!(!thread_help_menu().contains("!verify"));
     }
 
     #[test]

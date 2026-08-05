@@ -37,8 +37,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!disable-threads` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
 | `!list-langs` | Any | Language codes |
-| `!help` / `!privacy` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu) |
-| `!verify` | As before | TEE attestation |
+| `!help` / `!privacy` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu; `!verify` lives under `!privacy`) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 

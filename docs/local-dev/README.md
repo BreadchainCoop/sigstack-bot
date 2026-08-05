@@ -6,6 +6,8 @@ Quick start (env copy + `up -d`) stays in [README.md](../README.md#local-dual-st
 
 Each stack has its own `signal-api`, network, and Signal CLI data volume. Follow **Transcription stack** and/or **Translation stack** end-to-end; use [Using both together](#using-both-together) when you need pairing in one Signal group.
 
+**Already running and code changed?** Plain `up -d` / `restart` keep the old binary — see [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot).
+
 ## Prerequisites
 
 - Docker with Compose v2
@@ -27,6 +29,61 @@ Tokens expire quickly — generate a fresh one if registration fails with a capt
 
 ---
 
+## Code changes (rebuild the bot)
+
+Local Compose **builds** `signal-bot` from this repo’s `docker/Dockerfile`. It does **not** pull a published bot image.
+
+That means:
+
+| Command | Picks up new Rust / menu code? |
+|---------|--------------------------------|
+| `up -d` (no `--build`) | **No** — reuses the image already on your machine |
+| `restart signal-bot` | **No** — same container, same binary |
+| `up -d --build --force-recreate signal-bot` | **Yes** |
+
+After you pull or edit bot code, rebuild and recreate the bot container (Signal registration volumes are untouched):
+
+```bash
+# Transcription stack
+docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env \
+  up -d --build --force-recreate signal-bot
+
+# Translation stack
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+  up -d --build --force-recreate signal-bot
+```
+
+Confirm the container is new (Created time should be “seconds/minutes ago”):
+
+```bash
+docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env \
+  ps signal-bot
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+  ps signal-bot
+```
+
+Then tail logs and look for a fresh `Starting sigstack Signal bot` / `Listening for messages...` line:
+
+```bash
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+  logs -f --tail=50 signal-bot
+```
+
+Still on old behavior after that? Force a no-cache image rebuild, then recreate:
+
+```bash
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+  build --no-cache signal-bot
+docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+  up -d --force-recreate signal-bot
+```
+
+(Same pattern with `compose.transcription.yaml` / `transcription.env` for the transcription bot.)
+
+Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI state and you must re-register the phone.
+
+---
+
 ## Transcription stack
 
 Compose file: `docker/compose.transcription.yaml`  
@@ -42,6 +99,8 @@ cp docker/transcription.env.example docker/transcription.env
 
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 ```
+
+First `up -d` builds `signal-bot` if needed. After later code changes, use [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot) — plain `up -d` keeps the old binary.
 
 Confirm network:
 
@@ -146,20 +205,13 @@ docker compose -f docker/compose.transcription.yaml --env-file docker/transcript
 
 ### Stop / rebuild
 
+Stop the stack (keeps Signal CLI volumes):
+
 ```bash
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env down
 ```
 
-Rebuild after code changes:
-
-```bash
-docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env \
-  build signal-bot
-docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env \
-  up -d signal-bot
-```
-
-Do **not** use `down -v` unless you intend to wipe Signal CLI state (you will need to re-register the phone).
+After code changes, rebuild/recreate — see [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot). Do **not** use `down -v` unless you intend to wipe Signal CLI state (you will need to re-register the phone).
 
 ---
 
@@ -179,6 +231,8 @@ cp docker/translation.env.example docker/translation.env
 
 docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
 ```
+
+First `up -d` builds `signal-bot` if needed. After later code changes, use [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot) — plain `up -d` keeps the old binary.
 
 Confirm network:
 
@@ -278,20 +332,13 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 
 ### Stop / rebuild
 
+Stop the stack (keeps Signal CLI volumes):
+
 ```bash
 docker compose -f docker/compose.translation.yaml --env-file docker/translation.env down
 ```
 
-Rebuild after code changes:
-
-```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
-  build signal-bot
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
-  up -d signal-bot
-```
-
-Do **not** use `down -v` unless you intend to wipe Signal CLI state (you will need to re-register the phone).
+After code changes, rebuild/recreate — see [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot). Do **not** use `down -v` unless you intend to wipe Signal CLI state (you will need to re-register the phone).
 
 ---
 

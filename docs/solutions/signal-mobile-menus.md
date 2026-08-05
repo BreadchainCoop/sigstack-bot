@@ -12,13 +12,26 @@ Menus are **English-only** for now; multi-language UI is deferred.
 
 1. **Title** on its own line (product or hub name).
 2. **Section header** (optional) + optional one-line blurb.
-3. **Each command** on its own line; **description** on the next line, indented with two spaces. No `cmd — desc` on one line.
+3. **Each command** on its own line. No `cmd — desc` on one line.
 4. Prefer plain `!command` lines over `- !command` bullets.
-5. Keep descriptions short (aim ≤~40 chars when possible).
-6. **Footer** commands use the same stacked form (`!help` / `!verify`, etc.).
-7. Prose blocks (privacy explanations, invite/status messages) stay paragraphs; only **command lists** (including footers) use the stacked form.
+5. **Hub / nav lists** (e.g. main `!help` on the translation bot): commands only — skip indented descriptions when they would just restate the command name.
+6. **Product / how-to lists** (e.g. `!translation-in-chat`, transcription toggles): put a short description on the next line, indented with two spaces (aim ≤~40 chars).
+7. **`!help` footer** is the bare command — no “Main menu” / “Show this menu” line (`!help` is implicit).
+8. Prose blocks (privacy explanations, invite/status messages) stay paragraphs; only **command lists** use the forms above.
 
-Canonical shape:
+Hub shape:
+
+```text
+Sigstack
+
+!translation-threads
+!translation-in-chat
+!transcription
+!privacy
+!help
+```
+
+Product shape:
 
 ```text
 Title
@@ -31,7 +44,6 @@ Optional one-line blurb.
 !other-command
   Short description
 !help
-  Show this menu
 ```
 
 Language Thread sidecars use the same trigger `!help` but a different menu (rename / leave) when the group is a known sidecar.

@@ -607,7 +607,12 @@ fn sidecar_copy(
         lang.name, disambiguator
     );
     let welcome = format!(
-        "Welcome to {name}. Messages here are bridged with the main group. Send !help for thread commands."
+        "Welcome to {name}. Messages here are bridged with the main group.
+
+!help
+!rename
+!leave
+!info"
     );
     (name, description, welcome)
 }
@@ -726,7 +731,7 @@ mod tests {
         assert_eq!(name, "Italian · Stacked");
         assert!(description.contains("Stacked"));
         assert!(welcome.starts_with("Welcome to Italian · Stacked"));
-        assert!(welcome.contains("!help"));
+        assert!(welcome.contains("!help\n!rename\n!leave\n!info"));
     }
 
     #[test]

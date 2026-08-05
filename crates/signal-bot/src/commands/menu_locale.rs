@@ -106,19 +106,14 @@ pub fn is_translation_in_chat_menu_command(text: &str) -> bool {
     is_exact_command_any(text, TRANSLATION_IN_CHAT_MENU_COMMANDS)
 }
 
-const HELP_TRANSCRIPTION: &str = r#"Voice transcription
+const HELP_TRANSCRIPTION: &str = r#"Voice Transcription
 
+AUTO:
 !transcribe-on
-  Turn auto transcription on
 !transcribe-off
-  Turn auto transcription off
+
+PER MSG QUOTE REPLY:
 !transcribe
-  Quote a voice note to transcribe
-
-examples:
-   !transcribe (reply quoting a voice note)
-
-Voice notes become quote-reply transcripts (Whisper, inside this bot's TEE).
 
 !help-transcription"#;
 
@@ -322,16 +317,20 @@ Add both bots to a group, then send !transcription there.
 
 const PRIVACY_MENU: &str = r#"Privacy & TEE
 
-Bread Bot runs in two separate Phala CVMs: the translation bot (text, menus) and the transcription bot (Whisper voice). They do not share memory.
+!verify <challenge>
+
+example:
+   !verify "write something unique here"
+
+Bread Bot runs in two separate and isolated TEEs/CVMs: 
+- translation bot 
+- transcription bot
 
 Translation: Signal text is processed in the translation TEE and translated via NEAR AI private inference.
 
 Transcription: Voice notes are processed in the transcription TEE and transcribed with Whisper in that CVM.
 
 Attestation: In a group with both bots, !verify <your text> produces two replies — one TDX quote per CVM. Each quote binds your text as Translation: … or Transcription: … so you can tell which bot attested which string. Message one bot directly for a single quote.
-
-!verify <challenge>
-  TEE attestation for this stack (labels above)
 
 !help"#;
 

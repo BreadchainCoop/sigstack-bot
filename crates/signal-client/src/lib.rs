@@ -537,11 +537,7 @@ mod tests {
 
         let client = create_test_client(&mock_server).await;
         client
-            .update_group(
-                "+15555555555",
-                "group.sidecarEs==",
-                "Spanish · Stacked",
-            )
+            .update_group("+15555555555", "group.sidecarEs==", "Spanish · Stacked")
             .await
             .unwrap();
     }

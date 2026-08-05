@@ -1,4 +1,4 @@
-//! Language Threads: `!translate-me-on` / `!translate-me-off` + relay engine.
+//! Language Threads: `!translate-me-thread` / `!leave` / `!disable-threads` + relay engine.
 //!
 //! Main group stays multilingual. Each subscribed language gets a
 //! `SigLang {Language} · {disambiguator}` Signal sidecar. Messages fan out:
@@ -10,7 +10,7 @@ use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::translate_service::{detect_text_language, near_ai_translate};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
-use crate::group_preferences_store::GroupPreferencesStore;
+use crate::group_preferences_store::{GroupPreferencesStore, GroupTranslateMode, PendingSwitch};
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
 use signal_client::{BotMessage, SignalClient};
@@ -19,13 +19,17 @@ use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
 const GROUP_ONLY_MSG: &str =
-    "!translate-me-on is only available in the main mutual-aid group (not DMs).";
+    "!translate-me-thread is only available in the main mutual-aid group (not DMs).";
 const SIDECAR_ON_MSG: &str =
-    "Subscribe from the main group with !translate-me-on <lang>. Use !translate-me-off here to leave.";
-const USAGE_MSG: &str =
-    "Usage: !translate-me-on <lang> (e.g. !translate-me-on es), or !translate-me-off";
+    "Subscribe from the main group with !translate-me-thread <lang>. Use !leave here to leave.";
+const USAGE_MSG: &str = "Usage: !translate-me-thread <lang> (e.g. !translate-me-thread es)";
 const NO_ADDRESS_MSG: &str = "Could not invite you: Signal did not include your phone number. \
-Message this bot in a 1:1 chat once, then retry !translate-me-on <lang>.";
+Message this bot in a 1:1 chat once, then retry !translate-me-thread <lang>.";
+const LEAVE_SIDECAR_ONLY_MSG: &str =
+    "!leave is only available inside a Language Thread. Open that chat and send !leave (or !help).";
+const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads can't start alongside it.\n\nTo switch, send:\n!disable-in-chat";
+const DISABLE_THREADS_CMDS: &[&str] = &["!disable-threads", "!translation-disable-threads"];
+const LEAVE_CMDS: &[&str] = &["!leave"];
 
 pub struct TranslateMeHandler {
     store: Arc<GroupPreferencesStore>,
@@ -51,45 +55,27 @@ impl TranslateMeHandler {
 
     fn is_on_command(text: &str) -> bool {
         let t = text.trim();
-        starts_with_word(t, "!translate-me-on")
-            || starts_with_word(t, "!translation-me-on")
-            || is_translate_me_with_rest(t, "on")
+        starts_with_word(t, "!translate-me-thread") || starts_with_word(t, "!translation-me-thread")
     }
 
     fn is_off_command(text: &str) -> bool {
-        let t = text.trim();
-        starts_with_word(t, "!translate-me-off")
-            || starts_with_word(t, "!translation-me-off")
-            || is_translate_me_with_rest(t, "off")
-            || t == "!translate-me off"
-            || t == "!translation-me off"
+        LEAVE_CMDS.contains(&text.trim())
+    }
+
+    fn is_disable_threads(text: &str) -> bool {
+        DISABLE_THREADS_CMDS.contains(&text.trim())
     }
 
     fn is_command(text: &str) -> bool {
         let t = text.trim();
-        Self::is_on_command(t)
-            || Self::is_off_command(t)
-            || t == "!translate-me"
-            || t == "!translation-me"
-            || starts_with_word(t, "!translate-me ")
-            || starts_with_word(t, "!translation-me ")
+        Self::is_on_command(t) || Self::is_off_command(t) || Self::is_disable_threads(t)
     }
 
     fn on_lang_arg(text: &str) -> Option<&str> {
         let t = text.trim();
-        for prefix in ["!translate-me-on", "!translation-me-on"] {
+        for prefix in ["!translate-me-thread", "!translation-me-thread"] {
             if let Some(rest) = strip_word_prefix(t, prefix) {
                 return rest.split_whitespace().next();
-            }
-        }
-        for prefix in ["!translate-me", "!translation-me"] {
-            if let Some(rest) = strip_word_prefix(t, prefix) {
-                let mut parts = rest.split_whitespace();
-                match parts.next() {
-                    Some("on") => return parts.next(),
-                    Some(token) if resolve_language(token).is_some() => return Some(token),
-                    _ => return None,
-                }
             }
         }
         None
@@ -113,11 +99,15 @@ impl TranslateMeHandler {
     async fn handle_command(&self, message: &BotMessage) -> AppResult<String> {
         let text = message.text.trim();
 
-        if Self::is_off_command(text) {
-            return self.handle_off(message).await;
+        if Self::is_disable_threads(text) {
+            return self.handle_disable_threads(message).await;
         }
 
-        if Self::is_on_command(text) || starts_with_word(text, "!translate-me ") {
+        if Self::is_off_command(text) {
+            return self.handle_leave(message).await;
+        }
+
+        if Self::is_on_command(text) {
             let Some(gid) = message.group_id.as_deref() else {
                 return Ok(GROUP_ONLY_MSG.into());
             };
@@ -129,133 +119,41 @@ impl TranslateMeHandler {
             let Some(lang_token) = Self::on_lang_arg(text) else {
                 return Ok(USAGE_MSG.into());
             };
-            return self.handle_on(message, gid, lang_token).await;
+
+            if self.store.in_chat_auto_active(gid) {
+                self.store.set_pending_switch(
+                    gid,
+                    PendingSwitch::EnableThreads {
+                        user: message.source.clone(),
+                        lang: lang_token.to_string(),
+                        address: message.invite_address(),
+                    },
+                );
+                return Ok(IN_CHAT_BLOCK_MSG.into());
+            }
+
+            return Self::subscribe_user_to_thread(
+                &self.store,
+                &self.signal,
+                message,
+                gid,
+                lang_token,
+                None,
+                None,
+            )
+            .await;
         }
 
         Ok(USAGE_MSG.into())
     }
 
-    async fn handle_on(
-        &self,
-        message: &BotMessage,
-        main_id: &str,
-        lang_token: &str,
-    ) -> AppResult<String> {
-        let Some(lang) = resolve_language(lang_token) else {
-            return Ok(format!(
-                "Unknown language `{lang_token}`. Try !list-langs for supported codes."
-            ));
-        };
-
-        let Some(address) = message.invite_address() else {
-            return Ok(NO_ADDRESS_MSG.into());
-        };
-
-        let user_key = message.source.clone();
-        let bot = &message.receiving_account;
-
-        if let Some(existing) = self.store.member_lang(main_id, &user_key) {
-            if existing == lang.code {
-                return Ok(format!(
-                    "You are already in the {} sidecar. Accept the Signal invite if it is still pending.",
-                    lang.name
-                ));
-            }
-            // Language switch: remove from old sidecar first.
-            if let Some(bridge) = self.store.get_bridge(main_id) {
-                if let Some(old_send) = bridge.sidecar_send_id(&existing) {
-                    if let Err(e) = self
-                        .signal
-                        .remove_members(bot, old_send, vec![address.clone()])
-                        .await
-                    {
-                        warn!(error = %e, "Failed to remove member from old sidecar");
-                    }
-                }
-            }
-        }
-
-        let bridge = self.store.get_bridge(main_id);
-        let sidecar_exists = bridge
-            .as_ref()
-            .and_then(|b| b.sidecar_send_id(lang.code))
-            .is_some();
-
-        if sidecar_exists {
-            let send_id = bridge
-                .as_ref()
-                .and_then(|b| b.sidecar_send_id(lang.code))
-                .unwrap()
-                .to_string();
-            if let Err(e) = self
-                .signal
-                .add_members(bot, &send_id, vec![address.clone()])
-                .await
-            {
-                return Ok(format!(
-                    "Could not add you to the {} sidecar: {e}. Try again shortly.",
-                    lang.name
-                ));
-            }
-        } else {
-            // Default English SigLang title before create+invite.
-            let (name, description, welcome) =
-                sidecar_copy(lang, message.group_name.as_deref(), main_id);
-            match self
-                .signal
-                .create_group(bot, &name, vec![address.clone()], Some(&description))
-                .await
-            {
-                Ok(group) => {
-                    self.store.set_sidecar(
-                        main_id,
-                        lang.code,
-                        group.id.clone(),
-                        group.internal_id.clone(),
-                    );
-                    if let Err(e) = self.signal.send(bot, &group.id, &welcome).await {
-                        warn!(error = %e, "Failed to send sidecar welcome");
-                    }
-                }
-                Err(e) => {
-                    return Ok(format!(
-                        "Could not create the {} sidecar: {e}. Try again shortly.",
-                        lang.name
-                    ));
-                }
-            }
-        }
-
-        self.store
-            .set_bridge_member(main_id, &user_key, lang.code, Some(address));
-
-        info!(
-            main_id,
-            lang = lang.code,
-            user = %user_key,
-            "translate-me-on: subscribed to sidecar"
-        );
-
-        Ok(format!(
-            "{} joined {} thread",
-            message.display_name(),
-            lang.name
-        ))
-    }
-
-    async fn handle_off(&self, message: &BotMessage) -> AppResult<String> {
+    async fn handle_leave(&self, message: &BotMessage) -> AppResult<String> {
         let Some(gid) = message.group_id.as_deref() else {
-            return Ok("!translate-me-off is only available in group chats.".into());
+            return Ok(LEAVE_SIDECAR_ONLY_MSG.into());
         };
 
-        let (main_id, _) = if let Some(pair) = self.store.lookup_sidecar(gid) {
-            pair
-        } else if self.store.get_bridge(gid).is_some()
-            || self.store.member_lang(gid, &message.source).is_some()
-        {
-            (gid.to_string(), String::new())
-        } else {
-            return Ok("You are not subscribed to a language sidecar in this chat.".into());
+        let Some((main_id, _)) = self.store.lookup_sidecar(gid) else {
+            return Ok(LEAVE_SIDECAR_ONLY_MSG.into());
         };
 
         let user_key = message.source.as_str();
@@ -274,7 +172,7 @@ impl TranslateMeHandler {
                     .remove_members(&message.receiving_account, send_id, vec![address])
                     .await
                 {
-                    warn!(error = %e, "Failed to remove member from sidecar on off");
+                    warn!(error = %e, "Failed to remove member from sidecar on leave");
                 }
             }
         }
@@ -283,6 +181,101 @@ impl TranslateMeHandler {
             .map(|l| l.name)
             .unwrap_or(lang.as_str());
         Ok(format!("Left the {lang_name} sidecar."))
+    }
+
+    async fn handle_disable_threads(&self, message: &BotMessage) -> AppResult<String> {
+        let Some(gid) = message.group_id.as_deref() else {
+            return Ok("!disable-threads is only available in the main group.".into());
+        };
+        if self.store.lookup_sidecar(gid).is_some() {
+            return Ok(
+                "!disable-threads works from the main group. Use !leave to leave this thread."
+                    .into(),
+            );
+        }
+
+        let Some(bridge) = self.store.take_bridge(gid) else {
+            let pending = self.store.take_pending_switch(gid);
+            if pending.is_none() {
+                return Ok(
+                    "Language Threads was not active in this chat. See !translation-threads."
+                        .into(),
+                );
+            }
+            return Ok(self
+                .apply_pending_in_chat(gid, pending, "Language Threads was not active.")
+                .await);
+        };
+
+        let bot = message.receiving_account.as_str();
+        for (user, lang) in &bridge.members {
+            let address = bridge
+                .member_addresses
+                .get(user)
+                .cloned()
+                .unwrap_or_else(|| user.clone());
+            if let Some(send_id) = bridge.sidecar_send_id(lang) {
+                if let Err(e) = self
+                    .signal
+                    .remove_members(bot, send_id, vec![address])
+                    .await
+                {
+                    warn!(error = %e, user = %user, "Failed to remove member during disable-threads");
+                }
+            }
+        }
+
+        let pending = self.store.take_pending_switch(gid);
+        Ok(self
+            .apply_pending_in_chat(gid, pending, "Language Threads disabled.")
+            .await)
+    }
+
+    async fn apply_pending_in_chat(
+        &self,
+        group_id: &str,
+        pending: Option<PendingSwitch>,
+        disabled_prefix: &str,
+    ) -> String {
+        match pending {
+            Some(PendingSwitch::EnableAllOn { lang_a, lang_b, .. }) => {
+                if let (Some(a), Some(b)) = (resolve_language(&lang_a), resolve_language(&lang_b)) {
+                    let mode = GroupTranslateMode::new(a, b);
+                    let pair = mode.display_pair();
+                    self.store.set(group_id.to_string(), mode);
+                    format!("{disabled_prefix} Group translate enabled: {pair}")
+                } else {
+                    format!(
+                        "{disabled_prefix} Could not apply pending group translate (unknown language)."
+                    )
+                }
+            }
+            Some(PendingSwitch::EnableMeOn {
+                user,
+                lang_a,
+                lang_b,
+            }) => {
+                if let (Some(a), Some(b)) = (resolve_language(&lang_a), resolve_language(&lang_b)) {
+                    let mode = GroupTranslateMode::new(a, b);
+                    let pair = mode.display_pair();
+                    self.store.set_member_translate(group_id, &user, mode);
+                    format!("{disabled_prefix} Personal translate enabled: {pair}")
+                } else {
+                    format!(
+                        "{disabled_prefix} Could not apply pending personal translate (unknown language)."
+                    )
+                }
+            }
+            Some(other) => {
+                self.store.set_pending_switch(group_id, other);
+                format!(
+                    "{disabled_prefix} You can enable in-chat with !translate-all-on or !translate-me-on."
+                )
+            }
+            None => format!(
+                "{disabled_prefix} You can enable in-chat with !translate-all-on or !translate-me-on."
+            ),
+        }
     }
 
     #[instrument(skip(self, message))]
@@ -316,6 +309,119 @@ impl TranslateMeHandler {
         }
 
         Ok(())
+    }
+
+    /// Subscribe `user` (defaults to message.source) to a language sidecar on `main_id`.
+    pub(crate) async fn subscribe_user_to_thread(
+        store: &Arc<GroupPreferencesStore>,
+        signal: &Arc<SignalClient>,
+        message: &BotMessage,
+        main_id: &str,
+        lang_token: &str,
+        user_override: Option<&str>,
+        address_override: Option<&str>,
+    ) -> AppResult<String> {
+        let Some(lang) = resolve_language(lang_token) else {
+            return Ok(format!(
+                "Unknown language `{lang_token}`. Try !list-langs for supported codes."
+            ));
+        };
+
+        let address = match address_override
+            .map(str::to_string)
+            .or_else(|| message.invite_address())
+        {
+            Some(a) => a,
+            None => return Ok(NO_ADDRESS_MSG.into()),
+        };
+
+        let user_key = user_override
+            .map(str::to_string)
+            .unwrap_or_else(|| message.source.clone());
+        let bot = &message.receiving_account;
+
+        if let Some(existing) = store.member_lang(main_id, &user_key) {
+            if existing == lang.code {
+                return Ok(format!(
+                "You are already in the {} sidecar. Accept the Signal invite if it is still pending.",
+                lang.name
+            ));
+            }
+            if let Some(bridge) = store.get_bridge(main_id) {
+                if let Some(old_send) = bridge.sidecar_send_id(&existing) {
+                    if let Err(e) = signal
+                        .remove_members(bot, old_send, vec![address.clone()])
+                        .await
+                    {
+                        warn!(error = %e, "Failed to remove member from old sidecar");
+                    }
+                }
+            }
+        }
+
+        let bridge = store.get_bridge(main_id);
+        let sidecar_exists = bridge
+            .as_ref()
+            .and_then(|b| b.sidecar_send_id(lang.code))
+            .is_some();
+
+        if sidecar_exists {
+            let send_id = bridge
+                .as_ref()
+                .and_then(|b| b.sidecar_send_id(lang.code))
+                .unwrap()
+                .to_string();
+            if let Err(e) = signal
+                .add_members(bot, &send_id, vec![address.clone()])
+                .await
+            {
+                return Ok(format!(
+                    "Could not add you to the {} sidecar: {e}. Try again shortly.",
+                    lang.name
+                ));
+            }
+        } else {
+            let (name, description, welcome) =
+                sidecar_copy(lang, message.group_name.as_deref(), main_id);
+            match signal
+                .create_group(bot, &name, vec![address.clone()], Some(&description))
+                .await
+            {
+                Ok(group) => {
+                    store.set_sidecar(
+                        main_id,
+                        lang.code,
+                        group.id.clone(),
+                        group.internal_id.clone(),
+                    );
+                    if let Err(e) = signal.send(bot, &group.id, &welcome).await {
+                        warn!(error = %e, "Failed to send sidecar welcome");
+                    }
+                }
+                Err(e) => {
+                    return Ok(format!(
+                        "Could not create the {} sidecar: {e}. Try again shortly.",
+                        lang.name
+                    ));
+                }
+            }
+        }
+
+        store.set_bridge_member(main_id, &user_key, lang.code, Some(address));
+
+        info!(
+            main_id,
+            lang = lang.code,
+            user = %user_key,
+            "translate-me-thread: subscribed to sidecar"
+        );
+
+        let who = if user_override.is_some_and(|u| u != message.source.as_str()) {
+            user_key
+        } else {
+            message.display_name()
+        };
+        Ok(format!("{who} joined {} thread", lang.name))
     }
 
     async fn handle_main_out(
@@ -495,18 +601,6 @@ fn strip_word_prefix<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
         .map(str::trim)
 }
 
-fn is_translate_me_with_rest(text: &str, rest_first: &str) -> bool {
-    for prefix in ["!translate-me", "!translation-me"] {
-        if let Some(rest) = strip_word_prefix(text, prefix) {
-            let mut parts = rest.split_whitespace();
-            if parts.next() == Some(rest_first) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
 #[async_trait]
 impl CommandHandler for TranslateMeHandler {
     fn matches(&self, message: &BotMessage) -> bool {
@@ -596,29 +690,33 @@ mod tests {
 
     #[test]
     fn matches_on_off_commands() {
-        assert!(TranslateMeHandler::is_on_command("!translate-me-on es"));
-        assert!(TranslateMeHandler::is_on_command("!translate-me on es"));
-        assert!(TranslateMeHandler::is_off_command("!translate-me-off"));
-        assert!(TranslateMeHandler::is_off_command("!translate-me off"));
+        assert!(TranslateMeHandler::is_on_command("!translate-me-thread es"));
+        assert!(TranslateMeHandler::is_on_command("!translate-me-thread es"));
+        assert!(TranslateMeHandler::is_off_command("!leave"));
+        assert!(TranslateMeHandler::is_off_command("!leave"));
         assert!(!TranslateMeHandler::is_command("!translate-on es en"));
+        assert!(!TranslateMeHandler::is_command("!translate-me-on es en"));
         assert!(!TranslateMeHandler::is_command("!translate es"));
     }
 
     #[test]
     fn parses_lang_arg() {
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me-on es"),
+            TranslateMeHandler::on_lang_arg("!translate-me-thread es"),
             Some("es")
         );
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me on en"),
+            TranslateMeHandler::on_lang_arg("!translate-me-thread en"),
             Some("en")
         );
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me es"),
+            TranslateMeHandler::on_lang_arg("!translate-me-thread es"),
             Some("es")
         );
-        assert_eq!(TranslateMeHandler::on_lang_arg("!translate-me-on"), None);
+        assert_eq!(
+            TranslateMeHandler::on_lang_arg("!translate-me-thread"),
+            None
+        );
     }
 
     #[test]
@@ -699,7 +797,7 @@ mod tests {
             source: "+15550002222".into(),
             source_number: Some("+15550002222".into()),
             source_name: None,
-            text: "!translate-me-on es".into(),
+            text: "!translate-me-thread es".into(),
             timestamp: 1,
             message_timestamp: 1,
             is_group: false,
@@ -715,10 +813,10 @@ mod tests {
         let mut group = dm.clone();
         group.is_group = true;
         group.group_id = Some("group.main".into());
-        group.text = "!translate-me-on".into();
+        group.text = "!translate-me-thread".into();
         assert!(handler.execute(&group).await.unwrap().is_empty());
 
-        group.text = "!translate-me-off".into();
+        group.text = "!leave".into();
         assert!(handler.execute(&group).await.unwrap().is_empty());
     }
 
@@ -801,7 +899,7 @@ mod tests {
         let store = GroupPreferencesStore::new_in_memory(0);
         let handler = handler_pair(store.clone(), signal.uri(), near.uri());
 
-        let mut msg = group_msg("+15550002222", "!translate-me-on es");
+        let mut msg = group_msg("+15550002222", "!translate-me-thread es");
         msg.group_id = Some("main-internal".into());
         assert!(handler.matches(&msg));
         assert!(handler.execute(&msg).await.unwrap().is_empty());
@@ -816,11 +914,11 @@ mod tests {
         assert!(handler.execute(&msg).await.unwrap().is_empty());
 
         // Existing sidecar: second user joins via add_members.
-        let mut other = group_msg("+15550003333", "!translate-me-on es");
+        let mut other = group_msg("+15550003333", "!translate-me-thread es");
         other.group_id = Some("main-internal".into());
         assert!(handler.execute(&other).await.unwrap().is_empty());
 
-        msg.text = "!translate-me-on fr".into();
+        msg.text = "!translate-me-thread fr".into();
         assert!(handler.execute(&msg).await.unwrap().is_empty());
         assert_eq!(
             store
@@ -831,7 +929,7 @@ mod tests {
 
         // Off from sidecar group.
         msg.group_id = Some("fr-internal".into());
-        msg.text = "!translate-me-off".into();
+        msg.text = "!leave".into();
         assert!(handler.execute(&msg).await.unwrap().is_empty());
         assert!(store.member_lang("main-internal", "+15550002222").is_none());
     }
@@ -1113,15 +1211,15 @@ mod tests {
         );
         let handler = handler_pair(store, signal.uri(), "http://127.0.0.1:9".into());
 
-        let unknown = group_msg("+15550002222", "!translate-me-on zz");
+        let unknown = group_msg("+15550002222", "!translate-me-thread zz");
         assert!(handler.execute(&unknown).await.unwrap().is_empty());
 
-        let mut no_addr = group_msg("alice", "!translate-me-on es");
+        let mut no_addr = group_msg("alice", "!translate-me-thread es");
         no_addr.source_number = None;
         assert!(handler.execute(&no_addr).await.unwrap().is_empty());
 
         // Subscribe from sidecar is rejected.
-        let mut from_side = group_msg("+15550002222", "!translate-me-on es");
+        let mut from_side = group_msg("+15550002222", "!translate-me-thread es");
         from_side.group_id = Some("es-internal".into());
         assert!(handler.execute(&from_side).await.unwrap().is_empty());
     }

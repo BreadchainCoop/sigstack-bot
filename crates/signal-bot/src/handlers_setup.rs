@@ -134,7 +134,7 @@ pub async fn build_translation_handlers(
         bot_identity,
     )));
     info!(
-        "Language Threads enabled: !translate-me-on / !translate-me-off (max {}/min)",
+        "Language Threads enabled: !translate-me-thread / !leave / !disable-threads (max {}/min)",
         config.translate_all.max_messages_per_minute
     );
 
@@ -144,10 +144,16 @@ pub async fn build_translation_handlers(
             near_ai.clone(),
             signal.clone(),
         )));
-        info!("In-chat translation enabled: !translate-on / !translate-off");
+        info!(
+            "In-chat translation enabled: !translate-all-on / !translate-me-on / !disable-in-chat"
+        );
     }
 
     handlers.push(Box::new(TranslationMenuHandler::new(
+        config.translate_all.enabled,
+    )));
+    handlers.push(Box::new(TranslationThreadsMenuHandler::new()));
+    handlers.push(Box::new(TranslationInChatMenuHandler::new(
         config.translate_all.enabled,
     )));
     handlers.push(Box::new(TranscriptionPairingHandler::new(
@@ -284,11 +290,13 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 11);
+        assert_eq!(handlers.len(), 13);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"translate_all"));
         assert!(got.contains(&"translation_menu"));
+        assert!(got.contains(&"translation_threads_menu"));
+        assert!(got.contains(&"translation_in_chat_menu"));
         assert!(got.contains(&"transcription_pairing"));
         assert!(got.contains(&"in_chat_menu"));
         assert!(!got.contains(&"translate_parallel"));
@@ -328,10 +336,11 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 10);
+        assert_eq!(handlers.len(), 12);
         assert!(!labels(&handlers).contains(&"translate_all"));
         assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));
+        assert!(labels(&handlers).contains(&"translation_threads_menu"));
     }
 
     #[tokio::test]

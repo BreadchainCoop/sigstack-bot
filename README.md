@@ -16,6 +16,24 @@ Pair products by adding **both bots** (two phone numbers) to the same Signal gro
 
 Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md)
 
+## Translation commands
+
+| Product | Command | Where | Effect |
+|---------|---------|-------|--------|
+| Hub | `!translation-threads` | Any | Language Threads menu |
+| Hub | `!translation-in-chat` | Any | In-chat translation menu |
+| Language Threads | `!translate-me-thread <lang>` | Main only | Create/join sidecar |
+| Language Threads | `!leave` | Sidecar only | Leave this Language Thread |
+| Language Threads | `!disable-threads` | Main | Tear down Language Threads for this group |
+| In-chat group-wide | `!translate-all-on <lang1> <lang2>` | Group | Auto-translate all messages |
+| In-chat group-wide | `!translate-all-off` | Group | Disable group-wide auto |
+| In-chat personal | `!translate-me-on <lang1> <lang2>` | Group (not sidecar) | Auto-translate this user’s messages only |
+| In-chat personal | `!translate-me-off` | Group (not sidecar) | Clear this user’s personal auto |
+| In-chat | `!disable-in-chat` | Group | Clear all in-chat auto |
+| In-chat manual | `!translate <lang>` | Group | Quote-reply translate one message |
+
+Language Threads and in-chat auto are mutually exclusive. Details in the product docs above.
+
 ## Architecture
 
 ```
@@ -93,7 +111,7 @@ Format: `type(scope): subject` — e.g. `feat: add whisper timeout`, `fix(docker
 | `SIGNAL__SERVICE_URL` | Signal CLI REST URL (default `http://signal-api:8080`) |
 | `NEAR_AI__API_KEY` | Required for translation role |
 | `WHISPER__ENABLED` / `WHISPER__SERVICE_URL` | Required for transcription role |
-| `TRANSLATE_ALL__ENABLED` | In-chat `!translate-on` (translation role) |
+| `TRANSLATE_ALL__ENABLED` | In-chat `!translate-all-on` / `!translate-me-on` (translation role) |
 
 See `.env.example` and the docker `*.env.example` files.
 

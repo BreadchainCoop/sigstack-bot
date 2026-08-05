@@ -82,7 +82,8 @@ mod tests {
         assert!(!t.contains("!translate-me-on"));
 
         let t = translation.execute(&dm("!help")).await.unwrap();
-        assert!(t.contains("!translation"));
+        assert!(t.contains("!translation-threads"));
+        assert!(t.contains("!translation-in-chat"));
         assert!(t.contains("!transcription"));
         assert!(t.contains("!privacy"));
         assert!(!t.contains("Voice notes in this chat"));
@@ -99,8 +100,8 @@ mod tests {
             .await
             .unwrap();
         assert!(out.contains("!rename <name>"));
-        assert!(out.contains("!translate-me-off"));
-        assert!(!out.contains("!translation"));
+        assert!(out.contains("!leave"));
+        assert!(!out.contains("!translation-threads"));
     }
 
     #[tokio::test]
@@ -109,7 +110,7 @@ mod tests {
         store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
         let handler = HelpHandler::new(store, BotRole::Translation);
         let out = handler.execute(&group("!help", "main-1")).await.unwrap();
-        assert!(out.contains("!translation"));
+        assert!(out.contains("!translation-threads"));
         assert!(!out.contains("!rename"));
     }
 }

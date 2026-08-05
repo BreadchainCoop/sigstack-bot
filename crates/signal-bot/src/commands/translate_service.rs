@@ -1,4 +1,4 @@
-//! Shared translation helpers for `!translate` and `!translate-on`.
+//! Shared translation helpers for `!translate` and in-chat auto-translate.
 
 use crate::commands::translate_lang::Language;
 use crate::group_preferences_store::GroupTranslateMode;
@@ -122,7 +122,7 @@ fn text_language_candidates(mode: &GroupTranslateMode, text: &str) -> Vec<String
     codes
 }
 
-/// Detect ISO 639-1 language code from text (for `!translate-on` text messages).
+/// Detect ISO 639-1 language code from text (for in-chat auto-translate text messages).
 pub fn detect_text_language(text: &str) -> Option<String> {
     let info = whatlang::detect(text)?;
     if info.confidence() < MIN_DETECT_CONFIDENCE {

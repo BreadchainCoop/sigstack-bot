@@ -1,4 +1,4 @@
-# Sigstack Bot — Development Guide
+# Bread Bot — Development Guide
 
 ## Product direction
 

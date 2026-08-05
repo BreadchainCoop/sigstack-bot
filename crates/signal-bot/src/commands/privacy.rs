@@ -57,7 +57,7 @@ mod tests {
     async fn privacy_returns_role_menu() {
         let handler = PrivacyHandler::new(BotRole::Translation);
         let out = handler.execute(&dm("!privacy")).await.unwrap();
-        assert!(out.contains("Sigstack translation"));
+        assert!(out.contains("Bread Bot translation"));
         assert!(out.contains("!verify"));
     }
 }

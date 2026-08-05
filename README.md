@@ -1,4 +1,4 @@
-# Sigstack Bot
+# Bread Bot
 
 TEE-hosted Signal bots for **voice transcription** and **group translation**, designed as an interoperable product suite (see [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)).
 

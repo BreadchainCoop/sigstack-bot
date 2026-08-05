@@ -101,7 +101,8 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
 !info
 !help"#;
 
-const HELP_HUB: &str = r#"Sigstack
+const HELP_HUB: &str = r#"--Bread Bot--
+
 MENUS:
 !translation-threads
 !translation-in-chat
@@ -126,7 +127,7 @@ const HELP_THREAD: &str = r#"Language Thread
 !info
 !help"#;
 
-const INFO_HUB: &str = r#"Sigstack
+const INFO_HUB: &str = r#"--Bread Bot--
 
 !translation-threads
   Language Threads — multilingual main chat + language sidecars
@@ -188,43 +189,36 @@ const INFO_THREAD: &str = r#"Language Thread
 !help
   Compact command list"#;
 
-const TRANSLATION_THREADS_MENU: &str = r#"Language Threads
-
-Multilingual main + language sidecars.
-Join/create a Language Thread:
+const TRANSLATION_THREADS_MENU: &str = r#"Join/Create Language Thread
 
 !list-langs
 !translate-me-thread <lang>
-
-  e.g. !translate-me-thread es
-
-Switch to in-chat translation:
-!enable-in-chat
-
 !help-threads
+
+example:
+   !translate-me-thread es
+
+Unlimited threads are supported. Main chat stays multilingual and threads relay messages between them. Once you join a thread, just read/write in from that thread.
+
+!enable-in-chat (disable threads)
 !help"#;
 
-const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat translation
+const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat Translation
 
 !list-langs
-
 !translate-all-on <lang1> <lang2>
 !translate-all-off
-
 !translate-me-on <lang1> <lang2>
 !translate-me-off
-
-Per msg w/ reply:
-!translate <lang>
-
-  e.g. !translate-all-on fr zh
-  e.g. !translate-me-on ru ar
-  e.g. !translate es
-
-Switch to threads:
-!enable-threads
-
+!translate <lang> (as reply)
 !help-in-chat
+
+examples:
+   !translate-all-on fr zh
+   !translate-me-on ru ar
+   !translate es
+
+!enable-threads (disable in-chat)
 !help"#;
 
 const TRANSLATION_IN_CHAT_MENU_AUTO_DISABLED: &str = r#"In-chat translation
@@ -329,7 +323,7 @@ Add both bots to a group, then send !transcription there.
 
 !help"#;
 
-const PRIVACY_TRANSCRIPTION: &str = r#"**Sigstack transcription** (Private & Verifiable)
+const PRIVACY_TRANSCRIPTION: &str = r#"**Bread Bot transcription** (Private & Verifiable)
 
 **TEE Commands:**
 !verify <challenge>
@@ -342,7 +336,7 @@ Neither the bot operator nor the host can read decrypted audio or text in TEE me
 
 Pair with the translation bot in the same group if you also want translation."#;
 
-const PRIVACY_TRANSLATION: &str = r#"**Sigstack translation** (Private & Verifiable)
+const PRIVACY_TRANSLATION: &str = r#"**Bread Bot translation** (Private & Verifiable)
 
 **TEE Commands:**
 !verify <challenge>
@@ -474,10 +468,10 @@ mod tests {
     #[test]
     fn privacy_menus_cover_roles() {
         let transcription = privacy_menu(BotRole::Transcription);
-        assert!(transcription.contains("Sigstack transcription"));
+        assert!(transcription.contains("Bread Bot transcription"));
         assert!(transcription.contains("!verify <challenge>\n  "));
         let translation = privacy_menu(BotRole::Translation);
-        assert!(translation.contains("Sigstack translation"));
+        assert!(translation.contains("Bread Bot translation"));
         assert!(translation.contains("!verify <challenge>\n  "));
         assert!(!translation.contains("!models"));
     }

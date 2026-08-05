@@ -22,7 +22,7 @@ Menus are **English-only** for now; multi-language UI is deferred.
 Hub shape:
 
 ```text
-Sigstack
+Bread Bot
 
 !translation-threads
 !translation-in-chat

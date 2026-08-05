@@ -116,7 +116,7 @@ Health (transcription): Whisper `GET /health` on `:9000`, Signal CLI `GET /v1/he
 | `BOT__ROLE` | `transcription` \| `translation` |
 | `SIGNAL__SERVICE_URL` | Default `http://signal-api:8080` |
 | `SIGNAL__PHONE_NUMBER` | Ops phone for this CVM |
-| `SIGNAL__PEER_PHONE` | Peer product bot (translation invites transcription) |
+| `SIGNAL__PEER_PHONE` | Peer product bot. Translation: invites transcription. Transcription: must be translation phone for auto-join |
 | `NEAR_AI__*` | Translation role |
 | `WHISPER__*` | Transcription role |
 | `TRANSLATE_ALL__*` | In-chat translation |

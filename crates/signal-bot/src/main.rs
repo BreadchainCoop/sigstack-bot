@@ -6,6 +6,9 @@ use signal_bot::bot_identity::BotIdentity;
 use signal_bot::config::Config;
 use signal_bot::dispatch::dispatch_message;
 use signal_bot::error::AppResult;
+use signal_bot::group_invite_acceptor::{
+    run_invite_acceptor, InvitePolicy, DEFAULT_INVITE_POLL_INTERVAL,
+};
 use signal_bot::handlers_setup::build_handlers;
 use signal_client::{MessageReceiver, SignalClient};
 use std::sync::Arc;
@@ -59,6 +62,23 @@ async fn main() -> AppResult<()> {
     .await?;
 
     info!("Registered {} command handlers", handlers.len());
+
+    match InvitePolicy::for_role(config.bot.role, config.signal.peer_phone.as_deref()) {
+        Some(policy) => {
+            let signal_invites = signal.clone();
+            let phone = config.signal.phone_number.clone();
+            tokio::spawn(async move {
+                run_invite_acceptor(signal_invites, phone, policy, DEFAULT_INVITE_POLL_INTERVAL)
+                    .await;
+            });
+        }
+        None => {
+            warn!(
+                "Group invite auto-accept disabled (transcription requires SIGNAL__PEER_PHONE = translation bot)"
+            );
+        }
+    }
+
     info!("Listening for messages...");
 
     let receiver = MessageReceiver::new((*signal).clone(), config.signal.poll_interval);

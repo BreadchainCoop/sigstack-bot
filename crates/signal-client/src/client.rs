@@ -189,6 +189,33 @@ impl SignalClient {
         Ok(())
     }
 
+    /// Accept a pending group invite (`POST /v1/groups/{number}/{groupid}/join`).
+    #[instrument(skip(self))]
+    pub async fn join_group(
+        &self,
+        phone_number: &str,
+        group_send_id: &str,
+    ) -> Result<(), SignalError> {
+        let encoded_number = encode(phone_number);
+        let encoded_group = encode(group_send_id);
+        let response = self
+            .client
+            .post(format!(
+                "{}/v1/groups/{}/{}/join",
+                self.base_url, encoded_number, encoded_group
+            ))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+
+        debug!("Joined group {} as {}", group_send_id, phone_number);
+        Ok(())
+    }
+
     async fn change_members(
         &self,
         phone_number: &str,

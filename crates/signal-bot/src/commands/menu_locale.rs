@@ -67,8 +67,8 @@ pub fn transcription_unavailable() -> &'static str {
 
 pub fn transcription_invited() -> String {
     format!(
-        "Invited the transcription bot to this group.\n\n\
-         Accept the Signal invite on that number if prompted.\n\n\
+        "Invited the transcription bot to this group. It joins automatically when that number \
+         has PEER_PHONE set to this translation bot.\n\n\
          {}",
         help_menu(BotRole::Transcription)
     )
@@ -282,8 +282,8 @@ How it works:
 - Toggle with !transcribe-on / !transcribe-off
 
 Typical use:
-1. Add both bots to the group (translation can invite via !transcription if PEER_PHONE is set)
-2. Accept the invite on the transcription number — the hub posts the voice command menu
+1. Add the translation bot to the group (it auto-accepts invites), or invite via Signal
+2. !transcription — hub invites the transcription bot; that bot auto-joins when PEER_PHONE is the translation number
 3. Send a voice note and quote-reply !transcribe, or !transcribe-on for auto
 4. With the translation bot in the group, transcripts can also be auto-translated
 

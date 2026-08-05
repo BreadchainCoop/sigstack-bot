@@ -26,13 +26,16 @@ Both bots are members of the same Signal group (two phone numbers).
 ## Pairing (translation leads)
 
 1. Set `PEER_PHONE` in translation env to the transcription bot’s E.164 (`SIGNAL__PEER_PHONE`).
-2. Translation bot must be a **group admin**.
-3. In the group: `!transcription` → translation bot invites the peer if missing and posts the Voice Transcription menu.
-4. Accept the Signal invite on the transcription number if prompted.
+2. Set `PEER_PHONE` in transcription env to the **translation** bot’s E.164 (required for auto-join).
+3. Translation bot must be a **group admin**.
+4. In the group: `!transcription` → translation bot invites the peer if missing and posts the Voice Transcription menu.
+5. Transcription bot auto-accepts the invite when the translation peer is already in the group (polls pending invites).
 
-Without `PEER_PHONE`, translation still stubs `!transcription` as unavailable.
+Without `PEER_PHONE` on translation, `!transcription` stubs as unavailable. Without `PEER_PHONE` on transcription, auto-join is disabled.
 
 When the peer is already in the group (or invite pending), the hub stays silent on `!transcription` so the transcription bot can answer with its menu.
+
+**Group invites:** the translation hub auto-accepts any pending group invite. The transcription worker only auto-accepts invites for groups where the translation peer is already a member/admin.
 
 ## Commands (transcription bot)
 
@@ -55,7 +58,7 @@ Auto path: inbound voice notes are transcribed only after `!transcribe-on` (defa
 
 ```bash
 cp docker/transcription.env.example docker/transcription.env
-# Set SIGNAL_PHONE (phone A); optional PEER_PHONE = translation phone
+# Set SIGNAL_PHONE (phone A); PEER_PHONE = translation phone (required for auto-join)
 
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 ```

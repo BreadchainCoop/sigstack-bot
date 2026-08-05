@@ -592,6 +592,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_join_group() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15555555555/group.pending%3D%3D/join"))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        client
+            .join_group("+15555555555", "group.pending==")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn test_create_group_error() {
         let mock_server = MockServer::start().await;
 

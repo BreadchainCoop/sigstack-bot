@@ -73,6 +73,22 @@ impl Group {
             .chain(self.pending_requests.iter())
             .any(|m| identities_match(m, identity))
     }
+
+    /// True if `identity` has been invited or has a pending join request (not yet a member).
+    pub fn is_pending_for(&self, identity: &str) -> bool {
+        self.pending_invites
+            .iter()
+            .chain(self.pending_requests.iter())
+            .any(|m| identities_match(m, identity))
+    }
+
+    /// True if `identity` is an active member or admin.
+    pub fn has_member_or_admin(&self, identity: &str) -> bool {
+        self.members
+            .iter()
+            .chain(self.admins.iter())
+            .any(|m| identities_match(m, identity))
+    }
 }
 
 /// Compare Signal identities: exact match, or digit-only match for E.164 phones.
@@ -389,6 +405,10 @@ mod tests {
         assert!(g.contains_member_or_pending("+15551110001"));
         assert!(g.contains_member_or_pending("15551110002")); // digit match on pending
         assert!(!g.contains_member_or_pending("+19999999999"));
+        assert!(g.is_pending_for("+15551110002"));
+        assert!(!g.is_pending_for("+15551110001"));
+        assert!(g.has_member_or_admin("+15551110001"));
+        assert!(!g.has_member_or_admin("+15551110002"));
     }
 
     #[test]

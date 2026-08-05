@@ -610,7 +610,7 @@ fn sidecar_copy(
         "Welcome to {name}. Messages here are bridged with the main group.
 
 !commands
-!rename
+!rename <name>
 !leave
 !info"
     );
@@ -731,7 +731,7 @@ mod tests {
         assert_eq!(name, "Italian · Stacked");
         assert!(description.contains("Stacked"));
         assert!(welcome.starts_with("Welcome to Italian · Stacked"));
-        assert!(welcome.contains("!commands\n!rename\n!leave\n!info"));
+        assert!(welcome.contains("!commands\n!rename <name>\n!leave\n!info"));
     }
 
     #[test]

@@ -51,6 +51,23 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
+    if let (Some(self_phone), Some(peer_raw)) = (
+        config.signal.phone_number.as_deref(),
+        config.signal.peer_phone.as_deref(),
+    ) {
+        let peer = peer_raw.trim();
+        if !peer.is_empty() {
+            match signal.trust_identity(self_phone, peer).await {
+                Ok(()) => info!(peer, "Trusted Signal peer identity (PEER_PHONE)"),
+                Err(e) => warn!(
+                    peer,
+                    error = %e,
+                    "Could not trust PEER_PHONE identity — peer messages may not decrypt until trusted"
+                ),
+            }
+        }
+    }
+
     let bot_identity = BotIdentity::new();
 
     let handlers = build_handlers(

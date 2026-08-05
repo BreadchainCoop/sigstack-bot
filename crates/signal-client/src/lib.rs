@@ -609,6 +609,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_trust_identity() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/v1/identities/%2B15550001111/trust/%2B15550002222"))
+            .and(body_json(
+                serde_json::json!({ "trust_all_known_keys": true }),
+            ))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        client
+            .trust_identity("+15550001111", "+15550002222")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn test_create_group_error() {
         let mock_server = MockServer::start().await;
 

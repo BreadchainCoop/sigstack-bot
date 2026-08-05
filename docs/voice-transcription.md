@@ -33,6 +33,8 @@ Both bots are members of the same Signal group (two phone numbers).
 
 Without `PEER_PHONE` on translation, `!transcription` stubs as unavailable. Without `PEER_PHONE` on transcription, auto-join is disabled.
 
+**Peer trust:** each bot must trust the other’s Signal identity (`TRUSTED_*`, not `UNTRUSTED`). On startup the bot calls `PUT /v1/identities/{self}/trust/{PEER_PHONE}` with `trust_all_known_keys`. If the peer is `UNTRUSTED`, the translation bot will not decrypt transcription posts (so in-chat auto never sees transcripts), and group sends can fail with `Untrusted Identity`.
+
 When the peer is already in the group (or invite pending), the hub stays silent on `!transcription` so the transcription bot can answer with its menu.
 
 **Group invites:** the translation hub auto-accepts any pending group invite. The transcription worker only auto-accepts invites for groups where the translation peer is already a member/admin.

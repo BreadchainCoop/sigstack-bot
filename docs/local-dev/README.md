@@ -359,6 +359,7 @@ After both numbers are registered:
 
 1. Create (or open) a Signal group that includes both bot numbers and your personal account.
 2. For transcription pairing, set `PEER_PHONE` on translation to phone A and follow [voice-transcription.md](../voice-transcription.md#pairing-translation-leads) (`!transcription` as group admin).
+3. Confirm peer trust: each bot must not list the other as `UNTRUSTED` (`GET /v1/identities/{phone}`). Bots auto-trust `PEER_PHONE` on startup; if you still see `Untrusted Identity` in logs, rebuild/restart both bots after pairing.
 
 ## Related docs
 

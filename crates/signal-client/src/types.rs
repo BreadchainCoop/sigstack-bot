@@ -2,6 +2,18 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Identity row from `GET /v1/identities/{number}`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct IdentityEntry {
+    #[serde(default)]
+    pub number: String,
+    pub status: String,
+    #[serde(default)]
+    pub uuid: Option<String>,
+    #[serde(default)]
+    pub safety_number: Option<String>,
+}
+
 /// Incoming Signal message.
 #[derive(Debug, Clone, Deserialize)]
 pub struct IncomingMessage {

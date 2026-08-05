@@ -365,6 +365,62 @@ impl SignalClient {
         Ok(messages)
     }
 
+    /// Trust a peer identity (`PUT /v1/identities/{number}/trust/{numberToTrust}`).
+    ///
+    /// Uses `trust_all_known_keys` so paired product bots can exchange group messages after
+    /// re-registration (safety-number change). Intended for the configured `PEER_PHONE` only.
+    #[instrument(skip(self))]
+    pub async fn trust_identity(
+        &self,
+        phone_number: &str,
+        number_to_trust: &str,
+    ) -> Result<(), SignalError> {
+        let encoded_number = encode(phone_number);
+        let encoded_peer = encode(number_to_trust);
+        let response = self
+            .client
+            .put(format!(
+                "{}/v1/identities/{}/trust/{}",
+                self.base_url, encoded_number, encoded_peer
+            ))
+            .json(&serde_json::json!({ "trust_all_known_keys": true }))
+            .send()
+            .await?;
+
+        let status = response.status();
+        if status.is_success() || status.as_u16() == 204 {
+            return Ok(());
+        }
+        let msg = response.text().await.unwrap_or_default();
+        Err(SignalError::Api(format!(
+            "Trust identity failed ({status}): {msg}"
+        )))
+    }
+
+    /// List known identities for an account (`GET /v1/identities/{number}`).
+    #[instrument(skip(self))]
+    pub async fn list_identities(
+        &self,
+        phone_number: &str,
+    ) -> Result<Vec<IdentityEntry>, SignalError> {
+        let encoded_number = encode(phone_number);
+        let response = self
+            .client
+            .get(format!(
+                "{}/v1/identities/{}",
+                self.base_url, encoded_number
+            ))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+
+        Ok(response.json().await?)
+    }
+
     /// Download attachment bytes by ID (auto-downloaded during receive).
     #[instrument(skip(self))]
     pub async fn download_attachment(&self, attachment_id: &str) -> Result<Vec<u8>, SignalError> {

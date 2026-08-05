@@ -63,7 +63,7 @@ mod tests {
         assert!(!handler.matches(&dm("!privacy-translation")));
         assert!(!handler.matches(&dm("!privacy-transcription")));
         let out = handler.execute(&dm("!privacy")).await.unwrap();
-        assert!(out.contains("two separate Phala CVMs"));
+        assert!(out.contains("two separate and isolated TEEs/CVMs"));
         assert!(out.contains("!verify"));
         assert!(!out.contains("**"));
     }

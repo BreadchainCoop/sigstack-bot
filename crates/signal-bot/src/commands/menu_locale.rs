@@ -141,7 +141,7 @@ const HELP_THREAD: &str = r#"Language Thread
 !leave
   Leave this Language Thread
 !info
-!help"#;
+!commands"#;
 
 const INFO_HUB: &str = r#"--Bread Bot--
 
@@ -177,7 +177,7 @@ const INFO_THREAD: &str = r#"Language Thread
 !info
   This menu (commands with descriptions)
 
-!help
+!commands
   Compact command list"#;
 
 const TRANSLATION_THREADS_MENU: &str = r#"Join/Create Language Thread
@@ -372,8 +372,11 @@ mod tests {
         let h = thread_help_menu();
         assert!(h.contains("!leave"));
         assert!(h.contains("!rename"));
+        assert!(h.contains("!commands"));
         assert!(!h.contains("!translate-me-thread"));
         assert!(!h.contains("!translate-me-on"));
+        // Hub !help must not appear as the thread menu trigger.
+        assert!(!h.trim_end().ends_with("!help"));
     }
 
     #[test]
@@ -474,8 +477,8 @@ mod tests {
     fn help_transcription_covers_voice() {
         let h = help_menu(BotRole::Transcription);
         assert!(h.contains("!transcribe"));
-        assert!(h.contains("!transcribe-on\n  "));
-        assert!(h.contains("!transcribe-off\n  "));
+        assert!(h.contains("!transcribe-on"));
+        assert!(h.contains("!transcribe-off"));
         assert!(h.contains("!help-transcription"));
         assert!(!h.contains("!privacy-transcription"));
         assert!(!h.contains("!privacy-translation"));
@@ -489,7 +492,7 @@ mod tests {
     #[test]
     fn privacy_menu_covers_both_cvms() {
         let m = privacy_menu();
-        assert!(m.contains("two separate Phala CVMs"));
+        assert!(m.contains("two separate and isolated TEEs/CVMs"));
         assert!(m.contains("Translation:"));
         assert!(m.contains("Transcription:"));
         assert!(m.contains("!verify <challenge>"));

@@ -24,7 +24,7 @@ Main (multilingual hub)
   └── … (any !list-langs code)
 ```
 
-Default title is English `{Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!help`.
+Default title is English `{Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!commands` menu.
 
 N=1 (one sidecar) uses the same relay rules as N=3 — add another language later with no reconfiguration.
 
@@ -36,9 +36,10 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!leave` | Sidecar only | Leave this Language Thread |
 | `!enable-in-chat` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
+| `!commands` | Sidecar only | Compact Language Thread command list |
 | `!list-langs` | Any | Language codes |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
-| `!help` / `!privacy` | Any | Hub menus (`!help` in a sidecar shows the thread menu; `!privacy` and `!verify` on translation bot) |
+| `!help` / `!privacy` | Any | Hub menus (`!help` is always the Bread Bot hub; `!privacy` and `!verify` on translation bot) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 
@@ -76,7 +77,7 @@ Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out
 5. Language switch: remove from old sidecar, add/create new
 6. `!leave` (from sidecar): remove from Signal group + store
 7. `!enable-in-chat` (from main): notify each Language Thread, remove members from sidecars (best-effort), clear bridge; sidecar Signal groups may remain unmanaged
-8. Sidecar `!help` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
+8. Sidecar `!commands` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
 
 If Signal omits phone number, bot asks the user to DM once, then retry.
 

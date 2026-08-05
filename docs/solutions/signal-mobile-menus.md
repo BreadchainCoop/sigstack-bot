@@ -52,7 +52,7 @@ Optional one-line blurb.
 !help
 ```
 
-Language Thread sidecars use the same trigger `!help` but a different menu (rename / leave) when the group is a known sidecar.
+Language Thread sidecars use `!commands` for the thread menu (rename / leave / info). Hub `!help` always returns the Bread Bot menu, including when sent from a sidecar.
 
 Voice transcription uses `!transcription` on the **transcription** bot for its product menu (not `!help`). Hub `!help` / `!info` / `!privacy` stay on the **translation** bot only. See [two-cvm-architecture.md — Bot hierarchy](../two-cvm-architecture.md#bot-hierarchy).
 

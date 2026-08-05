@@ -32,6 +32,7 @@ Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/v
 | Transcription | `!transcription` | Transcription bot | Voice product menu |
 | Language Threads | `!translate-me-thread <lang>` | Main only | Create/join sidecar |
 | Language Threads | `!leave` | Sidecar only | Leave this Language Thread |
+| Language Threads | `!commands` | Sidecar only | Compact Language Thread command list |
 | Language Threads | `!enable-in-chat` | Main | Tear down Language Threads (switch path to in-chat) |
 | In-chat group-wide | `!translate-all-on <lang1> <lang2>` | Group | Auto-translate all messages |
 | In-chat group-wide | `!translate-all-off` | Group | Disable group-wide auto |

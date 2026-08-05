@@ -175,14 +175,12 @@ pub async fn build_translation_handlers(
         group_prefs.clone(),
         signal.clone(),
     )));
+    handlers.push(Box::new(CommandsHandler::new(group_prefs.clone())));
     handlers.push(Box::new(VerifyHandler::new(
         dstack.clone(),
         BotRole::Translation,
     )));
-    handlers.push(Box::new(HelpHandler::new(
-        group_prefs.clone(),
-        BotRole::Translation,
-    )));
+    handlers.push(Box::new(HelpHandler::new(BotRole::Translation)));
     handlers.push(Box::new(InfoHandler::new(
         group_prefs,
         BotRole::Translation,
@@ -297,7 +295,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 17);
+        assert_eq!(handlers.len(), 18);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"translate_all"));
@@ -315,6 +313,7 @@ mod tests {
         assert!(got.contains(&"translate"));
         assert!(got.contains(&"translate_langs"));
         assert!(got.contains(&"rename"));
+        assert!(got.contains(&"commands"));
         assert!(!got.contains(&"set_language"));
         assert!(got.contains(&"help"));
         assert!(got.contains(&"info"));
@@ -347,7 +346,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 16);
+        assert_eq!(handlers.len(), 17);
         assert!(!labels(&handlers).contains(&"translate_all"));
         assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));

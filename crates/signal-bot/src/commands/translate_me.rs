@@ -28,7 +28,7 @@ const USAGE_MSG: &str = "Usage: !translate-me-thread <lang> (e.g. !translate-me-
 const NO_ADDRESS_MSG: &str = "Could not invite you: Signal did not include your phone number. \
 Message this bot in a 1:1 chat once, then retry !translate-me-thread <lang>.";
 const LEAVE_SIDECAR_ONLY_MSG: &str =
-    "!leave is only available inside a Language Thread. Open that chat and send !leave (or !help).";
+    "!leave is only available inside a Language Thread. Open that chat and send !leave (or !commands).";
 const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads can't start alongside it.\n\nTo switch, send:\n!enable-threads";
 /// Tear down Language Threads so in-chat can run (`!enable-in-chat`).
 const ENABLE_IN_CHAT_CMDS: &[&str] = &["!enable-in-chat", "!translation-enable-in-chat"];
@@ -609,7 +609,7 @@ fn sidecar_copy(
     let welcome = format!(
         "Welcome to {name}. Messages here are bridged with the main group.
 
-!help
+!commands
 !rename
 !leave
 !info"
@@ -731,7 +731,7 @@ mod tests {
         assert_eq!(name, "Italian · Stacked");
         assert!(description.contains("Stacked"));
         assert!(welcome.starts_with("Welcome to Italian · Stacked"));
-        assert!(welcome.contains("!help\n!rename\n!leave\n!info"));
+        assert!(welcome.contains("!commands\n!rename\n!leave\n!info"));
     }
 
     #[test]

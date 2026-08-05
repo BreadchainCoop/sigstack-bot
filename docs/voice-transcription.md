@@ -27,11 +27,12 @@ Both bots are members of the same Signal group (two phone numbers).
 
 1. Set `PEER_PHONE` in translation env to the transcription bot’s E.164 (`SIGNAL__PEER_PHONE`).
 2. Translation bot must be a **group admin**.
-3. In the group: `!transcription` → translation bot invites the peer if missing.
-4. Accept the Signal invite on the transcription number.
-5. Send `!transcription` again → the transcription bot answers with its menu (translation stays silent when paired).
+3. In the group: `!transcription` → translation bot invites the peer if missing and posts the Voice Transcription menu.
+4. Accept the Signal invite on the transcription number if prompted.
 
 Without `PEER_PHONE`, translation still stubs `!transcription` as unavailable.
+
+When the peer is already in the group (or invite pending), the hub stays silent on `!transcription` so the transcription bot can answer with its menu.
 
 ## Commands (transcription bot)
 
@@ -40,13 +41,13 @@ Worker-only — no `!help` / `!info`. Use the translation bot for the Bread Bot 
 | Command | Effect |
 |---------|--------|
 | `!transcription` | Product menu (compact command list for this bot) |
-| `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group) |
-| `!transcribe` | Quote a voice note to transcribe it |
+| `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group; **default off**) |
+| `!transcribe` | Quote a voice note to transcribe it (refuses with a notice if auto is already on) |
 | `!help-transcription` | How voice transcription works (separate CVM/TEE from translation) |
 
 Hub `!privacy` (translation bot only) covers both CVMs. In a paired group, `!verify <text>` returns two quotes (`Translation: …` / `Transcription: …`).
 
-Auto path: inbound voice notes are transcribed when enabled (default on).
+Auto path: inbound voice notes are transcribed only after `!transcribe-on` (default off).
 
 ## Ops
 

@@ -72,7 +72,7 @@ mod tests {
                 .unwrap()
                 .get(group_id)
                 .copied()
-                .unwrap_or(true)
+                .unwrap_or(false)
         }
 
         fn set_transcribe_enabled(&self, group_id: &str, enabled: bool) {
@@ -120,12 +120,12 @@ mod tests {
 
         assert_eq!(
             handler
-                .execute(&msg("!transcribe-off", false))
+                .execute(&msg("!transcribe-on", false))
                 .await
                 .unwrap(),
-            "Voice transcription disabled."
+            "Voice transcription enabled."
         );
-        assert!(!store.is_enabled("+15550002222", false));
+        assert!(store.is_enabled("+15550002222", false));
 
         assert_eq!(
             handler.execute(&msg("!transcribe-on", true)).await.unwrap(),
@@ -140,6 +140,7 @@ mod tests {
                 .unwrap(),
             "Voice transcription disabled for this group."
         );
+        assert!(!store.is_enabled("group-1", true));
     }
 
     #[tokio::test]

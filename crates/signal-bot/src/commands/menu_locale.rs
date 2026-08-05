@@ -65,8 +65,13 @@ pub fn transcription_unavailable() -> &'static str {
     TRANSCRIPTION_UNAVAILABLE
 }
 
-pub fn transcription_invited() -> &'static str {
-    TRANSCRIPTION_INVITED
+pub fn transcription_invited() -> String {
+    format!(
+        "Invited the transcription bot to this group.\n\n\
+         Accept the Signal invite on that number if prompted.\n\n\
+         {}",
+        help_menu(BotRole::Transcription)
+    )
 }
 
 pub fn transcription_group_only() -> &'static str {
@@ -272,16 +277,15 @@ Use when people send voice notes and you want text in the same Signal chat.
 This bot runs Whisper in its own Phala CVM/TEE. The Bread Bot translation bot is a separate CVM — use !privacy on the translation bot for suite privacy and !verify behavior.
 
 How it works:
-- Auto mode (default on): inbound voice notes become quote-reply transcripts.
+- Auto mode (default off): send !transcribe-on so inbound voice notes become quote-reply transcripts.
 - Manual: quote a voice note and send !transcribe
 - Toggle with !transcribe-on / !transcribe-off
 
 Typical use:
 1. Add both bots to the group (translation can invite via !transcription if PEER_PHONE is set)
-2. Accept the invite on the transcription number
-3. Send !transcription on the transcription bot for its command menu
-4. Send a voice note — you get a 📝 Transcript: reply
-5. With the translation bot in the group, that transcript can also be auto-translated
+2. Accept the invite on the transcription number — the hub posts the voice command menu
+3. Send a voice note and quote-reply !transcribe, or !transcribe-on for auto
+4. With the translation bot in the group, transcripts can also be auto-translated
 
 Commands: !transcription
 Privacy / TEE: !privacy on the translation bot"#;
@@ -301,12 +305,6 @@ The transcription bot is not paired with this group yet. Meanwhile, try translat
 !translation-in-chat
 
 !help-transcription
-!help"#;
-
-const TRANSCRIPTION_INVITED: &str = r#"Invited the transcription bot to this group.
-
-Accept the Signal invite on that number, then send !transcription again (the transcription bot will answer with its menu).
-
 !help"#;
 
 const TRANSCRIPTION_GROUP_ONLY: &str = r#"Voice transcription pairing works in a Signal group.
@@ -416,6 +414,7 @@ mod tests {
         assert!(transcription.contains("Voice transcription"));
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
+        assert!(transcription.contains("default off"));
         assert!(transcription.contains("separate CVM"));
         assert!(transcription.contains("!privacy"));
         assert!(!transcription.trim_end().ends_with("!help"));

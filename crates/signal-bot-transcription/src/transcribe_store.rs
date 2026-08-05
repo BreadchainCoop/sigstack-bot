@@ -1,21 +1,22 @@
 //! Per-chat voice transcription preference (`!transcribe-on` / `!transcribe-off`).
 //!
 //! Group preferences go through [`TranscribeGroupPrefs`]; DM toggles are ephemeral.
+//! Auto transcription defaults **off** until explicitly enabled.
 
 use crate::prefs::SharedTranscribeGroupPrefs;
 use std::collections::HashSet;
 use std::sync::RwLock;
 
-/// DM-only in-memory transcription toggle (default: enabled).
+/// DM-only in-memory transcription toggle (default: disabled).
 pub struct TranscribeStore {
-    dm_disabled: RwLock<HashSet<String>>,
+    dm_enabled: RwLock<HashSet<String>>,
     group_prefs: Option<SharedTranscribeGroupPrefs>,
 }
 
 impl TranscribeStore {
     pub fn new(group_prefs: Option<SharedTranscribeGroupPrefs>) -> Self {
         Self {
-            dm_disabled: RwLock::new(HashSet::new()),
+            dm_enabled: RwLock::new(HashSet::new()),
             group_prefs,
         }
     }
@@ -25,9 +26,9 @@ impl TranscribeStore {
             self.group_prefs
                 .as_ref()
                 .map(|store| store.is_transcribe_enabled(context_id))
-                .unwrap_or(true)
+                .unwrap_or(false)
         } else {
-            !self.dm_disabled.read().unwrap().contains(context_id)
+            self.dm_enabled.read().unwrap().contains(context_id)
         }
     }
 
@@ -39,11 +40,11 @@ impl TranscribeStore {
             return;
         }
 
-        let mut disabled = self.dm_disabled.write().unwrap();
+        let mut enabled_dms = self.dm_enabled.write().unwrap();
         if enabled {
-            disabled.remove(context_id);
+            enabled_dms.insert(context_id.to_string());
         } else {
-            disabled.insert(context_id.to_string());
+            enabled_dms.remove(context_id);
         }
     }
 }
@@ -66,7 +67,7 @@ mod tests {
                 .unwrap()
                 .get(group_id)
                 .copied()
-                .unwrap_or(true)
+                .unwrap_or(false)
         }
 
         fn set_transcribe_enabled(&self, group_id: &str, enabled: bool) {
@@ -78,19 +79,19 @@ mod tests {
     }
 
     #[test]
-    fn dm_enabled_by_default() {
+    fn dm_disabled_by_default() {
         let store = TranscribeStore::new(None);
-        assert!(store.is_enabled("dm:+1234", false));
+        assert!(!store.is_enabled("dm:+1234", false));
     }
 
     #[test]
     fn dm_toggle_off_and_on() {
         let store = TranscribeStore::new(None);
         let ctx = "dm:+1234";
-        store.set_enabled(ctx, false, false);
-        assert!(!store.is_enabled(ctx, false));
         store.set_enabled(ctx, true, false);
         assert!(store.is_enabled(ctx, false));
+        store.set_enabled(ctx, false, false);
+        assert!(!store.is_enabled(ctx, false));
     }
 
     #[test]
@@ -98,8 +99,9 @@ mod tests {
         let prefs: SharedTranscribeGroupPrefs = Arc::new(MemoryPrefs {
             enabled: RwLock::new(HashMap::new()),
         });
-        let store = TranscribeStore::new(Some(prefs));
-        store.set_enabled("group.x", false, true);
+        let store = TranscribeStore::new(Some(prefs.clone()));
         assert!(!store.is_enabled("group.x", true));
+        store.set_enabled("group.x", true, true);
+        assert!(store.is_enabled("group.x", true));
     }
 }

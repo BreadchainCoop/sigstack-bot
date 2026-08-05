@@ -198,7 +198,7 @@ impl CommandHandler for TranscriptionPairingHandler {
             .await
         {
             Ok(()) => {
-                self.send(message, transcription_invited()).await?;
+                self.send(message, &transcription_invited()).await?;
             }
             Err(e) => {
                 warn!(error = %e, peer, "Failed to invite transcription bot");
@@ -565,5 +565,10 @@ mod tests {
         );
         let out = handler.execute(&msg("!transcription")).await.unwrap();
         assert!(out.is_empty());
+
+        let invited = transcription_invited();
+        assert!(invited.contains("Voice Transcription"));
+        assert!(invited.contains("!transcribe-on"));
+        assert!(!invited.contains("send !transcription again"));
     }
 }

@@ -86,7 +86,7 @@ Deploy each compose to its **own** CVM. Do not co-locate Whisper with the transl
 
 ### Interoperability
 
-- **Transcription** (worker CVM) composes with translation products in the same group. The **translation bot** invites and documents pairing via `!transcription`; the **transcription bot** only runs voice and its menu on `!transcription`.
+- **Transcription** (worker CVM) composes with translation products in the same group. The **translation bot** invites via `!transcription` and posts the voice menu after invite; the **transcription bot** runs voice and answers `!transcription` when already paired.
 - **In-chat** translates inside one group thread (quote-reply).
 - **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-on`).
 

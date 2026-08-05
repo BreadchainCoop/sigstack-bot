@@ -40,6 +40,7 @@ pub fn build_voice_handlers(
             reply_prefix,
             max_attachment_bytes,
             voice_cache,
+            transcribe_store.clone(),
         )),
         Box::new(TranscribeHandler::new(transcribe_store, true)),
     ]

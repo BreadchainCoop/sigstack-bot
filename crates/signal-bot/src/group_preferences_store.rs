@@ -126,7 +126,7 @@ pub enum PendingSwitch {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GroupPreference {
-    #[serde(default = "default_true")]
+    #[serde(default = "default_false")]
     transcribe_enabled: bool,
     #[serde(default)]
     translate: Option<GroupTranslateMode>,
@@ -145,7 +145,7 @@ struct GroupPreference {
 impl Default for GroupPreference {
     fn default() -> Self {
         Self {
-            transcribe_enabled: true,
+            transcribe_enabled: false,
             translate: None,
             translate_members: HashMap::new(),
             menu_language: MenuLanguage::En,
@@ -157,7 +157,7 @@ impl Default for GroupPreference {
 
 impl GroupPreference {
     fn is_default(&self) -> bool {
-        self.transcribe_enabled
+        !self.transcribe_enabled
             && self.translate.is_none()
             && self.translate_members.is_empty()
             && self.menu_language == MenuLanguage::En
@@ -271,7 +271,7 @@ impl GroupPreferencesStore {
             .read()
             .unwrap()
             .get(group_id)
-            .is_none_or(|p| p.transcribe_enabled)
+            .is_some_and(|p| p.transcribe_enabled)
     }
 
     pub fn set_transcribe_enabled(self: &Arc<Self>, group_id: &str, enabled: bool) {
@@ -865,8 +865,8 @@ impl GroupPreferencesStore {
     }
 }
 
-fn default_true() -> bool {
-    true
+fn default_false() -> bool {
+    false
 }
 
 #[cfg(test)]
@@ -1001,19 +1001,19 @@ mod tests {
     }
 
     #[test]
-    fn transcribe_defaults_on() {
+    fn transcribe_defaults_off() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        assert!(store.is_transcribe_enabled("group.new"));
+        assert!(!store.is_transcribe_enabled("group.new"));
     }
 
     #[test]
     fn transcribe_toggle_persists_in_memory() {
         let store = GroupPreferencesStore::new_in_memory(0);
         let gid = "group.abc";
-        store.set_transcribe_enabled(gid, false);
-        assert!(!store.is_transcribe_enabled(gid));
         store.set_transcribe_enabled(gid, true);
         assert!(store.is_transcribe_enabled(gid));
+        store.set_transcribe_enabled(gid, false);
+        assert!(!store.is_transcribe_enabled(gid));
     }
 
     #[test]
@@ -1045,14 +1045,14 @@ mod tests {
             resolve_language("en").unwrap(),
         );
         store.set("group.one".into(), mode);
-        store.set_transcribe_enabled("group.two", false);
+        store.set_transcribe_enabled("group.two", true);
         store.set_menu_language("group.three", MenuLanguage::Es);
         store.persist_now().await.unwrap();
 
         let store2 =
             GroupPreferencesStore::with_test_key(DstackClient::new("/x"), path, key, 30).await;
         assert!(store2.is_active("group.one"));
-        assert!(!store2.is_transcribe_enabled("group.two"));
+        assert!(store2.is_transcribe_enabled("group.two"));
         assert_eq!(store2.get_menu_language("group.three"), MenuLanguage::Es);
     }
 

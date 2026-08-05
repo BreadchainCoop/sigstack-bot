@@ -13,18 +13,18 @@ In multilingual mutual-aid groups, organizers often dual-post by hand. Monolingu
 | Room | Role |
 |------|------|
 | **Main group** | Multilingual hub; bot already a member |
-| **SigLang {Language} · {disambiguator}** | One Signal sidecar per subscribed language (e.g. `SigLang Spanish · Stacked`) |
+| **{Language} · {disambiguator}** | One Signal sidecar per subscribed language (e.g. `Spanish · Stacked`) |
 
 Users who want a monolingual lane run `!translate-me-thread <lang>` in **main**. The bot creates or joins the sidecar and invites them. Messages fan out across main and all active threads.
 
 ```text
 Main (multilingual hub)
-  ├── SigLang Spanish · Stacked  ← monolingual ES users
-  ├── SigLang English · Stacked  ← monolingual EN users
+  ├── Spanish · Stacked  ← monolingual ES users
+  ├── English · Stacked  ← monolingual EN users
   └── … (any !list-langs code)
 ```
 
-Default title is English `SigLang {Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!help`.
+Default title is English `{Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!help`.
 
 N=1 (one sidecar) uses the same relay rules as N=3 — add another language later with no reconfiguration.
 
@@ -71,7 +71,7 @@ Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out
 
 1. User in main: `!translate-me-thread es`
 2. Resolve language; need invite address (`sourceNumber` preferred, else usable `source`)
-3. **First subscriber for that lang:** build English `SigLang …` title/description/welcome → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
+3. **First subscriber for that lang:** build English ` …` title/description/welcome → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
 4. **Later subscribers:** `add_members` on existing sidecar
 5. Language switch: remove from old sidecar, add/create new
 6. `!leave` (from sidecar): remove from Signal group + store

@@ -529,7 +529,7 @@ mod tests {
         Mock::given(method("PUT"))
             .and(path("/v1/groups/%2B15555555555/group.sidecarEs%3D%3D"))
             .and(body_json(serde_json::json!({
-                "name": "SigLang Spanish · Stacked"
+                "name": "Spanish · Stacked"
             })))
             .respond_with(ResponseTemplate::new(204))
             .mount(&mock_server)
@@ -540,7 +540,7 @@ mod tests {
             .update_group(
                 "+15555555555",
                 "group.sidecarEs==",
-                "SigLang Spanish · Stacked",
+                "Spanish · Stacked",
             )
             .await
             .unwrap();

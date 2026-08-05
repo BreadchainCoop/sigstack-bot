@@ -28,8 +28,11 @@ Sigstack
 !translation-in-chat
 !transcription
 !privacy
+!explain
 !help
 ```
+
+`!explain` returns the same commands with a short indented description under each and a blank line between entries.
 
 Product shape:
 

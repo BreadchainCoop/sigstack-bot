@@ -13,7 +13,7 @@ mod translate_me;
 mod translate_service;
 mod verify;
 
-pub use help::HelpHandler;
+pub use help::{ExplainHandler, HelpHandler};
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
     InChatMenuHandler, TranscriptionMenuHandler, TranscriptionPairingHandler,

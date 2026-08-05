@@ -13,8 +13,20 @@ pub fn help_menu(role: BotRole) -> &'static str {
     }
 }
 
+/// Same commands as [`help_menu`], with short explanations and blank-line breaks.
+pub fn explain_menu(role: BotRole) -> &'static str {
+    match role {
+        BotRole::Transcription => EXPLAIN_TRANSCRIPTION,
+        BotRole::Translation => EXPLAIN_HUB,
+    }
+}
+
 pub fn thread_help_menu() -> &'static str {
     HELP_THREAD
+}
+
+pub fn thread_explain_menu() -> &'static str {
+    EXPLAIN_THREAD
 }
 
 pub fn translation_threads_menu() -> &'static str {
@@ -70,6 +82,7 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
   Quote a voice note to transcribe
 !privacy
   Privacy & TEE
+!explain
 !help"#;
 
 const HELP_HUB: &str = r#"Sigstack
@@ -78,6 +91,7 @@ const HELP_HUB: &str = r#"Sigstack
 !translation-in-chat
 !transcription
 !privacy
+!explain
 !help"#;
 
 const HELP_THREAD: &str = r#"Language Thread
@@ -86,18 +100,76 @@ const HELP_THREAD: &str = r#"Language Thread
   Change this group's name
 !leave
   Leave this Language Thread
+!explain
 !help"#;
+
+const EXPLAIN_HUB: &str = r#"Sigstack
+
+!translation-threads
+  Language Threads — multilingual main chat + language sidecars
+
+!translation-in-chat
+  In-chat translation — auto or quote-translate in this group
+
+!transcription
+  Voice transcription — pair/open the transcription bot
+
+!privacy
+  Privacy & TEE — attestation via !verify
+
+!explain
+  This menu (commands with explanations)
+
+!help
+  Compact command list"#;
+
+const EXPLAIN_TRANSCRIPTION: &str = r#"Voice transcription
+
+Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
+
+!transcription
+  This product menu
+
+!transcribe-on / !transcribe-off
+  Toggle auto transcription
+
+!transcribe
+  Quote a voice note to transcribe it
+
+!privacy
+  Privacy & TEE — attestation via !verify
+
+!explain
+  This menu (commands with explanations)
+
+!help
+  Compact command list"#;
+
+const EXPLAIN_THREAD: &str = r#"Language Thread
+
+!rename <name>
+  Change this Language Thread's group name
+
+!leave
+  Leave this Language Thread
+
+!explain
+  This menu (commands with explanations)
+
+!help
+  Compact command list"#;
 
 const TRANSLATION_THREADS_MENU: &str = r#"Language Threads
 
 Multilingual main + language sidecars.
+Join/create a Language Thread
 
-!translate-me-thread <lang>
-  Join/create a Language Thread (from main)
-!disable-threads
-  Turn off Language Threads for this group
 !list-langs
-  Language codes
+!translate-me-thread <lang>
+  e.g. !translate-me-thread es
+
+!disable-threads
+(to enable in-chat translation)
 
 !help"#;
 
@@ -105,18 +177,25 @@ const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat translation
 
 Stay in this thread; auto or quote one message.
 
+Translate everyone's msgs:
+
+!list-langs
 !translate-all-on <lang1> <lang2>
-  e.g. !translate-all-on es en
 !translate-all-off
-  Stop group-wide auto-translate
+  e.g. !translate-all-on fr zh
+
+Translate your msgs:
+
 !translate-me-on <lang1> <lang2>
-  Auto-translate your messages only
 !translate-me-off
-  Stop your personal auto-translate
-!disable-in-chat
-  Turn off all in-chat auto-translate
+  e.g. !translate-me-on ru ar
+
+Translate per msg:
+
 !translate <lang>
-  Reply to a message
+
+!disable-in-chat
+(to enable threads)
 
 !help"#;
 
@@ -199,11 +278,26 @@ mod tests {
         assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
         assert!(h.contains("!privacy"));
+        assert!(h.contains("!explain"));
         assert!(!h.contains("Language Threads\n"));
         assert!(!h.contains("In-chat translation\n"));
         assert!(!h.contains("  "));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!models"));
+    }
+
+    #[test]
+    fn explain_hub_has_breaks_and_descriptions() {
+        let h = explain_menu(BotRole::Translation);
+        assert!(h.contains("!translation-threads\n  "));
+        assert!(h.contains("!translation-in-chat\n  "));
+        assert!(h.contains("!transcription\n  "));
+        assert!(h.contains("!privacy\n  "));
+        assert!(h.contains("!explain\n  "));
+        assert!(h.contains("!help\n  "));
+        assert!(h.contains("\n\n!translation-in-chat"));
+        assert!(h.contains("attestation via !verify"));
+        assert!(!h.contains("!verify <challenge>"));
     }
 
     #[test]

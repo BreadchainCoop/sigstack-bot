@@ -73,12 +73,18 @@ pub async fn build_transcription_handlers(
     handlers.push(Box::new(TranscriptionMenuHandler::new()));
     handlers.push(Box::new(VerifyHandler::new(dstack)));
     handlers.push(Box::new(HelpHandler::new(
+        group_prefs.clone(),
+        BotRole::Transcription,
+    )));
+    handlers.push(Box::new(ExplainHandler::new(
         group_prefs,
         BotRole::Transcription,
     )));
     handlers.push(Box::new(PrivacyHandler::new(BotRole::Transcription)));
 
-    info!("Transcription role: voice / !transcribe* / !transcription / help / privacy / verify");
+    info!(
+        "Transcription role: voice / !transcribe* / !transcription / help / explain / privacy / verify"
+    );
     Ok(handlers)
 }
 
@@ -176,6 +182,10 @@ pub async fn build_translation_handlers(
     )));
     handlers.push(Box::new(VerifyHandler::new(dstack)));
     handlers.push(Box::new(HelpHandler::new(
+        group_prefs.clone(),
+        BotRole::Translation,
+    )));
+    handlers.push(Box::new(ExplainHandler::new(
         group_prefs,
         BotRole::Translation,
     )));
@@ -250,7 +260,7 @@ mod tests {
             .await
             .expect("transcription handlers");
 
-        assert_eq!(handlers.len(), 7);
+        assert_eq!(handlers.len(), 8);
         assert_eq!(
             labels(&handlers),
             vec![
@@ -260,6 +270,7 @@ mod tests {
                 "transcription_menu",
                 "command", // verify
                 "help",
+                "explain",
                 "privacy",
             ]
         );
@@ -290,7 +301,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 13);
+        assert_eq!(handlers.len(), 14);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"translate_all"));
@@ -307,6 +318,7 @@ mod tests {
         assert!(got.contains(&"rename"));
         assert!(!got.contains(&"set_language"));
         assert!(got.contains(&"help"));
+        assert!(got.contains(&"explain"));
         assert!(got.contains(&"privacy"));
     }
 
@@ -336,11 +348,12 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 12);
+        assert_eq!(handlers.len(), 13);
         assert!(!labels(&handlers).contains(&"translate_all"));
         assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));
         assert!(labels(&handlers).contains(&"translation_threads_menu"));
+        assert!(labels(&handlers).contains(&"explain"));
     }
 
     #[tokio::test]

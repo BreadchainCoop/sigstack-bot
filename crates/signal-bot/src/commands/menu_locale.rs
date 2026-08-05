@@ -85,6 +85,30 @@ pub fn is_exact_command(text: &str, command: &str) -> bool {
     text.trim() == command
 }
 
+pub fn is_exact_command_any(text: &str, commands: &[&str]) -> bool {
+    let t = text.trim();
+    commands.contains(&t)
+}
+
+const TRANSLATION_THREADS_MENU_COMMANDS: &[&str] = &[
+    "!translation-threads",
+    "!translate-threads",
+    "!translate-thread",
+    "!translation-thread",
+];
+
+const TRANSLATION_IN_CHAT_MENU_COMMANDS: &[&str] = &["!translation-in-chat", "!translate-in-chat"];
+
+/// Product hub menu for Language Threads (canonical + common typos).
+pub fn is_translation_threads_menu_command(text: &str) -> bool {
+    is_exact_command_any(text, TRANSLATION_THREADS_MENU_COMMANDS)
+}
+
+/// Product hub menu for in-chat translation (canonical + common typos).
+pub fn is_translation_in_chat_menu_command(text: &str) -> bool {
+    is_exact_command_any(text, TRANSLATION_IN_CHAT_MENU_COMMANDS)
+}
+
 const HELP_TRANSCRIPTION: &str = r#"Voice transcription
 
 Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
@@ -452,6 +476,38 @@ mod tests {
         assert!(is_exact_command(
             "!translation-threads",
             "!translation-threads"
+        ));
+    }
+
+    #[test]
+    fn translation_threads_menu_command_aliases() {
+        assert!(is_translation_threads_menu_command("!translation-threads"));
+        assert!(is_translation_threads_menu_command("!translate-threads"));
+        assert!(is_translation_threads_menu_command("!translate-thread"));
+        assert!(is_translation_threads_menu_command("!translation-thread"));
+        assert!(is_translation_threads_menu_command(
+            "  !translation-threads  "
+        ));
+        assert!(!is_translation_threads_menu_command(
+            "!translation-on es en"
+        ));
+        assert!(!is_translation_threads_menu_command(
+            "!translation-threads-extra"
+        ));
+    }
+
+    #[test]
+    fn translation_in_chat_menu_command_aliases() {
+        assert!(is_translation_in_chat_menu_command("!translation-in-chat"));
+        assert!(is_translation_in_chat_menu_command("!translate-in-chat"));
+        assert!(is_translation_in_chat_menu_command(
+            "  !translate-in-chat  "
+        ));
+        assert!(!is_translation_in_chat_menu_command(
+            "!translation-on es en"
+        ));
+        assert!(!is_translation_in_chat_menu_command(
+            "!translation-in-chat-extra"
         ));
     }
 

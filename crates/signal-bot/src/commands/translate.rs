@@ -1,5 +1,8 @@
 //! `!translate` — quote-reply translation via NEAR AI.
 
+use crate::commands::menu_locale::{
+    is_translation_in_chat_menu_command, is_translation_threads_menu_command,
+};
 use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::CommandHandler;
@@ -130,6 +133,8 @@ impl CommandHandler for TranslateHandler {
         let text = message.text.trim();
         text.starts_with("!translate")
             && !is_translate_on_or_off_command(text)
+            && !is_translation_threads_menu_command(text)
+            && !is_translation_in_chat_menu_command(text)
             && !text.starts_with("!translate-me")
             && !text.starts_with("!translation")
             && !text.starts_with("!transcription")
@@ -292,6 +297,15 @@ mod tests {
 
         msg.text = "!translate es".into();
         assert!(handler.matches(&msg));
+
+        for typo in [
+            "!translate-in-chat",
+            "!translate-threads",
+            "!translate-thread",
+        ] {
+            msg.text = typo.into();
+            assert!(!handler.matches(&msg));
+        }
     }
 
     #[tokio::test]

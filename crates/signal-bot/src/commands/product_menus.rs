@@ -2,6 +2,7 @@
 
 use crate::commands::menu_locale::{
     help_in_chat_guide, help_menu, help_threads_guide, help_transcription_guide, is_exact_command,
+    is_translation_in_chat_menu_command, is_translation_threads_menu_command,
     transcription_group_only, transcription_invited, transcription_unavailable,
     translation_in_chat_menu, translation_split_redirect, translation_threads_menu,
 };
@@ -54,7 +55,7 @@ impl Default for TranslationThreadsMenuHandler {
 #[async_trait]
 impl CommandHandler for TranslationThreadsMenuHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!translation-threads")
+        is_translation_threads_menu_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -81,7 +82,7 @@ impl TranslationInChatMenuHandler {
 #[async_trait]
 impl CommandHandler for TranslationInChatMenuHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!translation-in-chat")
+        is_translation_in_chat_menu_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -394,9 +395,15 @@ mod tests {
 
         let threads = TranslationThreadsMenuHandler::new();
         assert!(threads.matches(&msg("!translation-threads")));
+        assert!(threads.matches(&msg("!translate-threads")));
+        assert!(threads.matches(&msg("!translate-thread")));
+        assert!(threads.matches(&msg("!translation-thread")));
+        assert!(!threads.matches(&msg("!translation-on es en")));
 
         let in_chat_prod = TranslationInChatMenuHandler::new(true);
         assert!(in_chat_prod.matches(&msg("!translation-in-chat")));
+        assert!(in_chat_prod.matches(&msg("!translate-in-chat")));
+        assert!(!in_chat_prod.matches(&msg("!translation-on es en")));
 
         let i = InChatMenuHandler::new(true);
         assert!(i.matches(&msg("!in-chat")));
@@ -422,6 +429,33 @@ mod tests {
 
         let m = TranscriptionMenuHandler::new();
         assert!(m.matches(&msg("!transcription")));
+    }
+
+    #[tokio::test]
+    async fn in_chat_typo_aliases_match_canonical_menu() {
+        let canonical = TranslationInChatMenuHandler::new(true);
+        let expected = canonical
+            .execute(&msg("!translation-in-chat"))
+            .await
+            .unwrap();
+        for typo in ["!translate-in-chat"] {
+            let got = canonical.execute(&msg(typo)).await.unwrap();
+            assert_eq!(got, expected);
+        }
+    }
+
+    #[tokio::test]
+    async fn threads_typo_aliases_match_canonical_menu() {
+        let handler = TranslationThreadsMenuHandler::new();
+        let expected = handler.execute(&msg("!translation-threads")).await.unwrap();
+        for typo in [
+            "!translate-threads",
+            "!translate-thread",
+            "!translation-thread",
+        ] {
+            let got = handler.execute(&msg(typo)).await.unwrap();
+            assert_eq!(got, expected);
+        }
     }
 
     #[tokio::test]

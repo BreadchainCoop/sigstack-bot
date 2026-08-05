@@ -14,10 +14,10 @@ pub fn help_menu(role: BotRole) -> &'static str {
 }
 
 /// Same commands as [`help_menu`], with short explanations and blank-line breaks.
-pub fn explain_menu(role: BotRole) -> &'static str {
+pub fn info_menu(role: BotRole) -> &'static str {
     match role {
-        BotRole::Transcription => EXPLAIN_TRANSCRIPTION,
-        BotRole::Translation => EXPLAIN_HUB,
+        BotRole::Transcription => INFO_TRANSCRIPTION,
+        BotRole::Translation => INFO_HUB,
     }
 }
 
@@ -25,8 +25,8 @@ pub fn thread_help_menu() -> &'static str {
     HELP_THREAD
 }
 
-pub fn thread_explain_menu() -> &'static str {
-    EXPLAIN_THREAD
+pub fn thread_info_menu() -> &'static str {
+    INFO_THREAD
 }
 
 pub fn translation_threads_menu() -> &'static str {
@@ -82,7 +82,7 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
   Quote a voice note to transcribe
 !privacy
   Privacy & TEE
-!explain
+!info
 !help"#;
 
 const HELP_HUB: &str = r#"Sigstack
@@ -90,8 +90,10 @@ const HELP_HUB: &str = r#"Sigstack
 !translation-threads
 !translation-in-chat
 !transcription
+
+!info
+
 !privacy
-!explain
 !help"#;
 
 const HELP_THREAD: &str = r#"Language Thread
@@ -100,10 +102,10 @@ const HELP_THREAD: &str = r#"Language Thread
   Change this group's name
 !leave
   Leave this Language Thread
-!explain
+!info
 !help"#;
 
-const EXPLAIN_HUB: &str = r#"Sigstack
+const INFO_HUB: &str = r#"Sigstack
 
 !translation-threads
   Language Threads — multilingual main chat + language sidecars
@@ -117,13 +119,13 @@ const EXPLAIN_HUB: &str = r#"Sigstack
 !privacy
   Privacy & TEE — attestation via !verify
 
-!explain
-  This menu (commands with explanations)
+!info
+  This menu (commands with descriptions)
 
 !help
   Compact command list"#;
 
-const EXPLAIN_TRANSCRIPTION: &str = r#"Voice transcription
+const INFO_TRANSCRIPTION: &str = r#"Voice transcription
 
 Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
 
@@ -139,13 +141,13 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
 !privacy
   Privacy & TEE — attestation via !verify
 
-!explain
-  This menu (commands with explanations)
+!info
+  This menu (commands with descriptions)
 
 !help
   Compact command list"#;
 
-const EXPLAIN_THREAD: &str = r#"Language Thread
+const INFO_THREAD: &str = r#"Language Thread
 
 !rename <name>
   Change this Language Thread's group name
@@ -153,8 +155,8 @@ const EXPLAIN_THREAD: &str = r#"Language Thread
 !leave
   Leave this Language Thread
 
-!explain
-  This menu (commands with explanations)
+!info
+  This menu (commands with descriptions)
 
 !help
   Compact command list"#;
@@ -278,7 +280,7 @@ mod tests {
         assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
         assert!(h.contains("!privacy"));
-        assert!(h.contains("!explain"));
+        assert!(h.contains("!info"));
         assert!(!h.contains("Language Threads\n"));
         assert!(!h.contains("In-chat translation\n"));
         assert!(!h.contains("  "));
@@ -287,13 +289,13 @@ mod tests {
     }
 
     #[test]
-    fn explain_hub_has_breaks_and_descriptions() {
-        let h = explain_menu(BotRole::Translation);
+    fn info_hub_has_breaks_and_descriptions() {
+        let h = info_menu(BotRole::Translation);
         assert!(h.contains("!translation-threads\n  "));
         assert!(h.contains("!translation-in-chat\n  "));
         assert!(h.contains("!transcription\n  "));
         assert!(h.contains("!privacy\n  "));
-        assert!(h.contains("!explain\n  "));
+        assert!(h.contains("!info\n  "));
         assert!(h.contains("!help\n  "));
         assert!(h.contains("\n\n!translation-in-chat"));
         assert!(h.contains("attestation via !verify"));

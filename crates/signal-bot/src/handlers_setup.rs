@@ -76,14 +76,14 @@ pub async fn build_transcription_handlers(
         group_prefs.clone(),
         BotRole::Transcription,
     )));
-    handlers.push(Box::new(ExplainHandler::new(
+    handlers.push(Box::new(InfoHandler::new(
         group_prefs,
         BotRole::Transcription,
     )));
     handlers.push(Box::new(PrivacyHandler::new(BotRole::Transcription)));
 
     info!(
-        "Transcription role: voice / !transcribe* / !transcription / help / explain / privacy / verify"
+        "Transcription role: voice / !transcribe* / !transcription / help / info / privacy / verify"
     );
     Ok(handlers)
 }
@@ -185,7 +185,7 @@ pub async fn build_translation_handlers(
         group_prefs.clone(),
         BotRole::Translation,
     )));
-    handlers.push(Box::new(ExplainHandler::new(
+    handlers.push(Box::new(InfoHandler::new(
         group_prefs,
         BotRole::Translation,
     )));
@@ -270,7 +270,7 @@ mod tests {
                 "transcription_menu",
                 "command", // verify
                 "help",
-                "explain",
+                "info",
                 "privacy",
             ]
         );
@@ -318,7 +318,7 @@ mod tests {
         assert!(got.contains(&"rename"));
         assert!(!got.contains(&"set_language"));
         assert!(got.contains(&"help"));
-        assert!(got.contains(&"explain"));
+        assert!(got.contains(&"info"));
         assert!(got.contains(&"privacy"));
     }
 
@@ -353,7 +353,7 @@ mod tests {
         assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));
         assert!(labels(&handlers).contains(&"translation_threads_menu"));
-        assert!(labels(&handlers).contains(&"explain"));
+        assert!(labels(&handlers).contains(&"info"));
     }
 
     #[tokio::test]

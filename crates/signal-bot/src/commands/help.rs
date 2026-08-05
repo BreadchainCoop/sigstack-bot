@@ -1,8 +1,6 @@
-//! Help / explain commands — compact menu vs explained menu.
+//! Help / info commands — compact menu vs info menu.
 
-use crate::commands::menu_locale::{
-    explain_menu, help_menu, thread_explain_menu, thread_help_menu,
-};
+use crate::commands::menu_locale::{help_menu, info_menu, thread_help_menu, thread_info_menu};
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
@@ -45,36 +43,36 @@ impl CommandHandler for HelpHandler {
 }
 
 /// Same menus as [`HelpHandler`], with per-command explanations and blank-line breaks.
-pub struct ExplainHandler {
+pub struct InfoHandler {
     group_prefs: Arc<GroupPreferencesStore>,
     role: BotRole,
 }
 
-impl ExplainHandler {
+impl InfoHandler {
     pub fn new(group_prefs: Arc<GroupPreferencesStore>, role: BotRole) -> Self {
         Self { group_prefs, role }
     }
 }
 
 #[async_trait]
-impl CommandHandler for ExplainHandler {
+impl CommandHandler for InfoHandler {
     fn trigger(&self) -> Option<&str> {
-        Some("!explain")
+        Some("!info")
     }
 
     fn label(&self) -> &'static str {
-        "explain"
+        "info"
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
         if self.role == BotRole::Translation {
             if let Some(group_id) = message.group_id.as_deref() {
                 if self.group_prefs.lookup_sidecar(group_id).is_some() {
-                    return Ok(thread_explain_menu().into());
+                    return Ok(thread_info_menu().into());
                 }
             }
         }
-        Ok(explain_menu(self.role).into())
+        Ok(info_menu(self.role).into())
     }
 }
 
@@ -115,7 +113,7 @@ mod tests {
         assert!(transcription.matches(&dm("!help")));
         let t = transcription.execute(&dm("!help")).await.unwrap();
         assert!(t.contains("!transcribe"));
-        assert!(t.contains("!explain"));
+        assert!(t.contains("!info"));
         assert!(!t.contains("!translate-me-on"));
 
         let t = translation.execute(&dm("!help")).await.unwrap();
@@ -123,17 +121,17 @@ mod tests {
         assert!(t.contains("!translation-in-chat"));
         assert!(t.contains("!transcription"));
         assert!(t.contains("!privacy"));
-        assert!(t.contains("!explain"));
+        assert!(t.contains("!info"));
         assert!(!t.contains("Voice notes in this chat"));
         assert!(!t.contains("!set-en"));
     }
 
     #[tokio::test]
-    async fn explain_returns_described_hub() {
+    async fn info_returns_described_hub() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        let handler = ExplainHandler::new(store, BotRole::Translation);
-        assert!(handler.matches(&dm("!explain")));
-        let out = handler.execute(&dm("!explain")).await.unwrap();
+        let handler = InfoHandler::new(store, BotRole::Translation);
+        assert!(handler.matches(&dm("!info")));
+        let out = handler.execute(&dm("!info")).await.unwrap();
         assert!(out.contains("!translation-threads\n  "));
         assert!(out.contains("\n\n!privacy"));
         assert!(out.contains("Compact command list"));
@@ -156,12 +154,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn explain_in_sidecar_returns_thread_explain() {
+    async fn info_in_sidecar_returns_thread_info() {
         let store = GroupPreferencesStore::new_in_memory(0);
         store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
-        let handler = ExplainHandler::new(store, BotRole::Translation);
+        let handler = InfoHandler::new(store, BotRole::Translation);
         let out = handler
-            .execute(&group("!explain", "it-internal"))
+            .execute(&group("!info", "it-internal"))
             .await
             .unwrap();
         assert!(out.contains("!rename <name>\n  "));

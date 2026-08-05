@@ -101,20 +101,31 @@ impl SignalClient {
         }
 
         let created: CreateGroupResponse = response.json().await?;
-        // Refresh list to obtain internal_id for inbound matching.
-        let groups = self.list_groups(phone_number).await?;
-        let group = groups
-            .into_iter()
-            .find(|g| g.id == created.id)
-            .unwrap_or(Group {
-                name: name.to_string(),
-                id: created.id.clone(),
-                internal_id: created.id.clone(),
-                members: vec![],
-                pending_invites: vec![],
-                pending_requests: vec![],
-                admins: vec![],
-            });
+        const LIST_RETRIES: u32 = 5;
+        const LIST_BACKOFF_MS: u64 = 200;
+
+        let mut group = Group {
+            name: name.to_string(),
+            id: created.id.clone(),
+            internal_id: created.id.clone(),
+            members: vec![],
+            pending_invites: vec![],
+            pending_requests: vec![],
+            admins: vec![],
+        };
+
+        for attempt in 0..LIST_RETRIES {
+            let groups = self.list_groups(phone_number).await?;
+            if let Some(found) = groups.into_iter().find(|g| g.id == created.id) {
+                group = found;
+                if group.internal_id != group.id {
+                    break;
+                }
+            }
+            if attempt + 1 < LIST_RETRIES {
+                tokio::time::sleep(Duration::from_millis(LIST_BACKOFF_MS)).await;
+            }
+        }
 
         self.cache_group_mapping(phone_number, &group).await;
         debug!(

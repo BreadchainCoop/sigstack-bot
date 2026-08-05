@@ -435,6 +435,28 @@ impl GroupPreferencesStore {
         cleared
     }
 
+    /// Clear in-chat auto and consume pending switch without removing the group row.
+    pub fn disable_in_chat_and_take_pending(
+        self: &Arc<Self>,
+        group_id: &str,
+    ) -> (bool, Option<PendingSwitch>) {
+        let result = {
+            let mut groups = self.groups.write().unwrap();
+            match groups.get_mut(group_id) {
+                None => (false, None),
+                Some(entry) => {
+                    let had = entry.translate.is_some() || !entry.translate_members.is_empty();
+                    entry.translate = None;
+                    entry.translate_members.clear();
+                    let pending = entry.pending_switch.take();
+                    (had, pending)
+                }
+            }
+        };
+        self.schedule_persist();
+        result
+    }
+
     pub fn set_pending_switch(self: &Arc<Self>, group_id: &str, pending: PendingSwitch) {
         {
             let mut groups = self.groups.write().unwrap();
@@ -500,6 +522,81 @@ impl GroupPreferencesStore {
             .unwrap()
             .get(sidecar_internal_id)
             .cloned()
+    }
+
+    /// Match inbound sidecar send id (`group.…`) when index only has internal ids.
+    pub fn lookup_sidecar_by_send_id(&self, send_id: &str) -> Option<(String, String)> {
+        for (main_id, pref) in self.groups.read().unwrap().iter() {
+            if let Some(bridge) = &pref.language_bridge {
+                for (lang, sid) in &bridge.sidecars {
+                    if sid == send_id {
+                        return Some((main_id.clone(), lang.clone()));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn update_sidecar_internal(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        lang: &str,
+        internal_id: &str,
+    ) {
+        let updated = {
+            let mut groups = self.groups.write().unwrap();
+            match groups.get_mut(main_group_id) {
+                None => false,
+                Some(entry) => match entry.language_bridge.as_mut() {
+                    None => false,
+                    Some(bridge) => {
+                        if bridge.sidecar_internal.get(lang).map(String::as_str)
+                            == Some(internal_id)
+                        {
+                            return;
+                        }
+                        bridge
+                            .sidecar_internal
+                            .insert(lang.to_string(), internal_id.to_string());
+                        true
+                    }
+                },
+            }
+        };
+        if updated {
+            self.rebuild_sidecar_index();
+            self.schedule_persist();
+        }
+    }
+
+    /// Fix stored internal id using `list_groups` output; returns route when matched.
+    pub fn reconcile_sidecar_internal_from_groups(
+        self: &Arc<Self>,
+        inbound_internal_id: &str,
+        groups: &[signal_client::Group],
+    ) -> Option<(String, String)> {
+        let send_id = groups
+            .iter()
+            .find(|g| g.internal_id == inbound_internal_id)
+            .map(|g| g.id.as_str())?;
+        let mut matched: Option<(String, String)> = None;
+        for (main_id, pref) in self.groups.read().unwrap().iter() {
+            if let Some(bridge) = &pref.language_bridge {
+                for (lang, sid) in &bridge.sidecars {
+                    if sid == send_id {
+                        matched = Some((main_id.clone(), lang.clone()));
+                        break;
+                    }
+                }
+            }
+            if matched.is_some() {
+                break;
+            }
+        }
+        let (main_id, lang) = matched?;
+        self.update_sidecar_internal(&main_id, &lang, inbound_internal_id);
+        Some((main_id, lang))
     }
 
     pub fn member_lang(&self, main_group_id: &str, user: &str) -> Option<String> {
@@ -834,6 +931,51 @@ mod tests {
 
         assert!(store.disable_in_chat(gid));
         assert!(!store.in_chat_auto_active(gid));
+    }
+
+    #[test]
+    fn disable_in_chat_and_take_pending_keeps_group_row() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let gid = "main";
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set_member_translate(gid, "+alice", mode);
+        store.set_pending_switch(
+            gid,
+            PendingSwitch::EnableThreads {
+                user: "+alice".into(),
+                lang: "es".into(),
+                address: Some("+alice".into()),
+            },
+        );
+        let (had, pending) = store.disable_in_chat_and_take_pending(gid);
+        assert!(had);
+        assert!(matches!(pending, Some(PendingSwitch::EnableThreads { .. })));
+        assert!(!store.in_chat_auto_active(gid));
+        assert!(store.groups.read().unwrap().contains_key(gid));
+    }
+
+    #[test]
+    fn reconcile_sidecar_internal_from_groups() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar("main-internal", "es", "group.es".into(), "group.es".into());
+        let groups = vec![signal_client::Group {
+            name: "es".into(),
+            id: "group.es".into(),
+            internal_id: "es-internal".into(),
+            members: vec![],
+            pending_invites: vec![],
+            pending_requests: vec![],
+            admins: vec![],
+        }];
+        let route = store.reconcile_sidecar_internal_from_groups("es-internal", &groups);
+        assert_eq!(route, Some(("main-internal".into(), "es".into())));
+        assert_eq!(
+            store.lookup_sidecar("es-internal"),
+            Some(("main-internal".into(), "es".into()))
+        );
     }
 
     #[test]

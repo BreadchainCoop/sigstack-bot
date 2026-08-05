@@ -1,7 +1,7 @@
 //! Language Threads: `!translate-me-thread` / `!leave` / `!enable-in-chat` + relay engine.
 //!
 //! Main group stays multilingual. Each subscribed language gets a
-//! `SigLang {Language} · {disambiguator}` Signal sidecar. Messages fan out:
+//! `{Language} · {disambiguator}` Signal sidecar. Messages fan out:
 //! main→sidecars (relay/translate), sidecar→main (relay) + other sidecars (translate).
 //! Bot never relays itself.
 
@@ -310,6 +310,37 @@ impl TranslateMeHandler {
     }
 
     #[instrument(skip(self, message))]
+    async fn resolve_sidecar_route(
+        &self,
+        message: &BotMessage,
+    ) -> AppResult<Option<(String, String)>> {
+        let gid = match message.group_id.as_deref() {
+            Some(id) => id,
+            None => return Ok(None),
+        };
+
+        if let Some(route) = self.store.lookup_sidecar(gid) {
+            return Ok(Some(route));
+        }
+
+        if gid.starts_with("group.") {
+            if let Some(route) = self.store.lookup_sidecar_by_send_id(gid) {
+                return Ok(Some(route));
+            }
+        }
+
+        match self.signal.list_groups(&message.receiving_account).await {
+            Ok(groups) => Ok(self
+                .store
+                .reconcile_sidecar_internal_from_groups(gid, &groups)),
+            Err(e) => {
+                warn!(error = %e, "list_groups failed during sidecar reconcile");
+                Ok(None)
+            }
+        }
+    }
+
+    #[instrument(skip(self, message))]
     async fn handle_relay(&self, message: &BotMessage) -> AppResult<()> {
         if self.bot_identity.is_bot_message(message) {
             debug!("Skipping bot-authored message for relay");
@@ -320,7 +351,7 @@ impl TranslateMeHandler {
             return Ok(());
         };
 
-        if let Some((main_id, lang)) = self.store.lookup_sidecar(gid) {
+        if let Some((main_id, lang)) = self.resolve_sidecar_route(message).await? {
             if !self.store.allow_message(&main_id) {
                 warn!(main_id, "Rate limit: skipping sidecar fan-out");
                 return Ok(());
@@ -570,7 +601,7 @@ fn sidecar_copy(
     main_id: &str,
 ) -> (String, String, String) {
     let disambiguator = sidecar_disambiguator(main_group_name, main_id);
-    let name = format!("SigLang {} · {}", lang.name, disambiguator);
+    let name = format!("{} · {}", lang.name, disambiguator);
     let description = format!(
         "{} Language Thread bridged to the main group ({}).",
         lang.name, disambiguator
@@ -668,6 +699,8 @@ impl CommandHandler for TranslateMeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::translate_all::TranslateAllHandler;
+    use crate::group_preferences_store::GroupTranslateMode;
 
     fn group_msg(source: &str, text: &str) -> BotMessage {
         BotMessage {
@@ -690,9 +723,9 @@ mod tests {
     fn sidecar_copy_uses_main_group_name() {
         let it = resolve_language("it").unwrap();
         let (name, description, welcome) = sidecar_copy(it, Some("  Stacked  "), "main-id");
-        assert_eq!(name, "SigLang Italian · Stacked");
+        assert_eq!(name, "Italian · Stacked");
         assert!(description.contains("Stacked"));
-        assert!(welcome.starts_with("Welcome to SigLang Italian · Stacked"));
+        assert!(welcome.starts_with("Welcome to Italian · Stacked"));
         assert!(welcome.contains("!help"));
     }
 
@@ -700,7 +733,7 @@ mod tests {
     fn sidecar_copy_falls_back_to_hash_without_group_name() {
         let es = resolve_language("es").unwrap();
         let (name, _, _) = sidecar_copy(es, None, "main-internal-abc");
-        assert!(name.starts_with("SigLang Spanish · "));
+        assert!(name.starts_with("Spanish · "));
         assert!(!name.contains("None"));
         let suffix = name.rsplit('·').next().unwrap().trim();
         assert_eq!(suffix.len(), 4);
@@ -1090,6 +1123,122 @@ mod tests {
         assert!(!handler.matches(&bot_msg));
         assert!(handler.execute(&bot_msg).await.unwrap().is_empty());
         assert!(send_recipients(&signal).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn lookup_reconciles_wrong_internal_id() {
+        let signal = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar("main-internal", "es", "group.es".into(), "group.es".into());
+
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+
+        let mut side = group_msg("+15550002222", "Hola desde el thread");
+        side.group_id = Some("es-internal".into());
+        assert!(handler.execute(&side).await.unwrap().is_empty());
+        assert_eq!(
+            store.lookup_sidecar("es-internal"),
+            Some(("main-internal".into(), "es".into()))
+        );
+        assert!(send_recipients(&signal)
+            .await
+            .contains(&"group.main".to_string()));
+
+        assert!(handler.execute(&side).await.unwrap().is_empty());
+        let recipients = send_recipients(&signal).await;
+        assert!(
+            recipients
+                .iter()
+                .filter(|r| r.as_str() == "group.main")
+                .count()
+                >= 2
+        );
+    }
+
+    #[tokio::test]
+    async fn relay_after_enable_threads_switch() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        mount_near(&near).await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "group.es"})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Main",
+                    "id": "group.main",
+                    "internal_id": "main-internal"
+                },
+                {
+                    "name": "Language Thread Spanish",
+                    "id": "group.es",
+                    "internal_id": "es-internal"
+                }
+            ])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set_member_translate("main-internal", "+15550002222", mode);
+
+        let translate_me = handler_pair(store.clone(), signal.uri(), near.uri());
+        let translate_all = TranslateAllHandler::new(
+            store.clone(),
+            Arc::new(
+                NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+        );
+
+        let mut blocked = group_msg("+15550002222", "!translate-me-thread es");
+        blocked.group_id = Some("main-internal".into());
+        assert!(translate_me.execute(&blocked).await.unwrap().is_empty());
+        assert!(store.get_pending_switch("main-internal").is_some());
+
+        let mut enable = group_msg("+15550002222", "!enable-threads");
+        enable.group_id = Some("main-internal".into());
+        assert!(translate_all.execute(&enable).await.unwrap().is_empty());
+        assert!(store.threads_active("main-internal"));
+        assert_eq!(
+            store.lookup_sidecar("es-internal"),
+            Some(("main-internal".into(), "es".into()))
+        );
+
+        let main_msg = group_msg(
+            "+15550002222",
+            "Hello everyone in the main mutual aid group",
+        );
+        assert!(translate_me.execute(&main_msg).await.unwrap().is_empty());
+        assert!(send_recipients(&signal)
+            .await
+            .contains(&"group.es".to_string()));
+
+        let mut side = group_msg("+15550002222", "Hola desde el thread español");
+        side.group_id = Some("es-internal".into());
+        assert!(translate_me.execute(&side).await.unwrap().is_empty());
+        assert!(send_recipients(&signal)
+            .await
+            .contains(&"group.main".to_string()));
     }
 
     #[tokio::test]

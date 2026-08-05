@@ -478,6 +478,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_create_group_retries_list_for_internal_id() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "id": "group.sidecarEs=="
+            })))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!([]))
+                    .append_header("x-attempt", "1"),
+            )
+            .up_to_n_times(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15555555555"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "name": "Language Thread Spanish",
+                    "id": "group.sidecarEs==",
+                    "internal_id": "es-internal-id"
+                }])),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let group = client
+            .create_group(
+                "+15555555555",
+                "Language Thread Spanish",
+                vec!["+14155551234".into()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(group.internal_id, "es-internal-id");
+    }
+
+    #[tokio::test]
     async fn test_add_and_remove_members() {
         let mock_server = MockServer::start().await;
 

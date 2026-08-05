@@ -276,8 +276,7 @@ impl TranslateAllHandler {
             Err(msg) => return Ok(msg.into()),
         };
 
-        let had = self.store.disable_in_chat(group_id);
-        let pending = self.store.take_pending_switch(group_id);
+        let (had, pending) = self.store.disable_in_chat_and_take_pending(group_id);
 
         let mut parts = Vec::new();
         if had {
@@ -436,6 +435,8 @@ impl CommandHandler for TranslateAllHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::translate_lang::resolve_language;
+    use crate::group_preferences_store::{GroupTranslateMode, PendingSwitch};
     use signal_client::BotMessage;
 
     fn test_handler() -> TranslateAllHandler {
@@ -675,6 +676,91 @@ mod tests {
             store.get_pending_switch("group.main"),
             Some(PendingSwitch::EnableAllOn { .. })
         ));
+    }
+
+    #[tokio::test]
+    async fn enable_threads_applies_pending_subscribe() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "group.es"})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Language Thread Spanish",
+                    "id": "group.es",
+                    "internal_id": "es-internal"
+                }
+            ])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set_member_translate("group.main", "+15550002222", mode);
+        store.set_pending_switch(
+            "group.main",
+            PendingSwitch::EnableThreads {
+                user: "+15550002222".into(),
+                lang: "es".into(),
+                address: Some("+15550002222".into()),
+            },
+        );
+
+        let handler = TranslateAllHandler::new(
+            store.clone(),
+            Arc::new(
+                NearAiClient::new(
+                    "key",
+                    "http://127.0.0.1:9",
+                    "model",
+                    std::time::Duration::from_secs(2),
+                )
+                .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+        );
+
+        let msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!enable-threads".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: true,
+            group_id: Some("group.main".into()),
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(store.threads_active("group.main"));
+        assert_eq!(
+            store.member_lang("group.main", "+15550002222"),
+            Some("es".into())
+        );
+        assert_eq!(
+            store.lookup_sidecar("es-internal"),
+            Some(("group.main".into(), "es".into()))
+        );
+        assert!(!store.in_chat_auto_active("group.main"));
     }
 
     #[tokio::test]

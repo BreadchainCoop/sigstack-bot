@@ -1,6 +1,6 @@
 //! Privacy / TEE explanation menu.
 
-use crate::commands::menu_locale::privacy_menu;
+use crate::commands::menu_locale::{is_exact_command, privacy_command, privacy_menu};
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
@@ -19,8 +19,8 @@ impl PrivacyHandler {
 
 #[async_trait]
 impl CommandHandler for PrivacyHandler {
-    fn trigger(&self) -> Option<&str> {
-        Some("!privacy")
+    fn matches(&self, message: &BotMessage) -> bool {
+        is_exact_command(&message.text, privacy_command(self.role))
     }
 
     fn label(&self) -> &'static str {
@@ -55,9 +55,24 @@ mod tests {
 
     #[tokio::test]
     async fn privacy_returns_role_menu() {
-        let handler = PrivacyHandler::new(BotRole::Translation);
-        let out = handler.execute(&dm("!privacy")).await.unwrap();
+        let translation = PrivacyHandler::new(BotRole::Translation);
+        assert!(translation.matches(&dm("!privacy-translation")));
+        assert!(!translation.matches(&dm("!privacy")));
+        assert!(!translation.matches(&dm("!privacy-transcription")));
+        let out = translation
+            .execute(&dm("!privacy-translation"))
+            .await
+            .unwrap();
         assert!(out.contains("Bread Bot translation"));
         assert!(out.contains("!verify"));
+
+        let transcription = PrivacyHandler::new(BotRole::Transcription);
+        assert!(transcription.matches(&dm("!privacy-transcription")));
+        assert!(!transcription.matches(&dm("!privacy-translation")));
+        let out = transcription
+            .execute(&dm("!privacy-transcription"))
+            .await
+            .unwrap();
+        assert!(out.contains("Bread Bot transcription"));
     }
 }

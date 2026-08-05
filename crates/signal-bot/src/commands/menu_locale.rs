@@ -13,11 +13,11 @@ pub fn help_menu(role: BotRole) -> &'static str {
     }
 }
 
-/// Same commands as [`help_menu`], with short explanations and blank-line breaks.
+/// Hub descriptive menu (translation bot only; transcription uses `!transcription`).
 pub fn info_menu(role: BotRole) -> &'static str {
     match role {
-        BotRole::Transcription => INFO_TRANSCRIPTION,
         BotRole::Translation => INFO_HUB,
+        BotRole::Transcription => unreachable!("transcription bot does not register !info"),
     }
 }
 
@@ -80,6 +80,14 @@ pub fn privacy_menu(role: BotRole) -> &'static str {
     }
 }
 
+/// Exact privacy menu trigger per bot role (avoids dual-bot `!privacy` collisions).
+pub fn privacy_command(role: BotRole) -> &'static str {
+    match role {
+        BotRole::Translation => "!privacy-translation",
+        BotRole::Transcription => "!privacy-transcription",
+    }
+}
+
 /// Exact command match (avoids `!translation` matching `!translation-on`).
 pub fn is_exact_command(text: &str, command: &str) -> bool {
     text.trim() == command
@@ -111,19 +119,20 @@ pub fn is_translation_in_chat_menu_command(text: &str) -> bool {
 
 const HELP_TRANSCRIPTION: &str = r#"Voice transcription
 
-Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
-
-!transcription
-  This menu
-!transcribe-on / !transcribe-off
-  Toggle auto transcription
+!transcribe-on
+  Turn auto transcription on
+!transcribe-off
+  Turn auto transcription off
 !transcribe
   Quote a voice note to transcribe
-!privacy
-  Privacy & TEE
+
+examples:
+   !transcribe (reply quoting a voice note)
+
+Voice notes become quote-reply transcripts (Whisper, inside this bot's TEE).
+
 !help-transcription
-!info
-!help"#;
+!privacy-transcription"#;
 
 const HELP_HUB: &str = r#"--Bread Bot--
 
@@ -139,7 +148,7 @@ GUIDES:
 
 OTHER:
 !info
-!privacy
+!privacy-translation
 !help"#;
 
 const HELP_THREAD: &str = r#"Language Thread
@@ -162,32 +171,7 @@ const INFO_HUB: &str = r#"--Bread Bot--
 !transcription
   Voice transcription — pair/open the transcription bot
 
-!privacy
-  Privacy & TEE — attestation via !verify
-
-!help-transcription
-  How voice transcription works
-
-!info
-  This menu (commands with descriptions)
-
-!help
-  Compact command list"#;
-
-const INFO_TRANSCRIPTION: &str = r#"Voice transcription
-
-Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
-
-!transcription
-  This product menu
-
-!transcribe-on / !transcribe-off
-  Toggle auto transcription
-
-!transcribe
-  Quote a voice note to transcribe it
-
-!privacy
+!privacy-translation
   Privacy & TEE — attestation via !verify
 
 !help-transcription
@@ -302,8 +286,9 @@ const HELP_TRANSCRIPTION_GUIDE: &str = r#"Voice transcription — how it works
 
 Use when people send voice notes and you want text in the same Signal chat.
 
+This bot runs Whisper in its own Phala CVM/TEE. The Bread Bot translation bot is a separate CVM — hub menus (!help, !info) and translation attestation live on that number. Transcription attestation is via !privacy-transcription / !verify on this bot.
+
 How it works:
-- A separate transcription bot runs Whisper inside a TEE (same CVM as that bot).
 - Auto mode (default on): inbound voice notes become quote-reply transcripts.
 - Manual: quote a voice note and send !transcribe
 - Toggle with !transcribe-on / !transcribe-off
@@ -311,12 +296,12 @@ How it works:
 Typical use:
 1. Add both bots to the group (translation can invite via !transcription if PEER_PHONE is set)
 2. Accept the invite on the transcription number
-3. Send a voice note — you get a 📝 Transcript: reply
-4. With the translation bot in the group, that transcript can also be auto-translated
+3. Send !transcription on the transcription bot for its command menu
+4. Send a voice note — you get a 📝 Transcript: reply
+5. With the translation bot in the group, that transcript can also be auto-translated
 
 Commands: !transcription
-Privacy / TEE: !privacy (!verify)
-!help"#;
+Privacy / TEE (this CVM): !privacy-transcription (!verify)"#;
 
 const TRANSLATION_SPLIT_REDIRECT: &str = r#"Translation has two menus:
 
@@ -388,7 +373,7 @@ mod tests {
         assert!(h.contains("!translation-threads"));
         assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
-        assert!(h.contains("!privacy"));
+        assert!(h.contains("!privacy-translation"));
         assert!(h.contains("!info"));
         assert!(!h.contains("Language Threads\n"));
         assert!(!h.contains("In-chat translation\n"));
@@ -403,7 +388,7 @@ mod tests {
         assert!(h.contains("!translation-threads\n  "));
         assert!(h.contains("!translation-in-chat\n  "));
         assert!(h.contains("!transcription\n  "));
-        assert!(h.contains("!privacy\n  "));
+        assert!(h.contains("!privacy-translation\n  "));
         assert!(h.contains("!info\n  "));
         assert!(h.contains("!help\n  "));
         assert!(h.contains("\n\n!translation-in-chat"));
@@ -457,6 +442,9 @@ mod tests {
         assert!(transcription.contains("Voice transcription"));
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
+        assert!(transcription.contains("separate CVM"));
+        assert!(transcription.contains("!privacy-transcription"));
+        assert!(!transcription.trim_end().ends_with("!help"));
     }
 
     #[test]
@@ -515,10 +503,15 @@ mod tests {
     fn help_transcription_covers_voice() {
         let h = help_menu(BotRole::Transcription);
         assert!(h.contains("!transcribe"));
+        assert!(h.contains("!transcribe-on\n  "));
+        assert!(h.contains("!transcribe-off\n  "));
+        assert!(h.contains("!help-transcription"));
+        assert!(h.contains("!privacy-transcription"));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!translate-me-on"));
         assert!(!h.contains("!verify"));
-        assert!(h.contains("!transcribe-on / !transcribe-off\n  "));
+        assert!(!h.contains("!info"));
+        assert!(!h.trim_end().ends_with("!help"));
     }
 
     #[test]

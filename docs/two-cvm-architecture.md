@@ -4,6 +4,19 @@ Product suite split across two Phala CVMs (and two local Docker Compose projects
 
 See also: [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
 
+## Bot hierarchy
+
+In a shared Signal group, users interact with **one hub** and one optional **worker**:
+
+| Role | Phone | Duty |
+|------|-------|------|
+| **Translation bot** (Bread Bot hub) | Phone B | Product menus (`!help`, `!info`, `!translation-*`), Language Threads, in-chat translation, pairing/orchestration (`!transcription` invite), translation TEE (`!privacy-translation`, `!verify` on this CVM) |
+| **Transcription bot** (worker) | Phone A | Voice only: Whisper transcribe, `!transcription` product menu, `!transcribe*`, transcription TEE (`!privacy-transcription`, `!verify` on this CVM). **No hub commands** — does not answer `!help` / `!info` |
+
+Signal still delivers every message to both members; the transcription stack **ignores** hub text commands and non-voice work. The translation bot **leads** suite navigation and inviting the transcription peer; the transcription bot **executes** voice→text and its own product toggles.
+
+Hub vs worker command split: [voice-transcription.md](voice-transcription.md#commands-transcription-bot).
+
 ## Diagram
 
 ```mermaid
@@ -31,7 +44,7 @@ flowchart LR
 
 ## Rules
 
-- **Two phone numbers**, two bots in the group.
+- **Two phone numbers**, two bots in the group. **Translation = hub manager; transcription = specialized worker** (see [Bot hierarchy](#bot-hierarchy)).
 - Signal delivers **all** group messages to every member bot. The transcription bot **receives** text but **ignores** it; it only **acts** on voice. The translation bot receives voice too but only **acts** on text (including transcripts posted by the transcription bot).
 - No cross-CVM Docker/HTTP link. Whisper stays **inside** the transcription stack only.
 - Same `signal-bot` image; role selected by `BOT__ROLE=transcription|translation`.
@@ -73,7 +86,7 @@ Deploy each compose to its **own** CVM. Do not co-locate Whisper with the transl
 
 ### Interoperability
 
-- **Transcription** composes with either translation product in the same Signal group (pair via `!transcription` on the translation bot).
+- **Transcription** (worker CVM) composes with translation products in the same group. The **translation bot** invites and documents pairing via `!transcription`; the **transcription bot** only runs voice and its menu on `!transcription`.
 - **In-chat** translates inside one group thread (quote-reply).
 - **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-on`).
 

@@ -4,6 +4,8 @@ Status: **implemented** on its own Phala / Compose stack (`BOT__ROLE=transcripti
 
 Speech → text inside Signal via Whisper in the same CVM as the transcription bot. See [two-CVM architecture](two-cvm-architecture.md) and [issue #8](https://github.com/BreadchainCoop/sigstack-bot/issues/8) under umbrella [#10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
 
+This stack is a **specialized worker**, not the Bread Bot hub. Users discover products and pair bots through the **translation** bot (`!help`, `!transcription` invite). This bot only handles voice transcription, its product menu on `!transcription`, and transcription-side TEE attestation. Hierarchy: [two-cvm-architecture.md — Bot hierarchy](two-cvm-architecture.md#bot-hierarchy).
+
 ## Where it runs
 
 | Stack | Contents |
@@ -33,13 +35,17 @@ Without `PEER_PHONE`, translation still stubs `!transcription` as unavailable.
 
 ## Commands (transcription bot)
 
+Worker-only — no `!help` / `!info`. Use the translation bot for the Bread Bot hub.
+
 | Command | Effect |
 |---------|--------|
-| `!transcription` | Product menu |
+| `!transcription` | Product menu (compact command list for this bot) |
 | `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group) |
 | `!transcribe` | Quote a voice note to transcribe it |
-| `!help-transcription` | How voice transcription works (use case + flow) |
-| `!help` / `!privacy` | Help / privacy (`!verify` under `!privacy`) |
+| `!help-transcription` | How voice transcription works (separate CVM/TEE from translation) |
+| `!privacy-transcription` | Transcription TEE privacy and `!verify` attestation |
+
+For hub navigation (`!help`, `!info`, `!privacy-translation`) and the transcription **guide** (`!help-transcription`), use the **translation** bot. The transcription bot may also answer `!help-transcription` with the same guide text; pairing is always initiated via `!transcription` on the translation bot when `PEER_PHONE` is set.
 
 Auto path: inbound voice notes are transcribed when enabled (default on).
 

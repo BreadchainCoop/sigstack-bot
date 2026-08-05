@@ -1,6 +1,6 @@
 # In-chat (group) translation
 
-Status: **MVP implemented** on the translation bot.
+Status: **MVP implemented** on the translation bot (Bread Bot **hub** — manages menus, in-chat, and Language Threads; the transcription bot is a separate voice worker).
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 

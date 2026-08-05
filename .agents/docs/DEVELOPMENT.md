@@ -26,10 +26,12 @@ Signal E2E encryption terminates at Signal CLI. Each product CVM runs its own `s
 
 ### Two CVMs, Signal as bus
 
-- Transcription CVM: Whisper + transcription bot (phone A)
-- Translation CVM: translation bot (phone B) + NEAR AI for text
+- Transcription CVM: Whisper + transcription bot (phone A) — **worker** (voice only; no hub)
+- Translation CVM: translation bot (phone B) + NEAR AI — **hub** (menus, translation products, transcription pairing)
 - No cross-CVM Docker network. Integration = both bots in the same Signal group.
 - Whisper HTTP (`http://whisper-api:9000`) is **intra**-transcription-stack only.
+
+Full hierarchy table: [`docs/two-cvm-architecture.md`](../../docs/two-cvm-architecture.md#bot-hierarchy).
 
 ### What attestation proves / does not prove
 
@@ -45,8 +47,8 @@ Does **not** prove Signal CLI image integrity beyond pinning, or hide network me
 
 | Role | Handlers | Requires |
 |------|----------|----------|
-| `transcription` | Voice, `!transcribe*`, help, privacy, verify | Whisper sidecar |
-| `translation` | Language Threads (`!translate-me-thread`), in-chat (`!translate-all-on` / `!translate-me-on`), quote `!translate`, menus, verify | `NEAR_AI__API_KEY` |
+| `transcription` | Voice, `!transcribe*`, `!transcription` menu, `!help-transcription`, `!privacy-transcription`, `!verify` (worker — no hub `!help` / `!info`) | Whisper sidecar |
+| `translation` | Hub (`!help`, `!info`, product menus), Language Threads, in-chat, quote `!translate`, `!transcription` pairing, `!privacy-translation`, `!verify` | `NEAR_AI__API_KEY` |
 
 Fail-fast if role is missing/invalid or required deps are missing.
 

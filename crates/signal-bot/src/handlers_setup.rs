@@ -31,7 +31,7 @@ pub async fn build_handlers(
     }
 }
 
-/// Transcription CVM: voice / !transcribe* / help / privacy / verify.
+/// Transcription CVM: voice / !transcribe* / !transcription / help-transcription / privacy / verify.
 pub async fn build_transcription_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
@@ -73,18 +73,10 @@ pub async fn build_transcription_handlers(
     handlers.push(Box::new(TranscriptionMenuHandler::new()));
     handlers.push(Box::new(HelpTranscriptionHandler::new()));
     handlers.push(Box::new(VerifyHandler::new(dstack)));
-    handlers.push(Box::new(HelpHandler::new(
-        group_prefs.clone(),
-        BotRole::Transcription,
-    )));
-    handlers.push(Box::new(InfoHandler::new(
-        group_prefs,
-        BotRole::Transcription,
-    )));
     handlers.push(Box::new(PrivacyHandler::new(BotRole::Transcription)));
 
     info!(
-        "Transcription role: voice / !transcribe* / !transcription / help-transcription / help / info / privacy / verify"
+        "Transcription role: voice / !transcribe* / !transcription / help-transcription / privacy-transcription / verify (hub !help / !info / !privacy-translation on translation bot only)"
     );
     Ok(handlers)
 }
@@ -264,7 +256,7 @@ mod tests {
             .await
             .expect("transcription handlers");
 
-        assert_eq!(handlers.len(), 9);
+        assert_eq!(handlers.len(), 7);
         assert_eq!(
             labels(&handlers),
             vec![
@@ -274,8 +266,6 @@ mod tests {
                 "transcription_menu",
                 "help_transcription",
                 "command", // verify
-                "help",
-                "info",
                 "privacy",
             ]
         );

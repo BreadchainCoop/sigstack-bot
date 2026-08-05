@@ -2,7 +2,7 @@
 
 Status: **implemented and verified locally**; Phala TEE redeploy paused (image `daopunk/signal-bot-tee:latest` already pushed for `linux/amd64`).
 
-The sole **cross-group** bridging product on the translation bot: one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch).
+The sole **cross-group** bridging product on the translation bot (**hub**): one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch). Voice and hub menus live on other roles — see [two-cvm-architecture.md — Bot hierarchy](two-cvm-architecture.md#bot-hierarchy).
 
 ## Problem
 
@@ -38,7 +38,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
 | `!list-langs` | Any | Language codes |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
-| `!help` / `!privacy` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu; `!verify` lives under `!privacy`) |
+| `!help` / `!privacy-translation` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu; `!verify` lives under `!privacy-translation`) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 
@@ -46,7 +46,7 @@ Aliases: `!translation-me-thread es`.
 
 **Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path).
 
-**Not registered:** `!ask`, DM chat, voice/`!transcribe*` (transcription CVM), `!models`.
+**Not registered on translation (worker CVM handles these):** `!ask`, DM chat, voice/`!transcribe*`, `!transcription` product menu on the transcription bot, `!models`.
 
 Menus: `!help` → `!translation-threads` / `!translation-in-chat`. `!in-chat` opens the in-chat menu; `!translation` redirects to both.
 
@@ -135,7 +135,7 @@ Whisper / voice live on the **transcription** stack — see [voice-transcription
 
 ## Interoperability
 
-- **Transcription** (other CVM) composes with Language Threads or in-chat in the same Signal groups (pairing via `!transcription` on the translation bot).
+- **Transcription** (worker CVM) composes with Language Threads or in-chat in the same Signal groups. The **translation hub** invites via `!transcription`; the worker only transcribes voice.
 - **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars.
 
 ## Phala / TEE (paused)

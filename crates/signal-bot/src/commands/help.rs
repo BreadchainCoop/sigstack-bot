@@ -118,14 +118,17 @@ mod tests {
         assert!(!transcription.matches(&dm("!help-in-chat")));
         let t = transcription.execute(&dm("!help")).await.unwrap();
         assert!(t.contains("!transcribe"));
-        assert!(t.contains("!info"));
+        assert!(t.contains("!help-transcription"));
+        assert!(t.contains("!privacy-transcription"));
+        assert!(!t.contains("!info"));
+        assert!(!t.trim_end().ends_with("!help"));
         assert!(!t.contains("!translate-me-on"));
 
         let t = translation.execute(&dm("!help")).await.unwrap();
         assert!(t.contains("!translation-threads"));
         assert!(t.contains("!translation-in-chat"));
         assert!(t.contains("!transcription"));
-        assert!(t.contains("!privacy"));
+        assert!(t.contains("!privacy-translation"));
         assert!(t.contains("!info"));
         assert!(!t.contains("Voice notes in this chat"));
         assert!(!t.contains("!set-en"));
@@ -138,7 +141,7 @@ mod tests {
         assert!(handler.matches(&dm("!info")));
         let out = handler.execute(&dm("!info")).await.unwrap();
         assert!(out.contains("!translation-threads\n  "));
-        assert!(out.contains("\n\n!privacy"));
+        assert!(out.contains("\n\n!privacy-translation"));
         assert!(out.contains("Compact command list"));
         assert!(out.contains("attestation via !verify"));
         assert!(!out.contains("!verify <challenge>"));

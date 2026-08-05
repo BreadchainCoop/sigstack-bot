@@ -353,6 +353,8 @@ docker network ls | grep sigstack
 
 There is **no** Docker network between the two CVMs/stacks — Signal is the bus.
 
+**Hierarchy:** treat the **translation** bot as the Bread Bot hub (menus, translation products, `!transcription` pairing). The **transcription** bot is a voice worker only — see [two-cvm-architecture.md — Bot hierarchy](../two-cvm-architecture.md#bot-hierarchy).
+
 After both numbers are registered:
 
 1. Create (or open) a Signal group that includes both bot numbers and your personal account.

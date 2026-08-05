@@ -1,4 +1,4 @@
-# Sigstack Bot — Development Guide
+# Bread Bot — Development Guide
 
 ## Product direction
 
@@ -26,10 +26,12 @@ Signal E2E encryption terminates at Signal CLI. Each product CVM runs its own `s
 
 ### Two CVMs, Signal as bus
 
-- Transcription CVM: Whisper + transcription bot (phone A)
-- Translation CVM: translation bot (phone B) + NEAR AI for text
+- Transcription CVM: Whisper + transcription bot (phone A) — **worker** (voice only; no hub)
+- Translation CVM: translation bot (phone B) + NEAR AI — **hub** (menus, translation products, transcription pairing)
 - No cross-CVM Docker network. Integration = both bots in the same Signal group.
 - Whisper HTTP (`http://whisper-api:9000`) is **intra**-transcription-stack only.
+
+Full hierarchy table: [`docs/two-cvm-architecture.md`](../../docs/two-cvm-architecture.md#bot-hierarchy).
 
 ### What attestation proves / does not prove
 
@@ -45,8 +47,8 @@ Does **not** prove Signal CLI image integrity beyond pinning, or hide network me
 
 | Role | Handlers | Requires |
 |------|----------|----------|
-| `transcription` | Voice, `!transcribe*`, help, privacy, verify | Whisper sidecar |
-| `translation` | Language Threads, `!translate-on`, quote `!translate`, menus, verify | `NEAR_AI__API_KEY` |
+| `transcription` | Voice, `!transcribe*`, `!transcription` menu, `!help-transcription`, `!verify` (worker — no hub `!help` / `!info` / `!privacy`) | Whisper sidecar |
+| `translation` | Hub (`!help`, `!info`, `!privacy`, product menus), Language Threads, in-chat, quote `!translate`, `!transcription` pairing, `!verify` | `NEAR_AI__API_KEY` |
 
 Fail-fast if role is missing/invalid or required deps are missing.
 
@@ -114,7 +116,7 @@ Health (transcription): Whisper `GET /health` on `:9000`, Signal CLI `GET /v1/he
 | `BOT__ROLE` | `transcription` \| `translation` |
 | `SIGNAL__SERVICE_URL` | Default `http://signal-api:8080` |
 | `SIGNAL__PHONE_NUMBER` | Ops phone for this CVM |
-| `SIGNAL__PEER_PHONE` | Peer product bot (translation invites transcription) |
+| `SIGNAL__PEER_PHONE` | Peer product bot. Translation: invites transcription. Transcription: must be translation phone for auto-join |
 | `NEAR_AI__*` | Translation role |
 | `WHISPER__*` | Transcription role |
 | `TRANSLATE_ALL__*` | In-chat translation |

@@ -1,26 +1,29 @@
-//! Privacy / TEE explanation menu.
+//! Privacy / TEE explanation menu (translation hub only).
 
-use crate::commands::menu_locale::privacy_menu;
+use crate::commands::menu_locale::{is_exact_command, privacy_menu};
 use crate::commands::CommandHandler;
-use crate::config::BotRole;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use signal_client::BotMessage;
 
-pub struct PrivacyHandler {
-    role: BotRole,
-}
+pub struct PrivacyHandler;
 
 impl PrivacyHandler {
-    pub fn new(role: BotRole) -> Self {
-        Self { role }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for PrivacyHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[async_trait]
 impl CommandHandler for PrivacyHandler {
-    fn trigger(&self) -> Option<&str> {
-        Some("!privacy")
+    fn matches(&self, message: &BotMessage) -> bool {
+        is_exact_command(&message.text, "!privacy")
     }
 
     fn label(&self) -> &'static str {
@@ -28,7 +31,7 @@ impl CommandHandler for PrivacyHandler {
     }
 
     async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
-        Ok(privacy_menu(self.role).into())
+        Ok(privacy_menu().into())
     }
 }
 
@@ -54,10 +57,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn privacy_returns_role_menu() {
-        let handler = PrivacyHandler::new(BotRole::Translation);
+    async fn privacy_returns_unified_menu() {
+        let handler = PrivacyHandler::new();
+        assert!(handler.matches(&dm("!privacy")));
+        assert!(!handler.matches(&dm("!privacy-translation")));
+        assert!(!handler.matches(&dm("!privacy-transcription")));
         let out = handler.execute(&dm("!privacy")).await.unwrap();
-        assert!(out.contains("Sigstack translation"));
+        assert!(out.contains("two separate and isolated TEEs/CVMs"));
         assert!(out.contains("!verify"));
+        assert!(!out.contains("**"));
     }
 }

@@ -31,7 +31,7 @@ pub async fn build_handlers(
     }
 }
 
-/// Transcription CVM: voice / !transcribe* / help / privacy / verify.
+/// Transcription CVM: voice / !transcribe* / !transcription / help-transcription / verify.
 pub async fn build_transcription_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
@@ -71,14 +71,12 @@ pub async fn build_transcription_handlers(
         Arc::new(GroupTranscribePrefs(group_prefs.clone())),
     );
     handlers.push(Box::new(TranscriptionMenuHandler::new()));
-    handlers.push(Box::new(VerifyHandler::new(dstack)));
-    handlers.push(Box::new(HelpHandler::new(
-        group_prefs,
-        BotRole::Transcription,
-    )));
-    handlers.push(Box::new(PrivacyHandler::new(BotRole::Transcription)));
+    handlers.push(Box::new(HelpTranscriptionHandler::new()));
+    handlers.push(Box::new(VerifyHandler::new(dstack, BotRole::Transcription)));
 
-    info!("Transcription role: voice / !transcribe* / !transcription / help / privacy / verify");
+    info!(
+        "Transcription role: voice / !transcribe* / !transcription / help-transcription / verify (hub !help / !info / !privacy on translation bot only)"
+    );
     Ok(handlers)
 }
 
@@ -134,22 +132,33 @@ pub async fn build_translation_handlers(
         bot_identity,
     )));
     info!(
-        "Language Threads enabled: !translate-me-on / !translate-me-off (max {}/min)",
+        "Language Threads enabled: !translate-me-thread / !leave / !enable-in-chat (max {}/min)",
         config.translate_all.max_messages_per_minute
     );
 
     if config.translate_all.enabled {
-        handlers.push(Box::new(TranslateAllHandler::new(
+        handlers.push(Box::new(TranslateAllHandler::with_peer(
             group_prefs.clone(),
             near_ai.clone(),
             signal.clone(),
+            config.signal.peer_phone.clone(),
+            DEFAULT_TRANSCRIPT_PREFIX,
         )));
-        info!("In-chat translation enabled: !translate-on / !translate-off");
+        info!(
+            "In-chat translation enabled: !translate-all-on / !translate-me-on / !enable-threads"
+        );
     }
 
     handlers.push(Box::new(TranslationMenuHandler::new(
         config.translate_all.enabled,
     )));
+    handlers.push(Box::new(TranslationThreadsMenuHandler::new()));
+    handlers.push(Box::new(TranslationInChatMenuHandler::new(
+        config.translate_all.enabled,
+    )));
+    handlers.push(Box::new(HelpThreadsHandler::new()));
+    handlers.push(Box::new(HelpInChatHandler::new()));
+    handlers.push(Box::new(HelpTranscriptionHandler::new()));
     handlers.push(Box::new(TranscriptionPairingHandler::new(
         signal.clone(),
         config.signal.peer_phone.clone(),
@@ -168,12 +177,17 @@ pub async fn build_translation_handlers(
         group_prefs.clone(),
         signal.clone(),
     )));
-    handlers.push(Box::new(VerifyHandler::new(dstack)));
-    handlers.push(Box::new(HelpHandler::new(
+    handlers.push(Box::new(CommandsHandler::new(group_prefs.clone())));
+    handlers.push(Box::new(VerifyHandler::new(
+        dstack.clone(),
+        BotRole::Translation,
+    )));
+    handlers.push(Box::new(HelpHandler::new(BotRole::Translation)));
+    handlers.push(Box::new(InfoHandler::new(
         group_prefs,
         BotRole::Translation,
     )));
-    handlers.push(Box::new(PrivacyHandler::new(BotRole::Translation)));
+    handlers.push(Box::new(PrivacyHandler::new()));
 
     info!("Translation role: hub menus + in-chat + Language Threads");
     Ok(handlers)
@@ -244,7 +258,7 @@ mod tests {
             .await
             .expect("transcription handlers");
 
-        assert_eq!(handlers.len(), 7);
+        assert_eq!(handlers.len(), 6);
         assert_eq!(
             labels(&handlers),
             vec![
@@ -252,9 +266,8 @@ mod tests {
                 "manual_transcribe",
                 "transcribe",
                 "transcription_menu",
+                "help_transcription",
                 "command", // verify
-                "help",
-                "privacy",
             ]
         );
     }
@@ -284,11 +297,16 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 11);
+        assert_eq!(handlers.len(), 18);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"translate_all"));
         assert!(got.contains(&"translation_menu"));
+        assert!(got.contains(&"translation_threads_menu"));
+        assert!(got.contains(&"translation_in_chat_menu"));
+        assert!(got.contains(&"help_threads"));
+        assert!(got.contains(&"help_in_chat"));
+        assert!(got.contains(&"help_transcription"));
         assert!(got.contains(&"transcription_pairing"));
         assert!(got.contains(&"in_chat_menu"));
         assert!(!got.contains(&"translate_parallel"));
@@ -297,8 +315,10 @@ mod tests {
         assert!(got.contains(&"translate"));
         assert!(got.contains(&"translate_langs"));
         assert!(got.contains(&"rename"));
+        assert!(got.contains(&"commands"));
         assert!(!got.contains(&"set_language"));
         assert!(got.contains(&"help"));
+        assert!(got.contains(&"info"));
         assert!(got.contains(&"privacy"));
     }
 
@@ -328,10 +348,15 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 10);
+        assert_eq!(handlers.len(), 17);
         assert!(!labels(&handlers).contains(&"translate_all"));
         assert!(labels(&handlers).contains(&"translate_me"));
         assert!(labels(&handlers).contains(&"in_chat_menu"));
+        assert!(labels(&handlers).contains(&"translation_threads_menu"));
+        assert!(labels(&handlers).contains(&"help_threads"));
+        assert!(labels(&handlers).contains(&"help_in_chat"));
+        assert!(labels(&handlers).contains(&"help_transcription"));
+        assert!(labels(&handlers).contains(&"info"));
     }
 
     #[tokio::test]

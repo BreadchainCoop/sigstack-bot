@@ -87,7 +87,7 @@ impl CommandHandler for VoiceHandler {
         }
         self.transcribe_store
             .as_ref()
-            .is_none_or(|store| store.is_enabled(message.reply_target(), message.is_group))
+            .is_some_and(|store| store.is_enabled(message.reply_target(), message.is_group))
     }
 
     fn reply_with_quote(&self) -> bool {
@@ -166,6 +166,7 @@ impl CommandHandler for VoiceHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::transcribe_store::TranscribeStore;
 
     #[test]
     fn format_transcript_includes_prefix() {
@@ -259,10 +260,13 @@ mod tests {
         );
         let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
         let cache = VoiceAttachmentCache::with_default_capacity();
-        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000)
-            .with_voice_cache(cache.clone());
-
+        let store = Arc::new(TranscribeStore::new(None));
         let msg = dm_voice(Some(16));
+        store.set_enabled(msg.reply_target(), true, false);
+        let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000)
+            .with_voice_cache(cache.clone())
+            .with_transcribe_store(store);
+
         assert!(handler.matches(&msg));
         let out = handler.execute(&msg).await.unwrap();
         assert_eq!(out, "📝 Transcript:\nHola mundo");

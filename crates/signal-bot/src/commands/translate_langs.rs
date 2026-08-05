@@ -40,7 +40,7 @@ impl CommandHandler for TranslateLangsHandler {
 
     async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
         Ok(format!(
-            "**Supported languages** (use code with !translate-me-on):\n\n{}",
+            "**Supported languages** (use code with !translate-me-thread or !translate-me-on):\n\n{}",
             format_language_list(ALL_LANGUAGES)
         ))
     }
@@ -91,7 +91,8 @@ mod tests {
         };
         let out = h.execute(&msg).await.unwrap();
         assert!(out.contains("**Supported languages**"));
-        assert!(out.contains("!translate-me-on"));
+        assert!(out.contains("!translate-me-thread"));
+        assert!(out.contains("!translate-me-on") || out.contains("translate-me-thread"));
         assert!(out.contains("es"));
     }
 }

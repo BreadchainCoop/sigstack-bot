@@ -13,11 +13,12 @@ mod translate_me;
 mod translate_service;
 mod verify;
 
-pub use help::HelpHandler;
+pub use help::{CommandsHandler, HelpHandler, InfoHandler};
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
-    InChatMenuHandler, TranscriptionMenuHandler, TranscriptionPairingHandler,
-    TranslationMenuHandler,
+    HelpInChatHandler, HelpThreadsHandler, HelpTranscriptionHandler, InChatMenuHandler,
+    TranscriptionMenuHandler, TranscriptionPairingHandler, TranslationInChatMenuHandler,
+    TranslationMenuHandler, TranslationThreadsMenuHandler,
 };
 pub use rename::RenameHandler;
 pub use signal_bot_core::CommandHandler;
@@ -25,4 +26,5 @@ pub use translate::TranslateHandler;
 pub use translate_all::TranslateAllHandler;
 pub use translate_langs::TranslateLangsHandler;
 pub use translate_me::TranslateMeHandler;
+pub use translate_service::DEFAULT_TRANSCRIPT_PREFIX;
 pub use verify::VerifyHandler;

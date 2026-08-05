@@ -2,7 +2,7 @@
 
 Status: **implemented and verified locally**; Phala TEE redeploy paused (image `daopunk/signal-bot-tee:latest` already pushed for `linux/amd64`).
 
-The sole **cross-group** bridging product on the translation bot: one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch).
+The sole **cross-group** bridging product on the translation bot (**hub**): one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch). Voice and hub menus live on other roles — see [two-cvm-architecture.md — Bot hierarchy](two-cvm-architecture.md#bot-hierarchy).
 
 ## Problem
 
@@ -13,18 +13,18 @@ In multilingual mutual-aid groups, organizers often dual-post by hand. Monolingu
 | Room | Role |
 |------|------|
 | **Main group** | Multilingual hub; bot already a member |
-| **SigLang {Language} · {disambiguator}** | One Signal sidecar per subscribed language (e.g. `SigLang Spanish · Stacked`) |
+| **{Language} · {disambiguator}** | One Signal sidecar per subscribed language (e.g. `Spanish · Stacked`) |
 
-Users who want a monolingual lane run `!translate-me-on <lang>` in **main**. The bot creates or joins the sidecar and invites them. Messages fan out across main and all active threads.
+Users who want a monolingual lane run `!translate-me-thread <lang>` in **main**. The bot creates or joins the sidecar and invites them. Messages fan out across main and all active threads.
 
 ```text
 Main (multilingual hub)
-  ├── SigLang Spanish · Stacked  ← monolingual ES users
-  ├── SigLang English · Stacked  ← monolingual EN users
+  ├── Spanish · Stacked  ← monolingual ES users
+  ├── English · Stacked  ← monolingual EN users
   └── … (any !list-langs code)
 ```
 
-Default title is English `SigLang {Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!help`.
+Default title is English `{Language} · {disambiguator}` (main group name when available, else a short hash of the main group id). Members can rename a sidecar with `!rename` from that thread’s `!commands` menu.
 
 N=1 (one sidecar) uses the same relay rules as N=3 — add another language later with no reconfiguration.
 
@@ -32,22 +32,24 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 
 | Command | Where | Effect |
 |---------|--------|--------|
-| `!translate-me-on <lang>` | Main only | Create/join sidecar; invite user |
-| `!translate-me-off` | Main or sidecar | Leave sidecar |
+| `!translate-me-thread <lang>` | Main only | Create/join sidecar; invite user |
+| `!leave` | Sidecar only | Leave this Language Thread |
+| `!enable-in-chat` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
+| `!commands` | Sidecar only | Compact Language Thread command list |
 | `!list-langs` | Any | Language codes |
-| `!help` / `!privacy` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu) |
-| `!verify` | As before | TEE attestation |
+| `!help-threads` | Any | How Language Threads works (use case + flow) |
+| `!help` / `!privacy` | Any | Hub menus (`!help` is always the Bread Bot hub; `!privacy` and `!verify` on translation bot) |
 
-Menus are English-only for now (multi-language UI deferred).
+Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 
-Aliases: `!translate-me on es`, `!translation-me-on es`, etc.
+Aliases: `!translation-me-thread es`.
 
-**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-on` / quote `!translate`) — same-group only, not a sidecar bridge. Commands appear on the flat `!translation` menu (secondary to Language Threads).
+**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path).
 
-**Not registered:** `!ask`, DM chat, voice/`!transcribe*` (transcription CVM).
+**Not registered on translation (worker CVM handles these):** `!ask`, DM chat, voice/`!transcribe*`, `!transcription` product menu on the transcription bot, `!models`.
 
-Menus: `!help` → `!translation` (Language Threads commands first; in-chat below). `!in-chat` redirects to the same menu.
+Menus: `!help` → `!translation-threads` / `!translation-in-chat`. `!in-chat` opens the in-chat menu; `!translation` redirects to both.
 
 ## Relay rules (fan-out + BotIdentity)
 
@@ -64,17 +66,18 @@ Same-language relay skips NEAR. Cross-language calls `near_ai_translate` (config
 
 Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out).
 
-**Ops note:** Legacy Parallel Translation Signal groups (if any) are unmanaged after that product’s retirement. Leave them manually and use `!translate-me-on <lang>` instead.
+**Ops note:** Legacy Parallel Translation Signal groups (if any) are unmanaged after that product’s retirement. Leave them manually and use `!translate-me-thread <lang>` instead.
 
 ## Subscribe / unsubscribe flow
 
-1. User in main: `!translate-me-on es`
+1. User in main: `!translate-me-thread es`
 2. Resolve language; need invite address (`sourceNumber` preferred, else usable `source`)
-3. **First subscriber for that lang:** build English `SigLang …` title/description/welcome → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
+3. **First subscriber for that lang:** build English ` …` title/description/welcome → `POST /v1/groups/{bot}` → persist send id + internal id → welcome in sidecar → confirm in main
 4. **Later subscribers:** `add_members` on existing sidecar
 5. Language switch: remove from old sidecar, add/create new
-6. `!translate-me-off`: remove from Signal group + store
-7. Sidecar `!help` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
+6. `!leave` (from sidecar): remove from Signal group + store
+7. `!enable-in-chat` (from main): notify each Language Thread, remove members from sidecars (best-effort), clear bridge; sidecar Signal groups may remain unmanaged
+8. Sidecar `!commands` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
 
 If Signal omits phone number, bot asks the user to DM once, then retry.
 
@@ -123,16 +126,17 @@ Only **signal-bot** on the translation stack needs rebuild for Language Threads 
 
 ### Smoke checklist
 
-1. Main group → `!translate-me-on es` → accept invite → message in main appears in Language Thread (translated or relayed).
-2. Add a second lang (`!translate-me-on en` or `fr`) from main — no reconfiguration; same bridge.
+1. Main group → `!translate-me-thread es` → accept invite → message in main appears in Language Thread (translated or relayed).
+2. Add a second lang (`!translate-me-thread en` or `fr`) from main — no reconfiguration; same bridge.
 3. Message in a sidecar → appears raw on main + translated in other sidecars; **no echo** back into the source sidecar.
 4. Bot-attributed posts are not re-relayed (no ping-pong).
+5. From sidecar → `!leave` unsubscribes; from main → `!enable-in-chat` tears down the product.
 
 Whisper / voice live on the **transcription** stack — see [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
 
 ## Interoperability
 
-- **Transcription** (other CVM) composes with Language Threads or in-chat in the same Signal groups (pairing via `!transcription` on the translation bot).
+- **Transcription** (worker CVM) composes with Language Threads or in-chat in the same Signal groups. The **translation hub** invites via `!transcription`; the worker only transcribes voice.
 - **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars.
 
 ## Phala / TEE (paused)

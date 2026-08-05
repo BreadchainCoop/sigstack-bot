@@ -99,39 +99,73 @@ impl LanguageBridge {
     }
 }
 
+/// Pending product switch after a refused enable (Threads ↔ in-chat mutual exclusion).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PendingSwitch {
+    /// Apply `!translate-me-thread <lang>` after `!enable-threads`.
+    EnableThreads {
+        user: String,
+        lang: String,
+        #[serde(default)]
+        address: Option<String>,
+    },
+    /// Apply `!translate-all-on` after `!enable-in-chat`.
+    EnableAllOn {
+        user: String,
+        lang_a: String,
+        lang_b: String,
+    },
+    /// Apply `!translate-me-on` after `!enable-in-chat`.
+    EnableMeOn {
+        user: String,
+        lang_a: String,
+        lang_b: String,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GroupPreference {
-    #[serde(default = "default_true")]
+    #[serde(default = "default_false")]
     transcribe_enabled: bool,
     #[serde(default)]
     translate: Option<GroupTranslateMode>,
+    /// Per-user in-chat auto-translate pairs (`message.source` → pair).
+    #[serde(default)]
+    translate_members: HashMap<String, GroupTranslateMode>,
     #[serde(default)]
     menu_language: MenuLanguage,
     /// Mutual-aid language sidecar bridge (replaces legacy per-user translate map).
     #[serde(default)]
     language_bridge: Option<LanguageBridge>,
+    #[serde(default)]
+    pending_switch: Option<PendingSwitch>,
 }
 
 impl Default for GroupPreference {
     fn default() -> Self {
         Self {
-            transcribe_enabled: true,
+            transcribe_enabled: false,
             translate: None,
+            translate_members: HashMap::new(),
             menu_language: MenuLanguage::En,
             language_bridge: None,
+            pending_switch: None,
         }
     }
 }
 
 impl GroupPreference {
     fn is_default(&self) -> bool {
-        self.transcribe_enabled
+        !self.transcribe_enabled
             && self.translate.is_none()
+            && self.translate_members.is_empty()
             && self.menu_language == MenuLanguage::En
             && self
                 .language_bridge
                 .as_ref()
                 .is_none_or(LanguageBridge::is_empty)
+            && self.pending_switch.is_none()
     }
 }
 
@@ -237,7 +271,7 @@ impl GroupPreferencesStore {
             .read()
             .unwrap()
             .get(group_id)
-            .is_none_or(|p| p.transcribe_enabled)
+            .is_some_and(|p| p.transcribe_enabled)
     }
 
     pub fn set_transcribe_enabled(self: &Arc<Self>, group_id: &str, enabled: bool) {
@@ -275,7 +309,7 @@ impl GroupPreferencesStore {
         self.schedule_persist();
     }
 
-    // --- Auto-translate (per group) ---
+    // --- Auto-translate (per group + per-user) ---
 
     pub fn is_active(&self, group_id: &str) -> bool {
         self.groups
@@ -286,12 +320,36 @@ impl GroupPreferencesStore {
             .is_some()
     }
 
+    /// Group-wide or any personal in-chat auto-translate is configured.
+    pub fn in_chat_auto_active(&self, group_id: &str) -> bool {
+        self.groups
+            .read()
+            .unwrap()
+            .get(group_id)
+            .is_some_and(|p| p.translate.is_some() || !p.translate_members.is_empty())
+    }
+
+    /// Language Threads bridge exists for this main group.
+    pub fn threads_active(&self, main_group_id: &str) -> bool {
+        self.get_bridge(main_group_id).is_some()
+    }
+
     pub fn get(&self, group_id: &str) -> Option<GroupTranslateMode> {
         self.groups
             .read()
             .unwrap()
             .get(group_id)
             .and_then(|p| p.translate.clone())
+    }
+
+    /// Resolve intercept pair: personal for `user` wins over group-wide.
+    pub fn resolve_in_chat_mode(&self, group_id: &str, user: &str) -> Option<GroupTranslateMode> {
+        let groups = self.groups.read().unwrap();
+        let pref = groups.get(group_id)?;
+        pref.translate_members
+            .get(user)
+            .cloned()
+            .or_else(|| pref.translate.clone())
     }
 
     pub fn set(self: &Arc<Self>, group_id: String, mode: GroupTranslateMode) {
@@ -320,6 +378,116 @@ impl GroupPreferencesStore {
         had_translate
     }
 
+    pub fn get_member_translate(&self, group_id: &str, user: &str) -> Option<GroupTranslateMode> {
+        self.groups
+            .read()
+            .unwrap()
+            .get(group_id)
+            .and_then(|p| p.translate_members.get(user).cloned())
+    }
+
+    pub fn set_member_translate(
+        self: &Arc<Self>,
+        group_id: &str,
+        user: &str,
+        mode: GroupTranslateMode,
+    ) {
+        {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.entry(group_id.to_string()).or_default();
+            entry.translate_members.insert(user.to_string(), mode);
+        }
+        self.schedule_persist();
+    }
+
+    pub fn clear_member_translate(self: &Arc<Self>, group_id: &str, user: &str) -> bool {
+        let cleared = {
+            let mut groups = self.groups.write().unwrap();
+            let Some(entry) = groups.get_mut(group_id) else {
+                return false;
+            };
+            let had = entry.translate_members.remove(user).is_some();
+            if entry.is_default() {
+                groups.remove(group_id);
+            }
+            had
+        };
+        self.schedule_persist();
+        cleared
+    }
+
+    /// Clear group-wide and all personal in-chat auto; returns whether anything was cleared.
+    pub fn disable_in_chat(self: &Arc<Self>, group_id: &str) -> bool {
+        let cleared = {
+            let mut groups = self.groups.write().unwrap();
+            let Some(entry) = groups.get_mut(group_id) else {
+                return false;
+            };
+            let had = entry.translate.is_some() || !entry.translate_members.is_empty();
+            entry.translate = None;
+            entry.translate_members.clear();
+            if entry.is_default() {
+                groups.remove(group_id);
+            }
+            had
+        };
+        self.schedule_persist();
+        cleared
+    }
+
+    /// Clear in-chat auto and consume pending switch without removing the group row.
+    pub fn disable_in_chat_and_take_pending(
+        self: &Arc<Self>,
+        group_id: &str,
+    ) -> (bool, Option<PendingSwitch>) {
+        let result = {
+            let mut groups = self.groups.write().unwrap();
+            match groups.get_mut(group_id) {
+                None => (false, None),
+                Some(entry) => {
+                    let had = entry.translate.is_some() || !entry.translate_members.is_empty();
+                    entry.translate = None;
+                    entry.translate_members.clear();
+                    let pending = entry.pending_switch.take();
+                    (had, pending)
+                }
+            }
+        };
+        self.schedule_persist();
+        result
+    }
+
+    pub fn set_pending_switch(self: &Arc<Self>, group_id: &str, pending: PendingSwitch) {
+        {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.entry(group_id.to_string()).or_default();
+            entry.pending_switch = Some(pending);
+        }
+        self.schedule_persist();
+    }
+
+    pub fn take_pending_switch(self: &Arc<Self>, group_id: &str) -> Option<PendingSwitch> {
+        let pending = {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.get_mut(group_id)?;
+            let pending = entry.pending_switch.take();
+            if entry.is_default() {
+                groups.remove(group_id);
+            }
+            pending
+        };
+        self.schedule_persist();
+        pending
+    }
+
+    pub fn get_pending_switch(&self, group_id: &str) -> Option<PendingSwitch> {
+        self.groups
+            .read()
+            .unwrap()
+            .get(group_id)
+            .and_then(|p| p.pending_switch.clone())
+    }
+
     // --- Language sidecar bridge (keyed by main group internal_id) ---
 
     pub fn get_bridge(&self, main_group_id: &str) -> Option<LanguageBridge> {
@@ -331,6 +499,22 @@ impl GroupPreferencesStore {
             .filter(|b| !b.is_empty())
     }
 
+    /// Remove and return the language bridge (for `!enable-in-chat` teardown).
+    pub fn take_bridge(self: &Arc<Self>, main_group_id: &str) -> Option<LanguageBridge> {
+        let bridge = {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.get_mut(main_group_id)?;
+            let bridge = entry.language_bridge.take().filter(|b| !b.is_empty());
+            if entry.is_default() {
+                groups.remove(main_group_id);
+            }
+            bridge
+        };
+        self.rebuild_sidecar_index();
+        self.schedule_persist();
+        bridge
+    }
+
     /// Resolve sidecar internal_id → (main_id, lang).
     pub fn lookup_sidecar(&self, sidecar_internal_id: &str) -> Option<(String, String)> {
         self.sidecar_index
@@ -338,6 +522,81 @@ impl GroupPreferencesStore {
             .unwrap()
             .get(sidecar_internal_id)
             .cloned()
+    }
+
+    /// Match inbound sidecar send id (`group.…`) when index only has internal ids.
+    pub fn lookup_sidecar_by_send_id(&self, send_id: &str) -> Option<(String, String)> {
+        for (main_id, pref) in self.groups.read().unwrap().iter() {
+            if let Some(bridge) = &pref.language_bridge {
+                for (lang, sid) in &bridge.sidecars {
+                    if sid == send_id {
+                        return Some((main_id.clone(), lang.clone()));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn update_sidecar_internal(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        lang: &str,
+        internal_id: &str,
+    ) {
+        let updated = {
+            let mut groups = self.groups.write().unwrap();
+            match groups.get_mut(main_group_id) {
+                None => false,
+                Some(entry) => match entry.language_bridge.as_mut() {
+                    None => false,
+                    Some(bridge) => {
+                        if bridge.sidecar_internal.get(lang).map(String::as_str)
+                            == Some(internal_id)
+                        {
+                            return;
+                        }
+                        bridge
+                            .sidecar_internal
+                            .insert(lang.to_string(), internal_id.to_string());
+                        true
+                    }
+                },
+            }
+        };
+        if updated {
+            self.rebuild_sidecar_index();
+            self.schedule_persist();
+        }
+    }
+
+    /// Fix stored internal id using `list_groups` output; returns route when matched.
+    pub fn reconcile_sidecar_internal_from_groups(
+        self: &Arc<Self>,
+        inbound_internal_id: &str,
+        groups: &[signal_client::Group],
+    ) -> Option<(String, String)> {
+        let send_id = groups
+            .iter()
+            .find(|g| g.internal_id == inbound_internal_id)
+            .map(|g| g.id.as_str())?;
+        let mut matched: Option<(String, String)> = None;
+        for (main_id, pref) in self.groups.read().unwrap().iter() {
+            if let Some(bridge) = &pref.language_bridge {
+                for (lang, sid) in &bridge.sidecars {
+                    if sid == send_id {
+                        matched = Some((main_id.clone(), lang.clone()));
+                        break;
+                    }
+                }
+            }
+            if matched.is_some() {
+                break;
+            }
+        }
+        let (main_id, lang) = matched?;
+        self.update_sidecar_internal(&main_id, &lang, inbound_internal_id);
+        Some((main_id, lang))
     }
 
     pub fn member_lang(&self, main_group_id: &str, user: &str) -> Option<String> {
@@ -606,8 +865,8 @@ impl GroupPreferencesStore {
     }
 }
 
-fn default_true() -> bool {
-    true
+fn default_false() -> bool {
+    false
 }
 
 #[cfg(test)]
@@ -636,19 +895,125 @@ mod tests {
     }
 
     #[test]
-    fn transcribe_defaults_on() {
+    fn personal_and_group_in_chat_helpers() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        assert!(store.is_transcribe_enabled("group.new"));
+        let gid = "group.main";
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+
+        assert!(!store.in_chat_auto_active(gid));
+        store.set_member_translate(gid, "+alice", mode.clone());
+        assert!(store.in_chat_auto_active(gid));
+        assert!(!store.is_active(gid));
+        assert_eq!(
+            store.resolve_in_chat_mode(gid, "+alice").unwrap().lang_a,
+            "es"
+        );
+        assert!(store.resolve_in_chat_mode(gid, "+bob").is_none());
+
+        store.set(gid.into(), mode.clone());
+        assert_eq!(
+            store.resolve_in_chat_mode(gid, "+bob").unwrap().lang_a,
+            "es"
+        );
+        // Personal still wins for alice if we set a different pair.
+        let fr_en = GroupTranslateMode::new(
+            resolve_language("fr").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set_member_translate(gid, "+alice", fr_en);
+        assert_eq!(
+            store.resolve_in_chat_mode(gid, "+alice").unwrap().lang_a,
+            "fr"
+        );
+
+        assert!(store.disable_in_chat(gid));
+        assert!(!store.in_chat_auto_active(gid));
+    }
+
+    #[test]
+    fn disable_in_chat_and_take_pending_keeps_group_row() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let gid = "main";
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set_member_translate(gid, "+alice", mode);
+        store.set_pending_switch(
+            gid,
+            PendingSwitch::EnableThreads {
+                user: "+alice".into(),
+                lang: "es".into(),
+                address: Some("+alice".into()),
+            },
+        );
+        let (had, pending) = store.disable_in_chat_and_take_pending(gid);
+        assert!(had);
+        assert!(matches!(pending, Some(PendingSwitch::EnableThreads { .. })));
+        assert!(!store.in_chat_auto_active(gid));
+        assert!(store.groups.read().unwrap().contains_key(gid));
+    }
+
+    #[test]
+    fn reconcile_sidecar_internal_from_groups() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar("main-internal", "es", "group.es".into(), "group.es".into());
+        let groups = vec![signal_client::Group {
+            name: "es".into(),
+            id: "group.es".into(),
+            internal_id: "es-internal".into(),
+            members: vec![],
+            pending_invites: vec![],
+            pending_requests: vec![],
+            admins: vec![],
+        }];
+        let route = store.reconcile_sidecar_internal_from_groups("es-internal", &groups);
+        assert_eq!(route, Some(("main-internal".into(), "es".into())));
+        assert_eq!(
+            store.lookup_sidecar("es-internal"),
+            Some(("main-internal".into(), "es".into()))
+        );
+    }
+
+    #[test]
+    fn pending_switch_and_take_bridge() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let gid = "main";
+        store.set_sidecar(gid, "es", "group.es".into(), "es-internal".into());
+        assert!(store.threads_active(gid));
+        store.set_pending_switch(
+            gid,
+            PendingSwitch::EnableAllOn {
+                user: "+1".into(),
+                lang_a: "es".into(),
+                lang_b: "en".into(),
+            },
+        );
+        let bridge = store.take_bridge(gid).unwrap();
+        assert!(bridge.sidecars.contains_key("es"));
+        assert!(!store.threads_active(gid));
+        let pending = store.take_pending_switch(gid).unwrap();
+        assert!(matches!(pending, PendingSwitch::EnableAllOn { .. }));
+        assert!(store.take_pending_switch(gid).is_none());
+    }
+
+    #[test]
+    fn transcribe_defaults_off() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        assert!(!store.is_transcribe_enabled("group.new"));
     }
 
     #[test]
     fn transcribe_toggle_persists_in_memory() {
         let store = GroupPreferencesStore::new_in_memory(0);
         let gid = "group.abc";
-        store.set_transcribe_enabled(gid, false);
-        assert!(!store.is_transcribe_enabled(gid));
         store.set_transcribe_enabled(gid, true);
         assert!(store.is_transcribe_enabled(gid));
+        store.set_transcribe_enabled(gid, false);
+        assert!(!store.is_transcribe_enabled(gid));
     }
 
     #[test]
@@ -680,14 +1045,14 @@ mod tests {
             resolve_language("en").unwrap(),
         );
         store.set("group.one".into(), mode);
-        store.set_transcribe_enabled("group.two", false);
+        store.set_transcribe_enabled("group.two", true);
         store.set_menu_language("group.three", MenuLanguage::Es);
         store.persist_now().await.unwrap();
 
         let store2 =
             GroupPreferencesStore::with_test_key(DstackClient::new("/x"), path, key, 30).await;
         assert!(store2.is_active("group.one"));
-        assert!(!store2.is_transcribe_enabled("group.two"));
+        assert!(store2.is_transcribe_enabled("group.two"));
         assert_eq!(store2.get_menu_language("group.three"), MenuLanguage::Es);
     }
 

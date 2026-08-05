@@ -3,6 +3,7 @@ pub mod commands;
 pub mod config;
 pub mod dispatch;
 pub mod error;
+pub mod group_invite_acceptor;
 pub mod group_preferences_store;
 pub mod handlers_setup;
 pub mod menu_language;

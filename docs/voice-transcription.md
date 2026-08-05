@@ -4,6 +4,8 @@ Status: **implemented** on its own Phala / Compose stack (`BOT__ROLE=transcripti
 
 Speech → text inside Signal via Whisper in the same CVM as the transcription bot. See [two-CVM architecture](two-cvm-architecture.md) and [issue #8](https://github.com/BreadchainCoop/sigstack-bot/issues/8) under umbrella [#10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
 
+This stack is a **specialized worker**, not the Bread Bot hub. Users discover products and pair bots through the **translation** bot (`!help`, `!transcription` invite). This bot only handles voice transcription, its product menu on `!transcription`, and transcription-side TEE attestation. Hierarchy: [two-cvm-architecture.md — Bot hierarchy](two-cvm-architecture.md#bot-hierarchy).
+
 ## Where it runs
 
 | Stack | Contents |
@@ -24,23 +26,33 @@ Both bots are members of the same Signal group (two phone numbers).
 ## Pairing (translation leads)
 
 1. Set `PEER_PHONE` in translation env to the transcription bot’s E.164 (`SIGNAL__PEER_PHONE`).
-2. Translation bot must be a **group admin**.
-3. In the group: `!transcription` → translation bot invites the peer if missing.
-4. Accept the Signal invite on the transcription number.
-5. Send `!transcription` again → the transcription bot answers with its menu (translation stays silent when paired).
+2. Set `PEER_PHONE` in transcription env to the **translation** bot’s E.164 (required for auto-join).
+3. Translation bot must be a **group admin**.
+4. In the group: `!transcription` → translation bot invites the peer if missing and posts the Voice Transcription menu.
+5. Transcription bot auto-accepts the invite when the translation peer is already in the group (polls pending invites).
 
-Without `PEER_PHONE`, translation still stubs `!transcription` as unavailable.
+Without `PEER_PHONE` on translation, `!transcription` stubs as unavailable. Without `PEER_PHONE` on transcription, auto-join is disabled.
+
+**Peer trust:** each bot must trust the other’s Signal identity (`TRUSTED_*`, not `UNTRUSTED`). On startup the bot calls `PUT /v1/identities/{self}/trust/{PEER_PHONE}` with `trust_all_known_keys`. If the peer is `UNTRUSTED`, the translation bot will not decrypt transcription posts (so in-chat auto never sees transcripts), and group sends can fail with `Untrusted Identity`.
+
+When the peer is already in the group (or invite pending), the hub stays silent on `!transcription` so the transcription bot can answer with its menu.
+
+**Group invites:** the translation hub auto-accepts any pending group invite. The transcription worker only auto-accepts invites for groups where the translation peer is already a member/admin.
 
 ## Commands (transcription bot)
 
+Worker-only — no `!help` / `!info`. Use the translation bot for the Bread Bot hub.
+
 | Command | Effect |
 |---------|--------|
-| `!transcription` | Product menu |
-| `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group) |
-| `!transcribe` | Quote a voice note to transcribe it |
-| `!help` / `!privacy` / `!verify` | Help, privacy, TEE attestation |
+| `!transcription` | Product menu (compact command list for this bot) |
+| `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group; **default off**) |
+| `!transcribe` | Quote a voice note to transcribe it (refuses with a notice if auto is already on) |
+| `!help-transcription` | How voice transcription works (separate CVM/TEE from translation) |
 
-Auto path: inbound voice notes are transcribed when enabled (default on).
+Hub `!privacy` (translation bot only) covers both CVMs. In a paired group, `!verify <text>` returns two quotes (`Translation: …` / `Transcription: …`).
+
+Auto path: inbound voice notes are transcribed only after `!transcribe-on` (default off).
 
 ## Ops
 
@@ -48,7 +60,7 @@ Auto path: inbound voice notes are transcribed when enabled (default on).
 
 ```bash
 cp docker/transcription.env.example docker/transcription.env
-# Set SIGNAL_PHONE (phone A); optional PEER_PHONE = translation phone
+# Set SIGNAL_PHONE (phone A); PEER_PHONE = translation phone (required for auto-join)
 
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 ```

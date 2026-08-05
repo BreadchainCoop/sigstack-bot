@@ -1,5 +1,6 @@
 //! `!transcribe` — quote-reply manual voice transcription via Whisper.
 
+use crate::transcribe_store::TranscribeStore;
 use crate::voice::VoiceHandler;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
@@ -15,7 +16,10 @@ pub struct ManualTranscribeHandler {
     reply_prefix: String,
     max_attachment_bytes: usize,
     voice_cache: Arc<VoiceAttachmentCache>,
+    transcribe_store: Arc<TranscribeStore>,
 }
+
+const AUTO_ALREADY_ON_MSG: &str = "Automatic transcription is already on. Voice notes are transcribed as they arrive — no need to !transcribe.";
 
 impl ManualTranscribeHandler {
     pub fn new(
@@ -24,6 +28,7 @@ impl ManualTranscribeHandler {
         reply_prefix: impl Into<String>,
         max_attachment_bytes: usize,
         voice_cache: Arc<VoiceAttachmentCache>,
+        transcribe_store: Arc<TranscribeStore>,
     ) -> Self {
         Self {
             whisper,
@@ -31,6 +36,7 @@ impl ManualTranscribeHandler {
             reply_prefix: reply_prefix.into(),
             max_attachment_bytes,
             voice_cache,
+            transcribe_store,
         }
     }
 
@@ -130,6 +136,15 @@ impl CommandHandler for ManualTranscribeHandler {
 
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
+        if self
+            .transcribe_store
+            .is_enabled(message.reply_target(), message.is_group)
+        {
+            self.send_reply(message, message.quote.as_ref(), AUTO_ALREADY_ON_MSG)
+                .await?;
+            return Ok(String::new());
+        }
+
         let quote = match &message.quote {
             Some(q) => q,
             None => {
@@ -235,6 +250,10 @@ mod tests {
         assert_eq!(resolved.id, "cached-voice-id");
     }
 
+    fn empty_store() -> Arc<TranscribeStore> {
+        Arc::new(TranscribeStore::new(None))
+    }
+
     #[test]
     fn matches_bare_command_only() {
         let handler = ManualTranscribeHandler::new(
@@ -245,6 +264,7 @@ mod tests {
             "📝 Transcript:",
             5_000_000,
             VoiceAttachmentCache::new(10),
+            empty_store(),
         );
         let mut msg = BotMessage {
             source: "+1".into(),
@@ -290,6 +310,7 @@ mod tests {
             "📝 Transcript:",
             5_000_000,
             VoiceAttachmentCache::new(10),
+            empty_store(),
         );
 
         let msg = BotMessage {
@@ -347,6 +368,59 @@ mod tests {
             "📝 Transcript:",
             5_000_000,
             VoiceAttachmentCache::new(10),
+            empty_store(),
+        );
+
+        let msg = BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!transcribe".into(),
+            timestamp: 2,
+            message_timestamp: 2,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: Some(QuotedMessage {
+                id: 100,
+                author_number: Some("+15550003333".into()),
+                text: None,
+                audio_attachment: Some(sample_audio()),
+            }),
+        };
+        let out = handler.execute(&msg).await.unwrap();
+        assert!(out.is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_when_auto_on_replies_without_whisper() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&signal_mock)
+            .await;
+
+        let store = empty_store();
+        store.set_enabled("+15550002222", true, false);
+
+        let handler = ManualTranscribeHandler::new(
+            Arc::new(
+                WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
+            "📝 Transcript:",
+            5_000_000,
+            VoiceAttachmentCache::new(10),
+            store,
         );
 
         let msg = BotMessage {

@@ -101,20 +101,31 @@ impl SignalClient {
         }
 
         let created: CreateGroupResponse = response.json().await?;
-        // Refresh list to obtain internal_id for inbound matching.
-        let groups = self.list_groups(phone_number).await?;
-        let group = groups
-            .into_iter()
-            .find(|g| g.id == created.id)
-            .unwrap_or(Group {
-                name: name.to_string(),
-                id: created.id.clone(),
-                internal_id: created.id.clone(),
-                members: vec![],
-                pending_invites: vec![],
-                pending_requests: vec![],
-                admins: vec![],
-            });
+        const LIST_RETRIES: u32 = 5;
+        const LIST_BACKOFF_MS: u64 = 200;
+
+        let mut group = Group {
+            name: name.to_string(),
+            id: created.id.clone(),
+            internal_id: created.id.clone(),
+            members: vec![],
+            pending_invites: vec![],
+            pending_requests: vec![],
+            admins: vec![],
+        };
+
+        for attempt in 0..LIST_RETRIES {
+            let groups = self.list_groups(phone_number).await?;
+            if let Some(found) = groups.into_iter().find(|g| g.id == created.id) {
+                group = found;
+                if group.internal_id != group.id {
+                    break;
+                }
+            }
+            if attempt + 1 < LIST_RETRIES {
+                tokio::time::sleep(Duration::from_millis(LIST_BACKOFF_MS)).await;
+            }
+        }
 
         self.cache_group_mapping(phone_number, &group).await;
         debug!(
@@ -175,6 +186,33 @@ impl SignalClient {
             let msg = response.text().await.unwrap_or_default();
             return Err(SignalError::Api(msg));
         }
+        Ok(())
+    }
+
+    /// Accept a pending group invite (`POST /v1/groups/{number}/{groupid}/join`).
+    #[instrument(skip(self))]
+    pub async fn join_group(
+        &self,
+        phone_number: &str,
+        group_send_id: &str,
+    ) -> Result<(), SignalError> {
+        let encoded_number = encode(phone_number);
+        let encoded_group = encode(group_send_id);
+        let response = self
+            .client
+            .post(format!(
+                "{}/v1/groups/{}/{}/join",
+                self.base_url, encoded_number, encoded_group
+            ))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+
+        debug!("Joined group {} as {}", group_send_id, phone_number);
         Ok(())
     }
 
@@ -325,6 +363,62 @@ impl SignalClient {
         let messages: Vec<IncomingMessage> = response.json().await?;
         debug!("Received {} messages for {}", messages.len(), phone_number);
         Ok(messages)
+    }
+
+    /// Trust a peer identity (`PUT /v1/identities/{number}/trust/{numberToTrust}`).
+    ///
+    /// Uses `trust_all_known_keys` so paired product bots can exchange group messages after
+    /// re-registration (safety-number change). Intended for the configured `PEER_PHONE` only.
+    #[instrument(skip(self))]
+    pub async fn trust_identity(
+        &self,
+        phone_number: &str,
+        number_to_trust: &str,
+    ) -> Result<(), SignalError> {
+        let encoded_number = encode(phone_number);
+        let encoded_peer = encode(number_to_trust);
+        let response = self
+            .client
+            .put(format!(
+                "{}/v1/identities/{}/trust/{}",
+                self.base_url, encoded_number, encoded_peer
+            ))
+            .json(&serde_json::json!({ "trust_all_known_keys": true }))
+            .send()
+            .await?;
+
+        let status = response.status();
+        if status.is_success() || status.as_u16() == 204 {
+            return Ok(());
+        }
+        let msg = response.text().await.unwrap_or_default();
+        Err(SignalError::Api(format!(
+            "Trust identity failed ({status}): {msg}"
+        )))
+    }
+
+    /// List known identities for an account (`GET /v1/identities/{number}`).
+    #[instrument(skip(self))]
+    pub async fn list_identities(
+        &self,
+        phone_number: &str,
+    ) -> Result<Vec<IdentityEntry>, SignalError> {
+        let encoded_number = encode(phone_number);
+        let response = self
+            .client
+            .get(format!(
+                "{}/v1/identities/{}",
+                self.base_url, encoded_number
+            ))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(msg));
+        }
+
+        Ok(response.json().await?)
     }
 
     /// Download attachment bytes by ID (auto-downloaded during receive).

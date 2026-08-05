@@ -1,4 +1,4 @@
-//! Shared translation helpers for `!translate` and `!translate-on`.
+//! Shared translation helpers for `!translate` and in-chat auto-translate.
 
 use crate::commands::translate_lang::Language;
 use crate::group_preferences_store::GroupTranslateMode;
@@ -7,6 +7,26 @@ use tracing::debug;
 use whatlang::{Detector, Lang};
 
 const MIN_DETECT_CONFIDENCE: f64 = 0.2;
+
+/// Default Whisper transcript reply prefix (matches `WHISPER__REPLY_PREFIX` default).
+pub const DEFAULT_TRANSCRIPT_PREFIX: &str = "📝 Transcript:";
+
+/// Strip a Whisper transcript label so detect/translate see spoken words only.
+///
+/// If `prefix` is empty, falls back to [`DEFAULT_TRANSCRIPT_PREFIX`].
+pub fn strip_transcript_prefix(text: &str, prefix: &str) -> String {
+    let raw = text.trim();
+    let prefix = if prefix.is_empty() {
+        DEFAULT_TRANSCRIPT_PREFIX
+    } else {
+        prefix
+    };
+    if let Some(rest) = raw.strip_prefix(prefix) {
+        rest.trim_start_matches('\n').trim().to_string()
+    } else {
+        raw.to_string()
+    }
+}
 
 /// Map a detected code into one side of the active pair when possible.
 fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Option<String> {
@@ -122,7 +142,7 @@ fn text_language_candidates(mode: &GroupTranslateMode, text: &str) -> Vec<String
     codes
 }
 
-/// Detect ISO 639-1 language code from text (for `!translate-on` text messages).
+/// Detect ISO 639-1 language code from text (for in-chat auto-translate text messages).
 pub fn detect_text_language(text: &str) -> Option<String> {
     let info = whatlang::detect(text)?;
     if info.confidence() < MIN_DETECT_CONFIDENCE {
@@ -244,6 +264,35 @@ pub fn resolve_translate_all_text_pair(
 mod tests {
     use super::*;
     use crate::commands::translate_lang::resolve_language;
+
+    #[test]
+    fn strip_transcript_prefix_removes_label() {
+        let body = strip_transcript_prefix(
+            "📝 Transcript:\nHola, ¿cómo estás?",
+            DEFAULT_TRANSCRIPT_PREFIX,
+        );
+        assert_eq!(body, "Hola, ¿cómo estás?");
+        assert_eq!(
+            strip_transcript_prefix("hola como estas?", DEFAULT_TRANSCRIPT_PREFIX),
+            "hola como estas?"
+        );
+    }
+
+    #[test]
+    fn resolve_text_pair_on_stripped_transcript() {
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        let spoken = strip_transcript_prefix(
+            "📝 Transcript:\nHola, ¿cómo estás ustedes? Hoy es miércoles y tengo tres bananas.",
+            DEFAULT_TRANSCRIPT_PREFIX,
+        );
+        let pair = resolve_translate_all_text_pair(&mode, &spoken)
+            .expect("spoken Spanish body should match es in es/en pair");
+        assert_eq!(pair.0.code, "es");
+        assert_eq!(pair.1.code, "en");
+    }
 
     #[test]
     fn detects_english_text() {

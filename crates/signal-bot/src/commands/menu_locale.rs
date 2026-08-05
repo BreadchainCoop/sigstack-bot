@@ -13,35 +13,72 @@ pub fn help_menu(role: BotRole) -> &'static str {
     }
 }
 
+/// Hub descriptive menu (translation bot only; transcription uses `!transcription`).
+pub fn info_menu(role: BotRole) -> &'static str {
+    match role {
+        BotRole::Translation => INFO_HUB,
+        BotRole::Transcription => unreachable!("transcription bot does not register !info"),
+    }
+}
+
 pub fn thread_help_menu() -> &'static str {
     HELP_THREAD
 }
 
-pub fn translation_products_menu(translate_all_enabled: bool) -> &'static str {
+pub fn thread_info_menu() -> &'static str {
+    INFO_THREAD
+}
+
+pub fn translation_threads_menu() -> &'static str {
+    TRANSLATION_THREADS_MENU
+}
+
+pub fn translation_in_chat_menu(translate_all_enabled: bool) -> &'static str {
     if translate_all_enabled {
-        TRANSLATION_MENU
+        TRANSLATION_IN_CHAT_MENU
     } else {
-        TRANSLATION_MENU_AUTO_DISABLED
+        TRANSLATION_IN_CHAT_MENU_AUTO_DISABLED
     }
+}
+
+/// How Language Threads works (use case + flow).
+pub fn help_threads_guide() -> &'static str {
+    HELP_THREADS_GUIDE
+}
+
+/// How in-chat translation works (use case + flow).
+pub fn help_in_chat_guide() -> &'static str {
+    HELP_IN_CHAT_GUIDE
+}
+
+/// How voice transcription works (use case + flow).
+pub fn help_transcription_guide() -> &'static str {
+    HELP_TRANSCRIPTION_GUIDE
+}
+
+/// Legacy `!translation` redirect naming the two product menus.
+pub fn translation_split_redirect() -> &'static str {
+    TRANSLATION_SPLIT_REDIRECT
 }
 
 pub fn transcription_unavailable() -> &'static str {
     TRANSCRIPTION_UNAVAILABLE
 }
 
-pub fn transcription_invited() -> &'static str {
-    TRANSCRIPTION_INVITED
+pub fn transcription_invited() -> String {
+    format!(
+        "Invited the transcription bot to this group.\n\n\
+         {}",
+        help_menu(BotRole::Transcription)
+    )
 }
 
 pub fn transcription_group_only() -> &'static str {
     TRANSCRIPTION_GROUP_ONLY
 }
 
-pub fn privacy_menu(role: BotRole) -> &'static str {
-    match role {
-        BotRole::Transcription => PRIVACY_TRANSCRIPTION,
-        BotRole::Translation => PRIVACY_TRANSLATION,
-    }
+pub fn privacy_menu() -> &'static str {
+    PRIVACY_MENU
 }
 
 /// Exact command match (avoids `!translation` matching `!translation-on`).
@@ -49,148 +86,250 @@ pub fn is_exact_command(text: &str, command: &str) -> bool {
     text.trim() == command
 }
 
-const HELP_TRANSCRIPTION: &str = r#"Voice transcription
+pub fn is_exact_command_any(text: &str, commands: &[&str]) -> bool {
+    let t = text.trim();
+    commands.contains(&t)
+}
 
-Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
+const TRANSLATION_THREADS_MENU_COMMANDS: &[&str] = &[
+    "!translation-threads",
+    "!translate-threads",
+    "!translate-thread",
+    "!translation-thread",
+];
 
-!transcription
-  This menu
-!transcribe-on / !transcribe-off
-  Toggle auto transcription
+const TRANSLATION_IN_CHAT_MENU_COMMANDS: &[&str] = &["!translation-in-chat", "!translate-in-chat"];
+
+/// Product hub menu for Language Threads (canonical + common typos).
+pub fn is_translation_threads_menu_command(text: &str) -> bool {
+    is_exact_command_any(text, TRANSLATION_THREADS_MENU_COMMANDS)
+}
+
+/// Product hub menu for in-chat translation (canonical + common typos).
+pub fn is_translation_in_chat_menu_command(text: &str) -> bool {
+    is_exact_command_any(text, TRANSLATION_IN_CHAT_MENU_COMMANDS)
+}
+
+const HELP_TRANSCRIPTION: &str = r#"Voice Transcription
+
+AUTO:
+!transcribe-on
+!transcribe-off
+
+PER MSG QUOTE REPLY:
 !transcribe
-  Quote a voice note to transcribe
-!privacy
-  Privacy & TEE
-!help
-  Show this menu
-!verify <challenge>
-  TEE attestation"#;
 
-const HELP_HUB: &str = r#"Sigstack
+!help-transcription"#;
 
-!translation
-  Translation
+const HELP_HUB: &str = r#"--Bread Bot--
+
+MENUS:
+!translation-threads
+!translation-in-chat
 !transcription
-  Voice transcription
+
+GUIDES:
+!help-threads
+!help-in-chat
+!help-transcription
+
+OTHER:
+!info
 !privacy
-  Privacy & TEE
-!help
-  Show this menu"#;
+!help"#;
 
 const HELP_THREAD: &str = r#"Language Thread
 
 !rename <name>
   Change this group's name
-!translate-me-off
+!leave
   Leave this Language Thread
+!info
+!commands"#;
+
+const INFO_HUB: &str = r#"--Bread Bot--
+
+!translation-threads
+  Language Threads — multilingual main chat + language sidecars
+
+!translation-in-chat
+  In-chat translation — auto or quote-translate in this group
+
+!transcription
+  Voice transcription — pair/open the transcription bot
+
+!privacy
+  Privacy, TEE, and !verify attestation
+
+!help-transcription
+  How voice transcription works
+
+!info
+  This menu (commands with descriptions)
+
 !help
-  Show this menu"#;
+  Compact command list"#;
 
-const TRANSLATION_MENU: &str = r#"Translation
+const INFO_THREAD: &str = r#"Language Thread
 
-Language Threads (recommended)
-Multilingual main + language sidecars.
+!rename <name>
+  Change this Language Thread's group name
 
-!translate-me-on <lang>
-  Join/create a Language Thread (from main)
-!translate-me-off
-  Leave your Language Thread
+!leave
+  Leave this Language Thread
+
+!info
+  This menu (commands with descriptions)
+
+!commands
+  Compact command list"#;
+
+const TRANSLATION_THREADS_MENU: &str = r#"Join/Create Language Thread
+
 !list-langs
-  Language codes
+!translate-me-thread <lang>
+!help-threads
 
-In-chat (same group only)
-Stay in this thread; auto or quote one message.
+example:
+   !translate-me-thread es
 
-!translate-on <lang1> <lang2>
-  e.g. !translate-on es en
-!translate-off
-  Stop auto-translate
+Unlimited threads are supported. Main chat stays multilingual and threads relay messages between them. Once you join a thread, just read/write in from that thread.
+
+!enable-in-chat (disable threads)
+!help"#;
+
+const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat Translation
+
+!list-langs
+!translate-all-on <lang1> <lang2>
+!translate-all-off
+!translate-me-on <lang1> <lang2>
+!translate-me-off
+!translate <lang> (as reply)
+!help-in-chat
+
+examples:
+   !translate-all-on fr zh
+   !translate-me-on ru ar
+   !translate es
+
+!enable-threads (disable in-chat)
+!help"#;
+
+const TRANSLATION_IN_CHAT_MENU_AUTO_DISABLED: &str = r#"In-chat translation
+
+Auto-translate is disabled on this bot (!translate-all-on).
+
 !translate <lang>
   Reply to a message
 
-!verify <challenge>
-  TEE attestation
-!help
-  Main menu"#;
+!help-in-chat
+!help"#;
 
-const TRANSLATION_MENU_AUTO_DISABLED: &str = r#"Translation
+const HELP_THREADS_GUIDE: &str = r#"Language Threads — how it works
 
-Language Threads (recommended)
-Multilingual main + language sidecars.
+Use when people need monolingual lanes, but organizers still want one shared main chat.
 
-!translate-me-on <lang>
-  Join/create a Language Thread (from main)
-!translate-me-off
-  Leave your Language Thread
-!list-langs
-  Language codes
+How it works:
+- Main group stays multilingual (everyone can post in any language).
+- Each language gets a sidecar Signal group ("Language Thread").
+- Messages bridge: main ↔ threads (relay same language, translate otherwise).
 
-In-chat (same group only)
-Auto-translate is disabled on this bot (!translate-on).
+Typical use:
+1. In main, send !list-langs then !translate-me-thread es
+2. Accept the sidecar invite
+3. Read/write in that thread; the bot bridges with main and other threads
+4. !leave from a thread to leave it
+5. From main, !enable-in-chat tears down threads if you want in-chat auto instead
 
-!translate <lang>
-  Reply to a message
+Language Threads and in-chat auto cannot run at the same time.
 
-!verify <challenge>
-  TEE attestation
-!help
-  Main menu"#;
+Commands: !translation-threads
+!help"#;
+
+const HELP_IN_CHAT_GUIDE: &str = r#"In-chat translation — how it works
+
+Use when everyone stays in one Signal group and wants bilingual (or quote) translation there.
+
+How it works:
+- No sidecar groups — replies stay in this chat as quote-replies.
+- Group-wide: !translate-all-on es en auto-translates messages between that pair.
+- Personal: !translate-me-on es en auto-translates only your messages.
+- One-off: reply to a message with !translate <lang>
+
+Typical use:
+1. Pick two languages (!list-langs)
+2. !translate-all-on es en (or !translate-me-on for just you)
+3. Chat normally; the bot quote-replies translations
+4. !translate-all-off / !translate-me-off to stop
+5. From this group, !enable-threads clears in-chat auto if you want Language Threads instead
+
+In-chat auto and Language Threads cannot run at the same time.
+
+Commands: !translation-in-chat
+!help"#;
+
+const HELP_TRANSCRIPTION_GUIDE: &str = r#"Voice transcription — how it works
+
+Use when people send voice notes and you want text in the same Signal chat.
+
+This bot runs Whisper in its own Phala CVM/TEE. The Bread Bot translation bot is a separate CVM — use !privacy on the translation bot for suite privacy and !verify behavior.
+
+How it works:
+- Auto mode (default off): send !transcribe-on so inbound voice notes become quote-reply transcripts.
+- Manual: quote a voice note and send !transcribe
+- Toggle with !transcribe-on / !transcribe-off
+
+Typical use:
+1. Add the translation bot to the group (it auto-accepts invites), or invite via Signal
+2. !transcription — hub invites the transcription bot; that bot auto-joins when PEER_PHONE is the translation number
+3. Send a voice note and quote-reply !transcribe, or !transcribe-on for auto
+4. With the translation bot in the group, transcripts can also be auto-translated
+
+Commands: !transcription
+Privacy / TEE: !privacy on the translation bot"#;
+
+const TRANSLATION_SPLIT_REDIRECT: &str = r#"Translation has two menus:
+
+!translation-threads
+!translation-in-chat
+
+!help"#;
 
 const TRANSCRIPTION_UNAVAILABLE: &str = r#"Voice transcription is currently unavailable.
 
 The transcription bot is not paired with this group yet. Meanwhile, try translation:
 
-!translation
-  Translation
+!translation-threads
+!translation-in-chat
 
-!help
-  Main menu"#;
-
-const TRANSCRIPTION_INVITED: &str = r#"Invited the transcription bot to this group.
-
-Accept the Signal invite on that number, then send !transcription again (the transcription bot will answer with its menu).
-
-!help
-  Main menu"#;
+!help-transcription
+!help"#;
 
 const TRANSCRIPTION_GROUP_ONLY: &str = r#"Voice transcription pairing works in a Signal group.
 
 Add both bots to a group, then send !transcription there.
 
-!help
-  Main menu"#;
+!help"#;
 
-const PRIVACY_TRANSCRIPTION: &str = r#"**Sigstack transcription** (Private & Verifiable)
+const PRIVACY_MENU: &str = r#"Privacy & TEE
 
-**TEE Commands:**
 !verify <challenge>
-  Get TEE attestation with your challenge
 
-**Privacy:**
-Voice notes are decrypted by Signal CLI inside this TEE and transcribed with Whisper in the same CVM. Text transcripts are posted back to Signal.
+example:
+   !verify "write something unique here"
 
-Neither the bot operator nor the host can read decrypted audio or text in TEE memory.
+Bread Bot runs in two separate and isolated TEEs/CVMs: 
+- translation bot 
+- transcription bot
 
-Pair with the translation bot in the same group if you also want translation."#;
+Translation: Signal text is processed in the translation TEE and translated via NEAR AI private inference.
 
-const PRIVACY_TRANSLATION: &str = r#"**Sigstack translation** (Private & Verifiable)
+Transcription: Voice notes are processed in the transcription TEE and transcribed with Whisper in that CVM.
 
-**TEE Commands:**
-!verify <challenge>
-  Get TEE attestation with your challenge
+Attestation: In a group with both bots, !verify <your text> produces two replies — one TDX quote per CVM. Each quote binds your text as Translation: … or Transcription: … so you can tell which bot attested which string. Message one bot directly for a single quote.
 
-**Verification:**
-`!verify my-random-text` to get cryptographic proof this bot runs in a TEE. Your challenge is embedded in the TDX quote.
-
-**Privacy:**
-Messages are end-to-end encrypted via Signal, processed in a verified TEE (Intel TDX), and translated via NEAR AI Cloud private inference (NVIDIA GPU TEE).
-
-Voice transcription is a separate bot/CVM. This bot only acts on text (including transcripts posted by the transcription bot).
-
-Neither the bot operator nor NEAR AI can read your messages in plaintext outside the TEEs.
-
-!help
-  Main menu"#;
+!help"#;
 
 #[cfg(test)]
 mod tests {
@@ -199,63 +338,93 @@ mod tests {
     #[test]
     fn help_translation_is_hub() {
         let h = help_menu(BotRole::Translation);
-        assert!(h.contains("!translation"));
+        assert!(h.contains("!translation-threads"));
+        assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
         assert!(h.contains("!privacy"));
-        assert!(!h.contains("!translate-me-on"));
-        assert!(!h.contains("!transcribe-on"));
-        assert!(
-            h.contains("!translation\n  Translation"),
-            "hub commands should use stacked layout"
-        );
-        assert!(!h.contains("!set-en"));
-        assert!(!h.contains("!set-es"));
-        assert!(h.contains("!help\n  Show this menu"));
-        assert!(!h.contains("!translation —"));
-        assert!(!h.contains("!help —"));
+        assert!(h.contains("!info"));
+        assert!(!h.contains("Language Threads\n"));
+        assert!(!h.contains("In-chat translation\n"));
+        assert!(!h.contains("  "));
+        assert!(!h.contains("!ask"));
+        assert!(!h.contains("!models"));
     }
 
     #[test]
-    fn thread_help_covers_rename() {
+    fn info_hub_has_breaks_and_descriptions() {
+        let h = info_menu(BotRole::Translation);
+        assert!(h.contains("!translation-threads\n  "));
+        assert!(h.contains("!translation-in-chat\n  "));
+        assert!(h.contains("!transcription\n  "));
+        assert!(h.contains("!privacy\n  "));
+        assert!(h.contains("!info\n  "));
+        assert!(h.contains("!help\n  "));
+        assert!(h.contains("\n\n!translation-in-chat"));
+        assert!(h.contains("Privacy, TEE, and !verify attestation"));
+        assert!(!h.contains("!verify <challenge>"));
+    }
+
+    #[test]
+    fn thread_menu_has_leave_not_subscribe() {
         let h = thread_help_menu();
-        assert!(h.contains("!rename <name>"));
-        assert!(h.contains("!translate-me-off"));
-        assert!(h.contains("!help\n  Show this menu"));
-        assert!(!h.contains("!set-en"));
+        assert!(h.contains("!leave"));
+        assert!(h.contains("!rename"));
+        assert!(h.contains("!commands"));
+        assert!(!h.contains("!translate-me-thread"));
         assert!(!h.contains("!translate-me-on"));
+        // Hub !help must not appear as the thread menu trigger.
+        assert!(!h.trim_end().ends_with("!help"));
     }
 
     #[test]
-    fn translation_menu_leads_with_language_threads() {
-        let h = translation_products_menu(true);
-        assert!(h.contains("Language Threads (recommended)"));
-        assert!(h.contains("!translate-me-on"));
-        assert!(h.contains("!translate-me-off"));
-        assert!(h.contains("!translate-on"));
+    fn threads_menu_lists_thread_commands() {
+        let h = translation_threads_menu();
+        assert!(h.contains("!translate-me-thread <lang>"));
+        assert!(h.contains("!enable-in-chat"));
+        assert!(h.contains("!help-threads"));
+        assert!(h.contains("!list-langs"));
+        assert!(!h.contains("!leave"));
+        assert!(!h.contains("!translate-all-on"));
+    }
+
+    #[test]
+    fn in_chat_menu_lists_auto_commands() {
+        let h = translation_in_chat_menu(true);
+        assert!(h.contains("!translate-all-on <lang1> <lang2>"));
+        assert!(h.contains("!translate-me-on <lang1> <lang2>"));
+        assert!(h.contains("!enable-threads"));
+        assert!(h.contains("!help-in-chat"));
         assert!(h.contains("!translate <lang>"));
-        assert!(!h.contains("!parallel"));
-        assert!(!h.contains("!in-chat"));
-        let lt = h.find("Language Threads").expect("lt");
-        let in_chat = h.find("In-chat").expect("in-chat section");
-        assert!(
-            lt < in_chat,
-            "Language Threads should appear before In-chat"
-        );
-        assert!(
-            h.contains("!translate-me-on <lang>\n  "),
-            "translation menu should use stacked layout"
-        );
-        assert!(!h.contains("!translate-me-on <lang> —"));
+        assert!(!h.contains("!translate-me-thread"));
+        assert!(!h.contains("!models"));
     }
 
     #[test]
-    fn translation_menu_auto_disabled_hides_translate_on() {
-        let h = translation_products_menu(false);
-        assert!(h.contains("!translate-me-on"));
+    fn feature_guides_cover_use_cases() {
+        let threads = help_threads_guide();
+        assert!(threads.contains("Language Threads"));
+        assert!(threads.contains("!translate-me-thread"));
+        assert!(threads.contains("sidecar"));
+        let in_chat = help_in_chat_guide();
+        assert!(in_chat.contains("In-chat translation"));
+        assert!(in_chat.contains("!translate-all-on"));
+        assert!(in_chat.contains("quote"));
+        let transcription = help_transcription_guide();
+        assert!(transcription.contains("Voice transcription"));
+        assert!(transcription.contains("Whisper"));
+        assert!(transcription.contains("!transcribe"));
+        assert!(transcription.contains("default off"));
+        assert!(transcription.contains("separate CVM"));
+        assert!(transcription.contains("!privacy"));
+        assert!(!transcription.trim_end().ends_with("!help"));
+    }
+
+    #[test]
+    fn in_chat_menu_auto_disabled_hides_on_commands() {
+        let h = translation_in_chat_menu(false);
         assert!(h.contains("Auto-translate is disabled"));
-        assert!(!h.contains("!translate-on <lang1>"));
+        assert!(!h.contains("!translate-all-on <lang1>"));
         assert!(h.contains("!translate <lang>"));
-        assert!(h.contains("!translate <lang>\n  "));
     }
 
     #[test]
@@ -264,36 +433,84 @@ mod tests {
         assert!(!is_exact_command("!translation-on es en", "!translation"));
         assert!(is_exact_command("!in-chat", "!in-chat"));
         assert!(!is_exact_command("!in-chat-extra", "!in-chat"));
+        assert!(is_exact_command(
+            "!translation-threads",
+            "!translation-threads"
+        ));
+    }
+
+    #[test]
+    fn translation_threads_menu_command_aliases() {
+        assert!(is_translation_threads_menu_command("!translation-threads"));
+        assert!(is_translation_threads_menu_command("!translate-threads"));
+        assert!(is_translation_threads_menu_command("!translate-thread"));
+        assert!(is_translation_threads_menu_command("!translation-thread"));
+        assert!(is_translation_threads_menu_command(
+            "  !translation-threads  "
+        ));
+        assert!(!is_translation_threads_menu_command(
+            "!translation-on es en"
+        ));
+        assert!(!is_translation_threads_menu_command(
+            "!translation-threads-extra"
+        ));
+    }
+
+    #[test]
+    fn translation_in_chat_menu_command_aliases() {
+        assert!(is_translation_in_chat_menu_command("!translation-in-chat"));
+        assert!(is_translation_in_chat_menu_command("!translate-in-chat"));
+        assert!(is_translation_in_chat_menu_command(
+            "  !translate-in-chat  "
+        ));
+        assert!(!is_translation_in_chat_menu_command(
+            "!translation-on es en"
+        ));
+        assert!(!is_translation_in_chat_menu_command(
+            "!translation-in-chat-extra"
+        ));
     }
 
     #[test]
     fn help_transcription_covers_voice() {
         let h = help_menu(BotRole::Transcription);
         assert!(h.contains("!transcribe"));
+        assert!(h.contains("!transcribe-on"));
+        assert!(h.contains("!transcribe-off"));
+        assert!(h.contains("!help-transcription"));
+        assert!(!h.contains("!privacy-transcription"));
+        assert!(!h.contains("!privacy-translation"));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!translate-me-on"));
-        assert!(h.contains("!transcribe-on / !transcribe-off\n  "));
-        assert!(!h.contains("!transcribe-on / !transcribe-off —"));
+        assert!(!h.contains("!verify"));
+        assert!(!h.contains("!info"));
+        assert!(!h.trim_end().ends_with("!help"));
     }
 
     #[test]
-    fn privacy_menus_cover_roles() {
-        let transcription = privacy_menu(BotRole::Transcription);
-        assert!(transcription.contains("Sigstack transcription"));
-        assert!(transcription.contains("!verify <challenge>\n  "));
-        assert!(!transcription.contains("!verify <challenge> -"));
-        let translation = privacy_menu(BotRole::Translation);
-        assert!(translation.contains("Sigstack translation"));
-        assert!(translation.contains("!verify <challenge>\n  "));
-        assert!(!translation.contains("!models"));
+    fn privacy_menu_covers_both_cvms() {
+        let m = privacy_menu();
+        assert!(m.contains("two separate and isolated TEEs/CVMs"));
+        assert!(m.contains("Translation:"));
+        assert!(m.contains("Transcription:"));
+        assert!(m.contains("!verify <challenge>"));
+        assert!(!m.contains("**"));
+    }
+
+    #[test]
+    fn product_menus_omit_verify() {
+        assert!(!translation_threads_menu().contains("!verify"));
+        assert!(!translation_in_chat_menu(true).contains("!verify"));
+        assert!(!translation_in_chat_menu(false).contains("!verify"));
+        assert!(!help_menu(BotRole::Translation).contains("!verify"));
+        assert!(!thread_help_menu().contains("!verify"));
     }
 
     #[test]
     fn transcription_unavailable_offers_translation() {
         let m = transcription_unavailable();
         assert!(m.contains("unavailable"));
-        assert!(m.contains("!translation"));
-        assert!(m.contains("!translation\n  Translation"));
-        assert!(!m.contains("!translation —"));
+        assert!(m.contains("!translation-threads"));
+        assert!(m.contains("!translation-in-chat"));
     }
 }

@@ -47,8 +47,8 @@ Does **not** prove Signal CLI image integrity beyond pinning, or hide network me
 
 | Role | Handlers | Requires |
 |------|----------|----------|
-| `transcription` | Voice, `!transcribe*`, `!transcription` menu, `!help-transcription`, `!privacy-transcription`, `!verify` (worker — no hub `!help` / `!info`) | Whisper sidecar |
-| `translation` | Hub (`!help`, `!info`, product menus), Language Threads, in-chat, quote `!translate`, `!transcription` pairing, `!privacy-translation`, `!verify` | `NEAR_AI__API_KEY` |
+| `transcription` | Voice, `!transcribe*`, `!transcription` menu, `!help-transcription`, `!verify` (worker — no hub `!help` / `!info` / `!privacy`) | Whisper sidecar |
+| `translation` | Hub (`!help`, `!info`, `!privacy`, product menus), Language Threads, in-chat, quote `!translate`, `!transcription` pairing, `!verify` | `NEAR_AI__API_KEY` |
 
 Fail-fast if role is missing/invalid or required deps are missing.
 

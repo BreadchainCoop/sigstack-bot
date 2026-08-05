@@ -10,8 +10,8 @@ In a shared Signal group, users interact with **one hub** and one optional **wor
 
 | Role | Phone | Duty |
 |------|-------|------|
-| **Translation bot** (Bread Bot hub) | Phone B | Product menus (`!help`, `!info`, `!translation-*`), Language Threads, in-chat translation, pairing/orchestration (`!transcription` invite), translation TEE (`!privacy-translation`, `!verify` on this CVM) |
-| **Transcription bot** (worker) | Phone A | Voice only: Whisper transcribe, `!transcription` product menu, `!transcribe*`, transcription TEE (`!privacy-transcription`, `!verify` on this CVM). **No hub commands** — does not answer `!help` / `!info` |
+| **Translation bot** (Bread Bot hub) | Phone B | Product menus (`!help`, `!info`, `!privacy`, `!translation-*`), Language Threads, in-chat translation, pairing (`!transcription` invite), `!verify` (translation CVM quote) |
+| **Transcription bot** (worker) | Phone A | Voice only: `!transcription`, `!transcribe*`, `!verify` (transcription CVM quote). **No hub** — does not answer `!help` / `!info` / `!privacy` |
 
 Signal still delivers every message to both members; the transcription stack **ignores** hub text commands and non-voice work. The translation bot **leads** suite navigation and inviting the transcription peer; the transcription bot **executes** voice→text and its own product toggles.
 

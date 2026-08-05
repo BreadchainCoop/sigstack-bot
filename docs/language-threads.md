@@ -38,7 +38,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
 | `!list-langs` | Any | Language codes |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
-| `!help` / `!privacy-translation` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu; `!verify` lives under `!privacy-translation`) |
+| `!help` / `!privacy` | Any | Hub menus (`!help` in a sidecar shows the thread menu; `!privacy` and `!verify` on translation bot) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 

@@ -31,7 +31,7 @@ pub async fn build_handlers(
     }
 }
 
-/// Transcription CVM: voice / !transcribe* / !transcription / help-transcription / privacy / verify.
+/// Transcription CVM: voice / !transcribe* / !transcription / help-transcription / verify.
 pub async fn build_transcription_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
@@ -72,11 +72,10 @@ pub async fn build_transcription_handlers(
     );
     handlers.push(Box::new(TranscriptionMenuHandler::new()));
     handlers.push(Box::new(HelpTranscriptionHandler::new()));
-    handlers.push(Box::new(VerifyHandler::new(dstack)));
-    handlers.push(Box::new(PrivacyHandler::new(BotRole::Transcription)));
+    handlers.push(Box::new(VerifyHandler::new(dstack, BotRole::Transcription)));
 
     info!(
-        "Transcription role: voice / !transcribe* / !transcription / help-transcription / privacy-transcription / verify (hub !help / !info / !privacy-translation on translation bot only)"
+        "Transcription role: voice / !transcribe* / !transcription / help-transcription / verify (hub !help / !info / !privacy on translation bot only)"
     );
     Ok(handlers)
 }
@@ -176,7 +175,10 @@ pub async fn build_translation_handlers(
         group_prefs.clone(),
         signal.clone(),
     )));
-    handlers.push(Box::new(VerifyHandler::new(dstack)));
+    handlers.push(Box::new(VerifyHandler::new(
+        dstack.clone(),
+        BotRole::Translation,
+    )));
     handlers.push(Box::new(HelpHandler::new(
         group_prefs.clone(),
         BotRole::Translation,
@@ -185,7 +187,7 @@ pub async fn build_translation_handlers(
         group_prefs,
         BotRole::Translation,
     )));
-    handlers.push(Box::new(PrivacyHandler::new(BotRole::Translation)));
+    handlers.push(Box::new(PrivacyHandler::new()));
 
     info!("Translation role: hub menus + in-chat + Language Threads");
     Ok(handlers)
@@ -256,7 +258,7 @@ mod tests {
             .await
             .expect("transcription handlers");
 
-        assert_eq!(handlers.len(), 7);
+        assert_eq!(handlers.len(), 6);
         assert_eq!(
             labels(&handlers),
             vec![
@@ -266,7 +268,6 @@ mod tests {
                 "transcription_menu",
                 "help_transcription",
                 "command", // verify
-                "privacy",
             ]
         );
     }

@@ -1,26 +1,29 @@
-//! Privacy / TEE explanation menu.
+//! Privacy / TEE explanation menu (translation hub only).
 
-use crate::commands::menu_locale::{is_exact_command, privacy_command, privacy_menu};
+use crate::commands::menu_locale::{is_exact_command, privacy_menu};
 use crate::commands::CommandHandler;
-use crate::config::BotRole;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use signal_client::BotMessage;
 
-pub struct PrivacyHandler {
-    role: BotRole,
-}
+pub struct PrivacyHandler;
 
 impl PrivacyHandler {
-    pub fn new(role: BotRole) -> Self {
-        Self { role }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for PrivacyHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[async_trait]
 impl CommandHandler for PrivacyHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, privacy_command(self.role))
+        is_exact_command(&message.text, "!privacy")
     }
 
     fn label(&self) -> &'static str {
@@ -28,7 +31,7 @@ impl CommandHandler for PrivacyHandler {
     }
 
     async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
-        Ok(privacy_menu(self.role).into())
+        Ok(privacy_menu().into())
     }
 }
 
@@ -54,25 +57,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn privacy_returns_role_menu() {
-        let translation = PrivacyHandler::new(BotRole::Translation);
-        assert!(translation.matches(&dm("!privacy-translation")));
-        assert!(!translation.matches(&dm("!privacy")));
-        assert!(!translation.matches(&dm("!privacy-transcription")));
-        let out = translation
-            .execute(&dm("!privacy-translation"))
-            .await
-            .unwrap();
-        assert!(out.contains("Bread Bot translation"));
+    async fn privacy_returns_unified_menu() {
+        let handler = PrivacyHandler::new();
+        assert!(handler.matches(&dm("!privacy")));
+        assert!(!handler.matches(&dm("!privacy-translation")));
+        assert!(!handler.matches(&dm("!privacy-transcription")));
+        let out = handler.execute(&dm("!privacy")).await.unwrap();
+        assert!(out.contains("two separate Phala CVMs"));
         assert!(out.contains("!verify"));
-
-        let transcription = PrivacyHandler::new(BotRole::Transcription);
-        assert!(transcription.matches(&dm("!privacy-transcription")));
-        assert!(!transcription.matches(&dm("!privacy-translation")));
-        let out = transcription
-            .execute(&dm("!privacy-transcription"))
-            .await
-            .unwrap();
-        assert!(out.contains("Bread Bot transcription"));
+        assert!(!out.contains("**"));
     }
 }

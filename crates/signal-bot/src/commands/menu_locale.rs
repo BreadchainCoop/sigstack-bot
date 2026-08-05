@@ -73,19 +73,8 @@ pub fn transcription_group_only() -> &'static str {
     TRANSCRIPTION_GROUP_ONLY
 }
 
-pub fn privacy_menu(role: BotRole) -> &'static str {
-    match role {
-        BotRole::Transcription => PRIVACY_TRANSCRIPTION,
-        BotRole::Translation => PRIVACY_TRANSLATION,
-    }
-}
-
-/// Exact privacy menu trigger per bot role (avoids dual-bot `!privacy` collisions).
-pub fn privacy_command(role: BotRole) -> &'static str {
-    match role {
-        BotRole::Translation => "!privacy-translation",
-        BotRole::Transcription => "!privacy-transcription",
-    }
+pub fn privacy_menu() -> &'static str {
+    PRIVACY_MENU
 }
 
 /// Exact command match (avoids `!translation` matching `!translation-on`).
@@ -131,8 +120,7 @@ examples:
 
 Voice notes become quote-reply transcripts (Whisper, inside this bot's TEE).
 
-!help-transcription
-!privacy-transcription"#;
+!help-transcription"#;
 
 const HELP_HUB: &str = r#"--Bread Bot--
 
@@ -148,7 +136,7 @@ GUIDES:
 
 OTHER:
 !info
-!privacy-translation
+!privacy
 !help"#;
 
 const HELP_THREAD: &str = r#"Language Thread
@@ -171,8 +159,8 @@ const INFO_HUB: &str = r#"--Bread Bot--
 !transcription
   Voice transcription — pair/open the transcription bot
 
-!privacy-translation
-  Privacy & TEE — attestation via !verify
+!privacy
+  Privacy, TEE, and !verify attestation
 
 !help-transcription
   How voice transcription works
@@ -286,7 +274,7 @@ const HELP_TRANSCRIPTION_GUIDE: &str = r#"Voice transcription — how it works
 
 Use when people send voice notes and you want text in the same Signal chat.
 
-This bot runs Whisper in its own Phala CVM/TEE. The Bread Bot translation bot is a separate CVM — hub menus (!help, !info) and translation attestation live on that number. Transcription attestation is via !privacy-transcription / !verify on this bot.
+This bot runs Whisper in its own Phala CVM/TEE. The Bread Bot translation bot is a separate CVM — use !privacy on the translation bot for suite privacy and !verify behavior.
 
 How it works:
 - Auto mode (default on): inbound voice notes become quote-reply transcripts.
@@ -301,7 +289,7 @@ Typical use:
 5. With the translation bot in the group, that transcript can also be auto-translated
 
 Commands: !transcription
-Privacy / TEE (this CVM): !privacy-transcription (!verify)"#;
+Privacy / TEE: !privacy on the translation bot"#;
 
 const TRANSLATION_SPLIT_REDIRECT: &str = r#"Translation has two menus:
 
@@ -332,34 +320,18 @@ Add both bots to a group, then send !transcription there.
 
 !help"#;
 
-const PRIVACY_TRANSCRIPTION: &str = r#"**Bread Bot transcription** (Private & Verifiable)
+const PRIVACY_MENU: &str = r#"Privacy & TEE
 
-**TEE Commands:**
+Bread Bot runs in two separate Phala CVMs: the translation bot (text, menus) and the transcription bot (Whisper voice). They do not share memory.
+
+Translation: Signal text is processed in the translation TEE and translated via NEAR AI private inference.
+
+Transcription: Voice notes are processed in the transcription TEE and transcribed with Whisper in that CVM.
+
+Attestation: In a group with both bots, !verify <your text> produces two replies — one TDX quote per CVM. Each quote binds your text as Translation: … or Transcription: … so you can tell which bot attested which string. Message one bot directly for a single quote.
+
 !verify <challenge>
-  Get TEE attestation with your challenge
-
-**Privacy:**
-Voice notes are decrypted by Signal CLI inside this TEE and transcribed with Whisper in the same CVM. Text transcripts are posted back to Signal.
-
-Neither the bot operator nor the host can read decrypted audio or text in TEE memory.
-
-Pair with the translation bot in the same group if you also want translation."#;
-
-const PRIVACY_TRANSLATION: &str = r#"**Bread Bot translation** (Private & Verifiable)
-
-**TEE Commands:**
-!verify <challenge>
-  Get TEE attestation with your challenge
-
-**Verification:**
-`!verify my-random-text` to get cryptographic proof this bot runs in a TEE. Your challenge is embedded in the TDX quote.
-
-**Privacy:**
-Messages are end-to-end encrypted via Signal, processed in a verified TEE (Intel TDX), and translated via NEAR AI Cloud private inference (NVIDIA GPU TEE).
-
-Voice transcription is a separate bot/CVM. This bot only acts on text (including transcripts posted by the transcription bot).
-
-Neither the bot operator nor NEAR AI can read your messages in plaintext outside the TEEs.
+  TEE attestation for this stack (labels above)
 
 !help"#;
 
@@ -373,7 +345,7 @@ mod tests {
         assert!(h.contains("!translation-threads"));
         assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
-        assert!(h.contains("!privacy-translation"));
+        assert!(h.contains("!privacy"));
         assert!(h.contains("!info"));
         assert!(!h.contains("Language Threads\n"));
         assert!(!h.contains("In-chat translation\n"));
@@ -388,11 +360,11 @@ mod tests {
         assert!(h.contains("!translation-threads\n  "));
         assert!(h.contains("!translation-in-chat\n  "));
         assert!(h.contains("!transcription\n  "));
-        assert!(h.contains("!privacy-translation\n  "));
+        assert!(h.contains("!privacy\n  "));
         assert!(h.contains("!info\n  "));
         assert!(h.contains("!help\n  "));
         assert!(h.contains("\n\n!translation-in-chat"));
-        assert!(h.contains("attestation via !verify"));
+        assert!(h.contains("Privacy, TEE, and !verify attestation"));
         assert!(!h.contains("!verify <challenge>"));
     }
 
@@ -443,7 +415,7 @@ mod tests {
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
         assert!(transcription.contains("separate CVM"));
-        assert!(transcription.contains("!privacy-transcription"));
+        assert!(transcription.contains("!privacy"));
         assert!(!transcription.trim_end().ends_with("!help"));
     }
 
@@ -506,7 +478,8 @@ mod tests {
         assert!(h.contains("!transcribe-on\n  "));
         assert!(h.contains("!transcribe-off\n  "));
         assert!(h.contains("!help-transcription"));
-        assert!(h.contains("!privacy-transcription"));
+        assert!(!h.contains("!privacy-transcription"));
+        assert!(!h.contains("!privacy-translation"));
         assert!(!h.contains("!ask"));
         assert!(!h.contains("!translate-me-on"));
         assert!(!h.contains("!verify"));
@@ -515,14 +488,13 @@ mod tests {
     }
 
     #[test]
-    fn privacy_menus_cover_roles() {
-        let transcription = privacy_menu(BotRole::Transcription);
-        assert!(transcription.contains("Bread Bot transcription"));
-        assert!(transcription.contains("!verify <challenge>\n  "));
-        let translation = privacy_menu(BotRole::Translation);
-        assert!(translation.contains("Bread Bot translation"));
-        assert!(translation.contains("!verify <challenge>\n  "));
-        assert!(!translation.contains("!models"));
+    fn privacy_menu_covers_both_cvms() {
+        let m = privacy_menu();
+        assert!(m.contains("two separate Phala CVMs"));
+        assert!(m.contains("Translation:"));
+        assert!(m.contains("Transcription:"));
+        assert!(m.contains("!verify <challenge>"));
+        assert!(!m.contains("**"));
     }
 
     #[test]

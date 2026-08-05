@@ -14,7 +14,7 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 
 Pair products by adding **both bots** (two phone numbers) to the same Signal group. Signal is the bus — there is no Docker network between CVMs.
 
-**Bot hierarchy:** the **translation** bot is the Bread Bot **hub** (`!help`, `!info`, translation products, transcription pairing). The **transcription** bot is a **specialized worker** (voice → text and its own `!transcription` / `!transcribe*` / `!privacy-transcription` only). See [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md#bot-hierarchy).
+**Bot hierarchy:** the **translation** bot is the Bread Bot **hub** (`!help`, `!info`, `!privacy`, translation products, transcription pairing). The **transcription** bot is a **specialized worker** (voice → text via `!transcription` / `!transcribe*` only). See [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md#bot-hierarchy).
 
 Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md)
 
@@ -23,14 +23,13 @@ Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/v
 | Product | Command | Where | Effect |
 |---------|---------|-------|--------|
 | Hub | `!help` / `!info` | Translation bot only | Bread Bot hub menus |
-| Hub | `!privacy-translation` | Translation bot | Translation TEE / `!verify` |
+| Hub | `!privacy` | Translation bot only | Privacy, TEE, and `!verify` (dual quotes in paired groups) |
 | Hub | `!translation-threads` | Translation bot | Language Threads menu |
 | Hub | `!translation-in-chat` | Translation bot | In-chat translation menu |
 | Hub | `!help-threads` | Translation bot | How Language Threads works |
 | Hub | `!help-in-chat` | Translation bot | How in-chat translation works |
 | Hub | `!help-transcription` | Translation bot | How voice transcription works (guide; worker runs on transcription bot) |
 | Transcription | `!transcription` | Transcription bot | Voice product menu |
-| Transcription | `!privacy-transcription` | Transcription bot | Transcription TEE / `!verify` |
 | Language Threads | `!translate-me-thread <lang>` | Main only | Create/join sidecar |
 | Language Threads | `!leave` | Sidecar only | Leave this Language Thread |
 | Language Threads | `!enable-in-chat` | Main | Tear down Language Threads (switch path to in-chat) |

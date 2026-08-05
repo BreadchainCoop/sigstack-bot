@@ -27,7 +27,7 @@ Bread Bot
 !translation-threads
 !translation-in-chat
 !transcription
-!privacy-translation
+!privacy
 !help-transcription
 !info
 !help
@@ -54,7 +54,7 @@ Optional one-line blurb.
 
 Language Thread sidecars use the same trigger `!help` but a different menu (rename / leave) when the group is a known sidecar.
 
-Voice transcription uses `!transcription` on the **transcription** bot for its product menu (not `!help`). Hub `!help` / `!info` and suite navigation stay on the **translation** bot only — transcription is a specialized worker with no managerial commands. See [two-cvm-architecture.md — Bot hierarchy](../two-cvm-architecture.md#bot-hierarchy).
+Voice transcription uses `!transcription` on the **transcription** bot for its product menu (not `!help`). Hub `!help` / `!info` / `!privacy` stay on the **translation** bot only. See [two-cvm-architecture.md — Bot hierarchy](../two-cvm-architecture.md#bot-hierarchy).
 
 ## When adding menus
 

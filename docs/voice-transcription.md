@@ -43,9 +43,8 @@ Worker-only — no `!help` / `!info`. Use the translation bot for the Bread Bot 
 | `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group) |
 | `!transcribe` | Quote a voice note to transcribe it |
 | `!help-transcription` | How voice transcription works (separate CVM/TEE from translation) |
-| `!privacy-transcription` | Transcription TEE privacy and `!verify` attestation |
 
-For hub navigation (`!help`, `!info`, `!privacy-translation`) and the transcription **guide** (`!help-transcription`), use the **translation** bot. The transcription bot may also answer `!help-transcription` with the same guide text; pairing is always initiated via `!transcription` on the translation bot when `PEER_PHONE` is set.
+Hub `!privacy` (translation bot only) covers both CVMs. In a paired group, `!verify <text>` returns two quotes (`Translation: …` / `Transcription: …`).
 
 Auto path: inbound voice notes are transcribed when enabled (default on).
 

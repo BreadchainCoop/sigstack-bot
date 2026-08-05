@@ -10,7 +10,9 @@ use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::translate_service::{detect_text_language, near_ai_translate};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
-use crate::group_preferences_store::{GroupPreferencesStore, GroupTranslateMode, PendingSwitch};
+use crate::group_preferences_store::{
+    GroupPreferencesStore, GroupTranslateMode, LanguageBridge, PendingSwitch,
+};
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
 use signal_client::{BotMessage, SignalClient};
@@ -30,6 +32,7 @@ const LEAVE_SIDECAR_ONLY_MSG: &str =
 const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads can't start alongside it.\n\nTo switch, send:\n!enable-threads";
 /// Tear down Language Threads so in-chat can run (`!enable-in-chat`).
 const ENABLE_IN_CHAT_CMDS: &[&str] = &["!enable-in-chat", "!translation-enable-in-chat"];
+const THREADS_DISABLED_SIDECAR_MSG: &str = "Language Threads were disabled in the main group (in-chat translation is on).\n\nReturn to the main chat to continue — this thread will no longer relay messages.";
 const LEAVE_CMDS: &[&str] = &["!leave"];
 
 pub struct TranslateMeHandler {
@@ -209,6 +212,8 @@ impl TranslateMeHandler {
         };
 
         let bot = message.receiving_account.as_str();
+        self.notify_sidecars_threads_disabled(bot, &bridge).await;
+
         for (user, lang) in &bridge.members {
             let address = bridge
                 .member_addresses
@@ -230,6 +235,31 @@ impl TranslateMeHandler {
         Ok(self
             .apply_pending_in_chat(gid, pending, "Language Threads disabled.")
             .await)
+    }
+
+    async fn notify_sidecars_threads_disabled(&self, bot: &str, bridge: &LanguageBridge) {
+        let mut notified = std::collections::HashSet::new();
+        for send_id in bridge.sidecars.values() {
+            if !notified.insert(send_id.as_str()) {
+                continue;
+            }
+            if let Err(e) = self
+                .signal
+                .send(bot, send_id, THREADS_DISABLED_SIDECAR_MSG)
+                .await
+            {
+                warn!(
+                    error = %e,
+                    send_id,
+                    "Failed to notify sidecar that Language Threads were disabled"
+                );
+            } else {
+                info!(
+                    send_id,
+                    "Notified sidecar that Language Threads were disabled"
+                );
+            }
+        }
     }
 
     async fn apply_pending_in_chat(
@@ -1175,6 +1205,89 @@ mod tests {
             }
         }
         out
+    }
+
+    async fn send_messages(signal: &wiremock::MockServer) -> Vec<String> {
+        let mut out = Vec::new();
+        let Some(requests) = signal.received_requests().await else {
+            return out;
+        };
+        for req in requests {
+            if req.url.path() != "/v2/send" {
+                continue;
+            }
+            let body: serde_json::Value =
+                serde_json::from_slice(&req.body).unwrap_or(serde_json::json!({}));
+            if let Some(msg) = body["message"].as_str() {
+                out.push(msg.to_string());
+            }
+        }
+        out
+    }
+
+    #[tokio::test]
+    async fn enable_in_chat_notifies_each_sidecar_before_removing_members() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(path_regex(r"^/v1/groups/%2B15550001111/.+/members$"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        store.set_sidecar(
+            "main-internal",
+            "fr",
+            "group.fr".into(),
+            "fr-internal".into(),
+        );
+        store.set_bridge_member(
+            "main-internal",
+            "+15550002222",
+            "es",
+            Some("+15550002222".into()),
+        );
+        store.set_bridge_member(
+            "main-internal",
+            "+15550003333",
+            "fr",
+            Some("+15550003333".into()),
+        );
+
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+        let mut msg = group_msg("+15550001111", "!enable-in-chat");
+        msg.group_id = Some("main-internal".into());
+        msg.source = "+15550001111".into();
+
+        let reply = handler.execute(&msg).await.unwrap();
+        assert!(reply.is_empty());
+        assert!(store.get_bridge("main-internal").is_none());
+
+        let recipients = send_recipients(&signal).await;
+        assert!(recipients.contains(&"group.es".to_string()));
+        assert!(recipients.contains(&"group.fr".to_string()));
+
+        let bodies = send_messages(&signal).await;
+        assert_eq!(bodies.len(), 2);
+        assert!(bodies
+            .iter()
+            .all(|m| m.contains("Language Threads were disabled")));
+        assert!(bodies.iter().all(|m| m.contains("Return to the main chat")));
     }
 
     #[tokio::test]

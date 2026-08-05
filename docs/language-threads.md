@@ -75,7 +75,7 @@ Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out
 4. **Later subscribers:** `add_members` on existing sidecar
 5. Language switch: remove from old sidecar, add/create new
 6. `!leave` (from sidecar): remove from Signal group + store
-7. `!enable-in-chat` (from main): clear bridge, best-effort remove all known members from sidecars; sidecar Signal groups may remain unmanaged
+7. `!enable-in-chat` (from main): notify each Language Thread, remove members from sidecars (best-effort), clear bridge; sidecar Signal groups may remain unmanaged
 8. Sidecar `!help` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
 
 If Signal omits phone number, bot asks the user to DM once, then retry.

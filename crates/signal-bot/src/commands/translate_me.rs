@@ -1,4 +1,4 @@
-//! Language Threads: `!translate-me-thread` / `!leave` / `!disable-threads` + relay engine.
+//! Language Threads: `!translate-me-thread` / `!leave` / `!enable-in-chat` + relay engine.
 //!
 //! Main group stays multilingual. Each subscribed language gets a
 //! `SigLang {Language} · {disambiguator}` Signal sidecar. Messages fan out:
@@ -27,8 +27,9 @@ const NO_ADDRESS_MSG: &str = "Could not invite you: Signal did not include your 
 Message this bot in a 1:1 chat once, then retry !translate-me-thread <lang>.";
 const LEAVE_SIDECAR_ONLY_MSG: &str =
     "!leave is only available inside a Language Thread. Open that chat and send !leave (or !help).";
-const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads can't start alongside it.\n\nTo switch, send:\n!disable-in-chat";
-const DISABLE_THREADS_CMDS: &[&str] = &["!disable-threads", "!translation-disable-threads"];
+const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads can't start alongside it.\n\nTo switch, send:\n!enable-threads";
+/// Tear down Language Threads so in-chat can run (`!enable-in-chat`).
+const ENABLE_IN_CHAT_CMDS: &[&str] = &["!enable-in-chat", "!translation-enable-in-chat"];
 const LEAVE_CMDS: &[&str] = &["!leave"];
 
 pub struct TranslateMeHandler {
@@ -62,13 +63,13 @@ impl TranslateMeHandler {
         LEAVE_CMDS.contains(&text.trim())
     }
 
-    fn is_disable_threads(text: &str) -> bool {
-        DISABLE_THREADS_CMDS.contains(&text.trim())
+    fn is_enable_in_chat(text: &str) -> bool {
+        ENABLE_IN_CHAT_CMDS.contains(&text.trim())
     }
 
     fn is_command(text: &str) -> bool {
         let t = text.trim();
-        Self::is_on_command(t) || Self::is_off_command(t) || Self::is_disable_threads(t)
+        Self::is_on_command(t) || Self::is_off_command(t) || Self::is_enable_in_chat(t)
     }
 
     fn on_lang_arg(text: &str) -> Option<&str> {
@@ -99,8 +100,8 @@ impl TranslateMeHandler {
     async fn handle_command(&self, message: &BotMessage) -> AppResult<String> {
         let text = message.text.trim();
 
-        if Self::is_disable_threads(text) {
-            return self.handle_disable_threads(message).await;
+        if Self::is_enable_in_chat(text) {
+            return self.handle_enable_in_chat(message).await;
         }
 
         if Self::is_off_command(text) {
@@ -183,13 +184,13 @@ impl TranslateMeHandler {
         Ok(format!("Left the {lang_name} sidecar."))
     }
 
-    async fn handle_disable_threads(&self, message: &BotMessage) -> AppResult<String> {
+    async fn handle_enable_in_chat(&self, message: &BotMessage) -> AppResult<String> {
         let Some(gid) = message.group_id.as_deref() else {
-            return Ok("!disable-threads is only available in the main group.".into());
+            return Ok("!enable-in-chat is only available in the main group.".into());
         };
         if self.store.lookup_sidecar(gid).is_some() {
             return Ok(
-                "!disable-threads works from the main group. Use !leave to leave this thread."
+                "!enable-in-chat works from the main group. Use !leave to leave this thread."
                     .into(),
             );
         }
@@ -220,7 +221,7 @@ impl TranslateMeHandler {
                     .remove_members(bot, send_id, vec![address])
                     .await
                 {
-                    warn!(error = %e, user = %user, "Failed to remove member during disable-threads");
+                    warn!(error = %e, user = %user, "Failed to remove member during enable-in-chat");
                 }
             }
         }

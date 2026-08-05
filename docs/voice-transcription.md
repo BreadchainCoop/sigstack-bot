@@ -38,6 +38,7 @@ Without `PEER_PHONE`, translation still stubs `!transcription` as unavailable.
 | `!transcription` | Product menu |
 | `!transcribe-on` / `!transcribe-off` | Toggle auto transcription (DM or group) |
 | `!transcribe` | Quote a voice note to transcribe it |
+| `!help-transcription` | How voice transcription works (use case + flow) |
 | `!help` / `!privacy` | Help / privacy (`!verify` under `!privacy`) |
 
 Auto path: inbound voice notes are transcribed when enabled (default on).

@@ -1,4 +1,4 @@
-//! In-chat auto-translate: `!translate-all-on/off`, `!translate-me-on/off`, `!disable-in-chat`.
+//! In-chat auto-translate: `!translate-all-on/off`, `!translate-me-on/off`, `!enable-threads`.
 
 use crate::commands::translate_lang::resolve_language;
 use crate::commands::translate_me::TranslateMeHandler;
@@ -28,14 +28,15 @@ const ALL_OFF_COMMANDS: &[&str] = &[
 ];
 const ME_ON_PREFIXES: &[&str] = &["!translate-me-on", "!translation-me-on"];
 const ME_OFF_COMMANDS: &[&str] = &["!translate-me-off", "!translation-me-off"];
-const DISABLE_IN_CHAT: &[&str] = &["!disable-in-chat", "!translation-disable-in-chat"];
+/// Tear down in-chat auto so Language Threads can run (`!enable-threads`).
+const ENABLE_THREADS: &[&str] = &["!enable-threads", "!translation-enable-threads"];
 
 const BARE_ALL_MSG: &str = "Please specify two languages. Example: !translate-all-on es en";
 const BARE_ME_MSG: &str = "Please specify two languages. Example: !translate-me-on es en";
 const GROUP_ONLY_MSG: &str = "In-chat auto-translate is only available in group chats";
 const SIDECAR_REJECT_MSG: &str =
     "In-chat auto-translate is only available in the main group (not a Language Thread).";
-const THREADS_BLOCK_MSG: &str = "Language Threads is already on in this group, so in-chat auto-translate can't run alongside it.\n\nTo switch, send:\n!disable-threads";
+const THREADS_BLOCK_MSG: &str = "Language Threads is already on in this group, so in-chat auto-translate can't run alongside it.\n\nTo switch, send:\n!enable-in-chat";
 
 /// Whether the message is any in-chat auto on/off/disable command (excludes quote `!translate`).
 pub(crate) fn is_translate_on_or_off_command(text: &str) -> bool {
@@ -44,7 +45,7 @@ pub(crate) fn is_translate_on_or_off_command(text: &str) -> bool {
         || ALL_OFF_COMMANDS.contains(&text)
         || is_me_on_command(text)
         || ME_OFF_COMMANDS.contains(&text)
-        || DISABLE_IN_CHAT.contains(&text)
+        || ENABLE_THREADS.contains(&text)
 }
 
 fn starts_with_word(text: &str, prefix: &str) -> bool {
@@ -269,7 +270,7 @@ impl TranslateAllHandler {
         }
     }
 
-    async fn handle_disable_in_chat(&self, message: &BotMessage) -> AppResult<String> {
+    async fn handle_enable_threads(&self, message: &BotMessage) -> AppResult<String> {
         let group_id = match Self::require_group(message) {
             Ok(id) => id,
             Err(msg) => return Ok(msg.into()),
@@ -380,8 +381,8 @@ impl TranslateAllHandler {
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
     async fn handle_command(&self, message: &BotMessage) -> AppResult<String> {
         let text = message.text.trim();
-        if DISABLE_IN_CHAT.contains(&text) {
-            self.handle_disable_in_chat(message).await
+        if ENABLE_THREADS.contains(&text) {
+            self.handle_enable_threads(message).await
         } else if ME_OFF_COMMANDS.contains(&text) {
             self.handle_me_off(message).await
         } else if ALL_OFF_COMMANDS.contains(&text) {
@@ -483,7 +484,7 @@ mod tests {
         assert!(is_translate_on_or_off_command("!translate-on es en"));
         assert!(is_translate_on_or_off_command("!translate-me-on es en"));
         assert!(is_translate_on_or_off_command("!translate-me-off"));
-        assert!(is_translate_on_or_off_command("!disable-in-chat"));
+        assert!(is_translate_on_or_off_command("!enable-threads"));
         assert!(is_translate_on_or_off_command("!translation-off"));
         assert!(!is_translate_on_or_off_command("!translate es"));
         assert!(!is_translate_on_or_off_command("!translate-me-thread es"));

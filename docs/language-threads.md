@@ -34,16 +34,17 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 |---------|--------|--------|
 | `!translate-me-thread <lang>` | Main only | Create/join sidecar; invite user |
 | `!leave` | Sidecar only | Leave this Language Thread |
-| `!disable-threads` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
+| `!enable-in-chat` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
 | `!list-langs` | Any | Language codes |
+| `!help-threads` | Any | How Language Threads works (use case + flow) |
 | `!help` / `!privacy` | Any | Hub / privacy menus (`!help` in a sidecar shows the thread menu; `!verify` lives under `!privacy`) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 
 Aliases: `!translation-me-thread es`.
 
-**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!disable-in-chat` / `!disable-threads` switch path).
+**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path).
 
 **Not registered:** `!ask`, DM chat, voice/`!transcribe*` (transcription CVM), `!models`.
 
@@ -74,7 +75,7 @@ Rate limit: one `allow_message(main_id)` per inbound human event (covers fan-out
 4. **Later subscribers:** `add_members` on existing sidecar
 5. Language switch: remove from old sidecar, add/create new
 6. `!leave` (from sidecar): remove from Signal group + store
-7. `!disable-threads` (from main): clear bridge, best-effort remove all known members from sidecars; sidecar Signal groups may remain unmanaged
+7. `!enable-in-chat` (from main): clear bridge, best-effort remove all known members from sidecars; sidecar Signal groups may remain unmanaged
 8. Sidecar `!help` → thread menu; `!rename <name>` → `PUT /v1/groups/{bot}/{sendId}`
 
 If Signal omits phone number, bot asks the user to DM once, then retry.
@@ -128,7 +129,7 @@ Only **signal-bot** on the translation stack needs rebuild for Language Threads 
 2. Add a second lang (`!translate-me-thread en` or `fr`) from main — no reconfiguration; same bridge.
 3. Message in a sidecar → appears raw on main + translated in other sidecars; **no echo** back into the source sidecar.
 4. Bot-attributed posts are not re-relayed (no ping-pong).
-5. From sidecar → `!leave` unsubscribes; from main → `!disable-threads` tears down the product.
+5. From sidecar → `!leave` unsubscribes; from main → `!enable-in-chat` tears down the product.
 
 Whisper / voice live on the **transcription** stack — see [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
 

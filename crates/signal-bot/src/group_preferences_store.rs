@@ -103,20 +103,20 @@ impl LanguageBridge {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PendingSwitch {
-    /// Apply `!translate-me-thread <lang>` after `!disable-in-chat`.
+    /// Apply `!translate-me-thread <lang>` after `!enable-threads`.
     EnableThreads {
         user: String,
         lang: String,
         #[serde(default)]
         address: Option<String>,
     },
-    /// Apply `!translate-all-on` after `!disable-threads`.
+    /// Apply `!translate-all-on` after `!enable-in-chat`.
     EnableAllOn {
         user: String,
         lang_a: String,
         lang_b: String,
     },
-    /// Apply `!translate-me-on` after `!disable-threads`.
+    /// Apply `!translate-me-on` after `!enable-in-chat`.
     EnableMeOn {
         user: String,
         lang_a: String,
@@ -477,7 +477,7 @@ impl GroupPreferencesStore {
             .filter(|b| !b.is_empty())
     }
 
-    /// Remove and return the language bridge (for `!disable-threads` teardown).
+    /// Remove and return the language bridge (for `!enable-in-chat` teardown).
     pub fn take_bridge(self: &Arc<Self>, main_group_id: &str) -> Option<LanguageBridge> {
         let bridge = {
             let mut groups = self.groups.write().unwrap();

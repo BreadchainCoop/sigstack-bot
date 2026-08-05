@@ -28,11 +28,14 @@ Sigstack
 !translation-in-chat
 !transcription
 !privacy
+!help-transcription
 !info
 !help
 ```
 
 `!info` returns the same commands with a short indented description under each and a blank line between entries.
+
+Product feature guides (`!help-threads`, `!help-in-chat`, `!help-transcription`) are short prose (use case + typical flow), not stacked command lists.
 
 Product shape:
 

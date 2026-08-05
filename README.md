@@ -22,14 +22,17 @@ Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/v
 |---------|---------|-------|--------|
 | Hub | `!translation-threads` | Any | Language Threads menu |
 | Hub | `!translation-in-chat` | Any | In-chat translation menu |
+| Hub | `!help-threads` | Any | How Language Threads works |
+| Hub | `!help-in-chat` | Any | How in-chat translation works |
+| Hub | `!help-transcription` | Any | How voice transcription works |
 | Language Threads | `!translate-me-thread <lang>` | Main only | Create/join sidecar |
 | Language Threads | `!leave` | Sidecar only | Leave this Language Thread |
-| Language Threads | `!disable-threads` | Main | Tear down Language Threads for this group |
+| Language Threads | `!enable-in-chat` | Main | Tear down Language Threads (switch path to in-chat) |
 | In-chat group-wide | `!translate-all-on <lang1> <lang2>` | Group | Auto-translate all messages |
 | In-chat group-wide | `!translate-all-off` | Group | Disable group-wide auto |
 | In-chat personal | `!translate-me-on <lang1> <lang2>` | Group (not sidecar) | Auto-translate this user’s messages only |
 | In-chat personal | `!translate-me-off` | Group (not sidecar) | Clear this user’s personal auto |
-| In-chat | `!disable-in-chat` | Group | Clear all in-chat auto |
+| In-chat | `!enable-threads` | Group | Clear all in-chat auto (switch path to Language Threads) |
 | In-chat manual | `!translate <lang>` | Group | Quote-reply translate one message |
 
 Language Threads and in-chat auto are mutually exclusive. Details in the product docs above.

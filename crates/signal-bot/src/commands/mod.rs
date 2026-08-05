@@ -16,8 +16,9 @@ mod verify;
 pub use help::{HelpHandler, InfoHandler};
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
-    InChatMenuHandler, TranscriptionMenuHandler, TranscriptionPairingHandler,
-    TranslationInChatMenuHandler, TranslationMenuHandler, TranslationThreadsMenuHandler,
+    HelpInChatHandler, HelpThreadsHandler, HelpTranscriptionHandler, InChatMenuHandler,
+    TranscriptionMenuHandler, TranscriptionPairingHandler, TranslationInChatMenuHandler,
+    TranslationMenuHandler, TranslationThreadsMenuHandler,
 };
 pub use rename::RenameHandler;
 pub use signal_bot_core::CommandHandler;

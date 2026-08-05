@@ -41,6 +41,21 @@ pub fn translation_in_chat_menu(translate_all_enabled: bool) -> &'static str {
     }
 }
 
+/// How Language Threads works (use case + flow).
+pub fn help_threads_guide() -> &'static str {
+    HELP_THREADS_GUIDE
+}
+
+/// How in-chat translation works (use case + flow).
+pub fn help_in_chat_guide() -> &'static str {
+    HELP_IN_CHAT_GUIDE
+}
+
+/// How voice transcription works (use case + flow).
+pub fn help_transcription_guide() -> &'static str {
+    HELP_TRANSCRIPTION_GUIDE
+}
+
 /// Legacy `!translation` redirect naming the two product menus.
 pub fn translation_split_redirect() -> &'static str {
     TRANSLATION_SPLIT_REDIRECT
@@ -82,17 +97,23 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
   Quote a voice note to transcribe
 !privacy
   Privacy & TEE
+!help-transcription
 !info
 !help"#;
 
 const HELP_HUB: &str = r#"Sigstack
-
+MENUS:
 !translation-threads
 !translation-in-chat
 !transcription
 
-!info
+GUIDES:
+!help-threads
+!help-in-chat
+!help-transcription
 
+OTHER:
+!info
 !privacy
 !help"#;
 
@@ -119,6 +140,9 @@ const INFO_HUB: &str = r#"Sigstack
 !privacy
   Privacy & TEE — attestation via !verify
 
+!help-transcription
+  How voice transcription works
+
 !info
   This menu (commands with descriptions)
 
@@ -140,6 +164,9 @@ Voice notes in this chat are transcribed to text (Whisper, inside the TEE).
 
 !privacy
   Privacy & TEE — attestation via !verify
+
+!help-transcription
+  How voice transcription works
 
 !info
   This menu (commands with descriptions)
@@ -164,41 +191,40 @@ const INFO_THREAD: &str = r#"Language Thread
 const TRANSLATION_THREADS_MENU: &str = r#"Language Threads
 
 Multilingual main + language sidecars.
-Join/create a Language Thread
+Join/create a Language Thread:
 
 !list-langs
 !translate-me-thread <lang>
+
   e.g. !translate-me-thread es
 
-!disable-threads
-(to enable in-chat translation)
+Switch to in-chat translation:
+!enable-in-chat
 
+!help-threads
 !help"#;
 
 const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat translation
 
-Stay in this thread; auto or quote one message.
-
-Translate everyone's msgs:
-
 !list-langs
+
 !translate-all-on <lang1> <lang2>
 !translate-all-off
-  e.g. !translate-all-on fr zh
-
-Translate your msgs:
 
 !translate-me-on <lang1> <lang2>
 !translate-me-off
-  e.g. !translate-me-on ru ar
 
-Translate per msg:
-
+Per msg w/ reply:
 !translate <lang>
 
-!disable-in-chat
-(to enable threads)
+  e.g. !translate-all-on fr zh
+  e.g. !translate-me-on ru ar
+  e.g. !translate es
 
+Switch to threads:
+!enable-threads
+
+!help-in-chat
 !help"#;
 
 const TRANSLATION_IN_CHAT_MENU_AUTO_DISABLED: &str = r#"In-chat translation
@@ -208,6 +234,70 @@ Auto-translate is disabled on this bot (!translate-all-on).
 !translate <lang>
   Reply to a message
 
+!help-in-chat
+!help"#;
+
+const HELP_THREADS_GUIDE: &str = r#"Language Threads — how it works
+
+Use when people need monolingual lanes, but organizers still want one shared main chat.
+
+How it works:
+- Main group stays multilingual (everyone can post in any language).
+- Each language gets a sidecar Signal group ("Language Thread").
+- Messages bridge: main ↔ threads (relay same language, translate otherwise).
+
+Typical use:
+1. In main, send !list-langs then !translate-me-thread es
+2. Accept the sidecar invite
+3. Read/write in that thread; the bot bridges with main and other threads
+4. !leave from a thread to leave it
+5. From main, !enable-in-chat tears down threads if you want in-chat auto instead
+
+Language Threads and in-chat auto cannot run at the same time.
+
+Commands: !translation-threads
+!help"#;
+
+const HELP_IN_CHAT_GUIDE: &str = r#"In-chat translation — how it works
+
+Use when everyone stays in one Signal group and wants bilingual (or quote) translation there.
+
+How it works:
+- No sidecar groups — replies stay in this chat as quote-replies.
+- Group-wide: !translate-all-on es en auto-translates messages between that pair.
+- Personal: !translate-me-on es en auto-translates only your messages.
+- One-off: reply to a message with !translate <lang>
+
+Typical use:
+1. Pick two languages (!list-langs)
+2. !translate-all-on es en (or !translate-me-on for just you)
+3. Chat normally; the bot quote-replies translations
+4. !translate-all-off / !translate-me-off to stop
+5. From this group, !enable-threads clears in-chat auto if you want Language Threads instead
+
+In-chat auto and Language Threads cannot run at the same time.
+
+Commands: !translation-in-chat
+!help"#;
+
+const HELP_TRANSCRIPTION_GUIDE: &str = r#"Voice transcription — how it works
+
+Use when people send voice notes and you want text in the same Signal chat.
+
+How it works:
+- A separate transcription bot runs Whisper inside a TEE (same CVM as that bot).
+- Auto mode (default on): inbound voice notes become quote-reply transcripts.
+- Manual: quote a voice note and send !transcribe
+- Toggle with !transcribe-on / !transcribe-off
+
+Typical use:
+1. Add both bots to the group (translation can invite via !transcription if PEER_PHONE is set)
+2. Accept the invite on the transcription number
+3. Send a voice note — you get a 📝 Transcript: reply
+4. With the translation bot in the group, that transcript can also be auto-translated
+
+Commands: !transcription
+Privacy / TEE: !privacy (!verify)
 !help"#;
 
 const TRANSLATION_SPLIT_REDIRECT: &str = r#"Translation has two menus:
@@ -224,6 +314,7 @@ The transcription bot is not paired with this group yet. Meanwhile, try translat
 !translation-threads
 !translation-in-chat
 
+!help-transcription
 !help"#;
 
 const TRANSCRIPTION_INVITED: &str = r#"Invited the transcription bot to this group.
@@ -315,7 +406,8 @@ mod tests {
     fn threads_menu_lists_thread_commands() {
         let h = translation_threads_menu();
         assert!(h.contains("!translate-me-thread <lang>"));
-        assert!(h.contains("!disable-threads"));
+        assert!(h.contains("!enable-in-chat"));
+        assert!(h.contains("!help-threads"));
         assert!(h.contains("!list-langs"));
         assert!(!h.contains("!leave"));
         assert!(!h.contains("!translate-all-on"));
@@ -326,10 +418,27 @@ mod tests {
         let h = translation_in_chat_menu(true);
         assert!(h.contains("!translate-all-on <lang1> <lang2>"));
         assert!(h.contains("!translate-me-on <lang1> <lang2>"));
-        assert!(h.contains("!disable-in-chat"));
+        assert!(h.contains("!enable-threads"));
+        assert!(h.contains("!help-in-chat"));
         assert!(h.contains("!translate <lang>"));
         assert!(!h.contains("!translate-me-thread"));
         assert!(!h.contains("!models"));
+    }
+
+    #[test]
+    fn feature_guides_cover_use_cases() {
+        let threads = help_threads_guide();
+        assert!(threads.contains("Language Threads"));
+        assert!(threads.contains("!translate-me-thread"));
+        assert!(threads.contains("sidecar"));
+        let in_chat = help_in_chat_guide();
+        assert!(in_chat.contains("In-chat translation"));
+        assert!(in_chat.contains("!translate-all-on"));
+        assert!(in_chat.contains("quote"));
+        let transcription = help_transcription_guide();
+        assert!(transcription.contains("Voice transcription"));
+        assert!(transcription.contains("Whisper"));
+        assert!(transcription.contains("!transcribe"));
     }
 
     #[test]

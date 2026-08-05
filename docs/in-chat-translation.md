@@ -4,11 +4,11 @@ Status: **MVP implemented** on the translation bot.
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 
-Distinct from [Language Threads](language-threads.md) (multilingual main + N sidecars). In-chat stays in one Signal group; Language Threads creates sidecar groups. **In-chat auto and Language Threads are mutually exclusive** — enabling one while the other is active refuses with a switch path (`!disable-threads` / `!disable-in-chat`).
+Distinct from [Language Threads](language-threads.md) (multilingual main + N sidecars). In-chat stays in one Signal group; Language Threads creates sidecar groups. **In-chat auto and Language Threads are mutually exclusive** — enabling one while the other is active refuses with a switch path (`!enable-in-chat` / `!enable-threads`).
 
 ## Setup
 
-Menus: `!help` → `!translation-in-chat` (or legacy `!in-chat` / `!translation` redirect).
+Menus: `!help` → `!translation-in-chat` (or legacy `!in-chat` / `!translation` redirect). Feature guide: `!help-in-chat`.
 
 ### Group-wide
 
@@ -44,7 +44,7 @@ Stop personal:
 Clear **all** in-chat auto (group-wide + every personal), and apply a pending Language Threads subscribe if one was refused earlier:
 
 ```text
-!disable-in-chat
+!enable-threads
 ```
 
 ## Behavior

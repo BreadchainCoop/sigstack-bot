@@ -1,6 +1,8 @@
 //! Help / info commands — compact menu vs info menu.
 
-use crate::commands::menu_locale::{help_menu, info_menu, thread_help_menu, thread_info_menu};
+use crate::commands::menu_locale::{
+    help_menu, info_menu, is_exact_command, thread_help_menu, thread_info_menu,
+};
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
@@ -22,8 +24,9 @@ impl HelpHandler {
 
 #[async_trait]
 impl CommandHandler for HelpHandler {
-    fn trigger(&self) -> Option<&str> {
-        Some("!help")
+    fn matches(&self, message: &BotMessage) -> bool {
+        // Exact match so !help-threads / !help-in-chat are not swallowed.
+        is_exact_command(&message.text, "!help")
     }
 
     fn label(&self) -> &'static str {
@@ -56,8 +59,8 @@ impl InfoHandler {
 
 #[async_trait]
 impl CommandHandler for InfoHandler {
-    fn trigger(&self) -> Option<&str> {
-        Some("!info")
+    fn matches(&self, message: &BotMessage) -> bool {
+        is_exact_command(&message.text, "!info")
     }
 
     fn label(&self) -> &'static str {
@@ -111,6 +114,8 @@ mod tests {
         let translation = HelpHandler::new(store.clone(), BotRole::Translation);
 
         assert!(transcription.matches(&dm("!help")));
+        assert!(!transcription.matches(&dm("!help-threads")));
+        assert!(!transcription.matches(&dm("!help-in-chat")));
         let t = transcription.execute(&dm("!help")).await.unwrap();
         assert!(t.contains("!transcribe"));
         assert!(t.contains("!info"));

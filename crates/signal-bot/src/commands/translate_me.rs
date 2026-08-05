@@ -7,7 +7,9 @@
 
 use crate::bot_identity::BotIdentity;
 use crate::commands::translate_lang::{resolve_language, Language};
-use crate::commands::translate_service::{detect_text_language, near_ai_translate};
+use crate::commands::translate_service::{
+    detect_text_language, near_ai_translate, strip_transcript_prefix, DEFAULT_TRANSCRIPT_PREFIX,
+};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use crate::group_preferences_store::{
@@ -87,11 +89,7 @@ impl TranslateMeHandler {
 
     fn is_relay_candidate(&self, message: &BotMessage) -> bool {
         let text = message.text.trim();
-        if message.group_id.is_none()
-            || message.is_voice_note()
-            || text.is_empty()
-            || text.starts_with('!')
-        {
+        if message.group_id.is_none() || text.is_empty() || text.starts_with('!') {
             return false;
         }
         let Some(gid) = message.group_id.as_deref() else {
@@ -491,7 +489,8 @@ impl TranslateMeHandler {
         message: &BotMessage,
         bridge: &crate::group_preferences_store::LanguageBridge,
     ) -> AppResult<()> {
-        let detected = detect_text_language(&message.text);
+        let spoken = strip_transcript_prefix(&message.text, DEFAULT_TRANSCRIPT_PREFIX);
+        let detected = detect_text_language(&spoken);
         let display = message.display_name();
         let bot = &message.receiving_account;
         let mut translation_cache: HashMap<String, String> = HashMap::new();
@@ -502,11 +501,11 @@ impl TranslateMeHandler {
                 continue;
             };
             let body = if detected.as_deref() == Some(lang.as_str()) {
-                message.text.clone()
+                spoken.clone()
             } else if let Some(cached) = translation_cache.get(lang) {
                 cached.clone()
             } else {
-                match near_ai_translate(&self.near_ai, &message.text, target_lang).await {
+                match near_ai_translate(&self.near_ai, &spoken, target_lang).await {
                     Ok(t) => {
                         translation_cache.insert(lang.clone(), t.clone());
                         t
@@ -535,9 +534,10 @@ impl TranslateMeHandler {
             return Ok(());
         };
 
+        let spoken = strip_transcript_prefix(&message.text, DEFAULT_TRANSCRIPT_PREFIX);
         let display = message.display_name();
         let bot = &message.receiving_account;
-        let to_main = format_attribution(&display, &message.text);
+        let to_main = format_attribution(&display, &spoken);
 
         // Resolve main send id (incoming group_id is internal).
         let main_recipient = match self
@@ -568,7 +568,7 @@ impl TranslateMeHandler {
             let body = if let Some(cached) = translation_cache.get(lang) {
                 cached.clone()
             } else {
-                match near_ai_translate(&self.near_ai, &message.text, target_lang).await {
+                match near_ai_translate(&self.near_ai, &spoken, target_lang).await {
                     Ok(t) => {
                         translation_cache.insert(lang.clone(), t.clone());
                         t

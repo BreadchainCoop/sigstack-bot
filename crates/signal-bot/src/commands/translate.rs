@@ -5,6 +5,7 @@ use crate::commands::menu_locale::{
 };
 use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
+use crate::commands::translate_service::strip_transcript_prefix;
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
@@ -45,17 +46,11 @@ impl TranslateHandler {
         if raw.is_empty() {
             return None;
         }
-
-        let text = if let Some(rest) = raw.strip_prefix(transcript_prefix) {
-            rest.trim_start_matches('\n').trim()
-        } else {
-            raw
-        };
-
+        let text = strip_transcript_prefix(raw, transcript_prefix);
         if text.is_empty() {
             None
         } else {
-            Some(text.to_string())
+            Some(text)
         }
     }
 

@@ -67,8 +67,7 @@ pub fn transcription_unavailable() -> &'static str {
 
 pub fn transcription_invited() -> String {
     format!(
-        "Invited the transcription bot to this group. It joins automatically when that number \
-         has PEER_PHONE set to this translation bot.\n\n\
+        "Invited the transcription bot to this group.\n\n\
          {}",
         help_menu(BotRole::Transcription)
     )

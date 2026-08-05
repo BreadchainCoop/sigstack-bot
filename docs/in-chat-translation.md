@@ -59,7 +59,7 @@ Not dual-post: the original stays as the human message; the bot only quote-repli
 
 Skip when language is undetected or not in the pair. Rate-limited per group (`TRANSLATE_ALL__MAX_MESSAGES_PER_MINUTE`).
 
-Voice notes: the **transcription** bot posts a transcript in-group; with auto-translate on, the **translation** bot then intercepts that text like any other message.
+Voice notes: the **transcription** bot posts a transcript in-group; with `!translate-all-on` (or personal auto for the speaker), the **translation** bot intercepts that text like any other message — including when the transcript quote-reply still carries voice attachment metadata. The `📝 Transcript:` label is stripped before detect/translate (same as manual quote `!translate`).
 
 ## Key code
 

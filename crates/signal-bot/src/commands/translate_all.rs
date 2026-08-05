@@ -3,7 +3,8 @@
 use crate::commands::translate_lang::resolve_language;
 use crate::commands::translate_me::TranslateMeHandler;
 use crate::commands::translate_service::{
-    format_text_auto_translation, near_ai_translate, target_for_message_text,
+    format_text_auto_translation, near_ai_translate, strip_transcript_prefix,
+    target_for_message_text, DEFAULT_TRANSCRIPT_PREFIX,
 };
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -87,6 +88,9 @@ pub struct TranslateAllHandler {
     store: Arc<GroupPreferencesStore>,
     near_ai: Arc<NearAiClient>,
     signal: Arc<SignalClient>,
+    /// Transcription peer E.164 (`SIGNAL__PEER_PHONE`), when paired.
+    peer_phone: Option<String>,
+    transcript_prefix: String,
 }
 
 impl TranslateAllHandler {
@@ -95,10 +99,29 @@ impl TranslateAllHandler {
         near_ai: Arc<NearAiClient>,
         signal: Arc<SignalClient>,
     ) -> Self {
+        Self::with_peer(store, near_ai, signal, None, DEFAULT_TRANSCRIPT_PREFIX)
+    }
+
+    pub fn with_peer(
+        store: Arc<GroupPreferencesStore>,
+        near_ai: Arc<NearAiClient>,
+        signal: Arc<SignalClient>,
+        peer_phone: Option<String>,
+        transcript_prefix: impl Into<String>,
+    ) -> Self {
         Self {
             store,
             near_ai,
             signal,
+            peer_phone: peer_phone.and_then(|p| {
+                let t = p.trim().to_string();
+                if t.is_empty() {
+                    None
+                } else {
+                    Some(t)
+                }
+            }),
+            transcript_prefix: transcript_prefix.into(),
         }
     }
 
@@ -106,12 +129,90 @@ impl TranslateAllHandler {
         is_translate_on_or_off_command(text)
     }
 
+    /// Group text eligible for auto-translate (commands excluded).
+    ///
+    /// Allows text even when audio attachments are present so transcription-bot
+    /// quote-replies that still carry voice metadata are not skipped.
     fn is_text_intercept(message: &BotMessage) -> bool {
         let text = message.text.trim();
-        message.group_id.is_some()
-            && !message.is_voice_note()
-            && !text.is_empty()
-            && !text.starts_with('!')
+        message.group_id.is_some() && !text.is_empty() && !text.starts_with('!')
+    }
+
+    fn is_peer_source(&self, message: &BotMessage) -> bool {
+        let Some(peer) = self.peer_phone.as_deref() else {
+            return false;
+        };
+        message.source == peer
+            || message.source_number.as_deref() == Some(peer)
+            || message
+                .source_number
+                .as_deref()
+                .is_some_and(|n| n.trim() == peer)
+    }
+
+    fn looks_like_transcript(&self, text: &str) -> bool {
+        let prefix = if self.transcript_prefix.is_empty() {
+            DEFAULT_TRANSCRIPT_PREFIX
+        } else {
+            self.transcript_prefix.as_str()
+        };
+        text.trim().starts_with(prefix)
+    }
+
+    /// Spoken body for detect/translate (strip Whisper label when present).
+    fn intercept_text(&self, message: &BotMessage) -> String {
+        strip_transcript_prefix(message.text.trim(), &self.transcript_prefix)
+    }
+
+    /// Resolve in-chat mode; for peer/transcript posts, try quote author first.
+    fn resolve_mode_for_message(
+        &self,
+        group_id: &str,
+        message: &BotMessage,
+    ) -> Option<GroupTranslateMode> {
+        let treat_as_transcript =
+            self.is_peer_source(message) || self.looks_like_transcript(&message.text);
+        if treat_as_transcript {
+            if let Some(author) = message
+                .quote
+                .as_ref()
+                .and_then(|q| q.author_number.as_deref())
+            {
+                if let Some(mode) = self.store.resolve_in_chat_mode(group_id, author) {
+                    return Some(mode);
+                }
+            }
+        }
+
+        if let Some(mode) = self.store.resolve_in_chat_mode(group_id, &message.source) {
+            return Some(mode);
+        }
+        if let Some(n) = message.source_number.as_deref() {
+            if n != message.source.as_str() {
+                return self.store.resolve_in_chat_mode(group_id, n);
+            }
+        }
+        None
+    }
+
+    fn set_member_prefs(&self, group_id: &str, message: &BotMessage, mode: GroupTranslateMode) {
+        self.store
+            .set_member_translate(group_id, &message.source, mode.clone());
+        if let Some(n) = message.source_number.as_deref() {
+            if n != message.source.as_str() {
+                self.store.set_member_translate(group_id, n, mode);
+            }
+        }
+    }
+
+    fn clear_member_prefs(&self, group_id: &str, message: &BotMessage) -> bool {
+        let mut cleared = self.store.clear_member_translate(group_id, &message.source);
+        if let Some(n) = message.source_number.as_deref() {
+            if n != message.source.as_str() {
+                cleared = self.store.clear_member_translate(group_id, n) || cleared;
+            }
+        }
+        cleared
     }
 
     fn parse_lang_pair<'a>(text: &'a str, prefixes: &[&str]) -> Option<(&'a str, &'a str)> {
@@ -233,8 +334,7 @@ impl TranslateAllHandler {
         }
 
         let pair_label = mode.display_pair();
-        self.store
-            .set_member_translate(group_id, &message.source, mode);
+        self.set_member_prefs(group_id, message, mode);
         info!(
             group_id,
             user = %message.source,
@@ -262,7 +362,7 @@ impl TranslateAllHandler {
             Ok(id) => id,
             Err(msg) => return Ok(msg.into()),
         };
-        if self.store.clear_member_translate(group_id, &message.source) {
+        if self.clear_member_prefs(group_id, message) {
             info!(group_id, user = %message.source, "translate-me (in-chat) disabled");
             Ok("Personal translate disabled".into())
         } else {
@@ -328,7 +428,7 @@ impl TranslateAllHandler {
             return Ok(());
         }
 
-        let mode = match self.store.resolve_in_chat_mode(group_id, &message.source) {
+        let mode = match self.resolve_mode_for_message(group_id, message) {
             Some(m) => m,
             None => return Ok(()),
         };
@@ -341,20 +441,24 @@ impl TranslateAllHandler {
             return Ok(());
         }
 
-        let (source, target) = match target_for_message_text(&mode, message.text.trim()) {
+        let spoken = self.intercept_text(message);
+        if spoken.is_empty() {
+            return Ok(());
+        }
+
+        let (source, target) = match target_for_message_text(&mode, &spoken) {
             Some(pair) => pair,
             None => {
                 debug!(
                     group_id,
-                    text_chars = message.text.trim().len(),
+                    text_chars = spoken.len(),
                     "translate-all skipped text (language not in pair or undetected)"
                 );
                 return Ok(());
             }
         };
 
-        let translation = match near_ai_translate(&self.near_ai, message.text.trim(), target).await
-        {
+        let translation = match near_ai_translate(&self.near_ai, &spoken, target).await {
             Ok(t) => t,
             Err(e) => {
                 warn!("translate-all text translation failed: {}", e);
@@ -406,10 +510,7 @@ impl CommandHandler for TranslateAllHandler {
         }
         if Self::is_text_intercept(message) {
             if let Some(gid) = &message.group_id {
-                return self
-                    .store
-                    .resolve_in_chat_mode(gid, &message.source)
-                    .is_some()
+                return self.resolve_mode_for_message(gid, message).is_some()
                     && !self.store.threads_active(gid);
             }
         }
@@ -552,6 +653,101 @@ mod tests {
         };
         assert!(handler.matches(&alice));
         assert!(!handler.matches(&bob));
+    }
+
+    #[test]
+    fn group_wide_matches_transcript_even_with_audio_attachment() {
+        use signal_client::Attachment;
+
+        let handler = test_handler();
+        handler.store.set(
+            "gid".into(),
+            GroupTranslateMode::new(
+                resolve_language("es").unwrap(),
+                resolve_language("en").unwrap(),
+            ),
+        );
+
+        let msg = BotMessage {
+            source: "+15550009999".into(),
+            source_number: Some("+15550009999".into()),
+            source_name: Some("Transcription".into()),
+            text: "📝 Transcript:\nHola, ¿cómo estás?".into(),
+            timestamp: 0,
+            message_timestamp: 0,
+            is_group: true,
+            group_id: Some("gid".into()),
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![Attachment {
+                content_type: "audio/aac".into(),
+                filename: Some("voice.m4a".into()),
+                id: "att-1".into(),
+                size: Some(100),
+                upload_timestamp: None,
+            }],
+            quote: None,
+        };
+        assert!(msg.is_voice_note());
+        assert!(handler.matches(&msg));
+    }
+
+    #[test]
+    fn personal_matches_peer_transcript_via_quote_author() {
+        use signal_client::QuotedMessage;
+
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        let handler = TranslateAllHandler::with_peer(
+            GroupPreferencesStore::new_in_memory(30),
+            Arc::new(
+                NearAiClient::new(
+                    "key",
+                    "http://localhost",
+                    "model",
+                    std::time::Duration::from_secs(5),
+                )
+                .unwrap(),
+            ),
+            Arc::new(SignalClient::new("http://localhost").unwrap()),
+            Some("+15550009999".into()),
+            DEFAULT_TRANSCRIPT_PREFIX,
+        );
+        handler.store.set_member_translate("gid", "+alice", mode);
+
+        let msg = BotMessage {
+            source: "+15550009999".into(),
+            source_number: Some("+15550009999".into()),
+            source_name: Some("Transcription".into()),
+            text: "📝 Transcript:\nHola amigos".into(),
+            timestamp: 0,
+            message_timestamp: 0,
+            is_group: true,
+            group_id: Some("gid".into()),
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: Some(QuotedMessage {
+                id: 1,
+                author_number: Some("+alice".into()),
+                text: None,
+                audio_attachment: None,
+            }),
+        };
+        assert!(handler.matches(&msg));
+
+        let other = BotMessage {
+            quote: Some(QuotedMessage {
+                id: 2,
+                author_number: Some("+bob".into()),
+                text: None,
+                audio_attachment: None,
+            }),
+            ..msg.clone()
+        };
+        assert!(!handler.matches(&other));
     }
 
     #[tokio::test]

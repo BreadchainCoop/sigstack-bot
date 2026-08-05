@@ -137,10 +137,12 @@ pub async fn build_translation_handlers(
     );
 
     if config.translate_all.enabled {
-        handlers.push(Box::new(TranslateAllHandler::new(
+        handlers.push(Box::new(TranslateAllHandler::with_peer(
             group_prefs.clone(),
             near_ai.clone(),
             signal.clone(),
+            config.signal.peer_phone.clone(),
+            DEFAULT_TRANSCRIPT_PREFIX,
         )));
         info!(
             "In-chat translation enabled: !translate-all-on / !translate-me-on / !enable-threads"

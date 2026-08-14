@@ -12,7 +12,8 @@ pub trait TranscriptFanout: Send + Sync {
     async fn fan_out_transcript(&self, original: &BotMessage, spoken_text: &str);
 }
 
-/// Fire-and-forget so the transcript quote-reply is not delayed by NEAR chat.
+/// Fire-and-forget so NEAR chat does not block the handler after the transcript
+/// quote-reply is sent. Callers must spawn only after that send succeeds.
 pub fn spawn_fanout(fanout: Option<SharedTranscriptFanout>, original: &BotMessage, spoken: &str) {
     let Some(fanout) = fanout else {
         return;
@@ -29,6 +30,59 @@ pub fn spawn_fanout(fanout: Option<SharedTranscriptFanout>, original: &BotMessag
 
 /// Shared handle for voice / `!transcribe` handlers.
 pub type SharedTranscriptFanout = std::sync::Arc<dyn TranscriptFanout>;
+
+#[cfg(test)]
+pub(crate) struct RecordingFanout {
+    pub events: std::sync::Mutex<Vec<&'static str>>,
+    pub spoken: std::sync::Mutex<Vec<String>>,
+    pub sources: std::sync::Mutex<Vec<String>>,
+}
+
+#[cfg(test)]
+impl RecordingFanout {
+    pub(crate) fn new() -> std::sync::Arc<Self> {
+        std::sync::Arc::new(Self {
+            events: std::sync::Mutex::new(Vec::new()),
+            spoken: std::sync::Mutex::new(Vec::new()),
+            sources: std::sync::Mutex::new(Vec::new()),
+        })
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl TranscriptFanout for RecordingFanout {
+    async fn fan_out_transcript(&self, original: &BotMessage, spoken_text: &str) {
+        self.events.lock().unwrap().push("fanout");
+        self.spoken.lock().unwrap().push(spoken_text.to_string());
+        self.sources.lock().unwrap().push(original.source.clone());
+    }
+}
+
+#[cfg(test)]
+pub(crate) struct RecordSend(pub std::sync::Arc<RecordingFanout>);
+
+#[cfg(test)]
+impl wiremock::Respond for RecordSend {
+    fn respond(&self, _request: &wiremock::Request) -> wiremock::ResponseTemplate {
+        self.0.events.lock().unwrap().push("send");
+        wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({}))
+    }
+}
+
+#[cfg(test)]
+pub(crate) async fn wait_for_fanout(rec: &RecordingFanout) {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if rec.events.lock().unwrap().contains(&"fanout") {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("fan-out should run");
+}
 
 #[cfg(test)]
 mod tests {

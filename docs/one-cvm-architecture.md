@@ -6,13 +6,11 @@ See also: [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10) 
 
 ## Bot
 
-| Role | Phone | Duty |
-|------|-------|------|
-| **Bread Bot** (`BOT__ROLE=translation`) | Phone B | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
+| Bot | Phone | Duty |
+|-----|-------|------|
+| **Bread Bot** | Registered number on this CVM | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, Bilingual Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
 
-`BOT__ROLE=transcription` is retired and fail-fasts. Do not add a third role. Do not drop `BOT__ROLE` from compose.
-
-Voice crate [`crates/signal-bot-transcription`](../crates/signal-bot-transcription) stays; pairing / `PEER_PHONE` / a second Signal number do not.
+Voice crate [`crates/signal-bot-voice`](../crates/signal-bot-voice); pairing / `PEER_PHONE` / a second Signal number do not exist.
 
 ## Diagram
 
@@ -31,34 +29,33 @@ flowchart LR
 - No local Whisper sidecar. Voice audio is decrypted in this TEE, stripped of Signal metadata, and sent to **NEAR AI Whisper Large V3** (GPU TEE). Translation text uses the same vendor.
 - Per-message `tokio::spawn` so an STT wait cannot stall other handlers in the same process.
 - After STT, fan out spoken text in-process so in-chat auto, Language Threads, and Bilingual Threads still see transcripts.
-- Same `signal-bot` image; live role is `BOT__ROLE=translation` (Whisper + NEAR required).
+- Same `signal-bot` image (Whisper + NEAR required).
 - Do not reintroduce `whisper-api` or put Whisper on a larger CPU TEE as the scale path.
 
 ## Local stack
 
 ```bash
-cp docker/translation.env.example docker/translation.env
+cp docker/env.example docker/env
 # Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+docker compose -f docker/compose.yaml --env-file docker/env up -d
 ```
 
-Register the number against this stack’s `signal-api` (or the registration proxy on host port `8081`). [`docker/compose.transcription.yaml`](../docker/compose.transcription.yaml) is a retired stub.
+Register the number against this stack’s `signal-api` (or the registration proxy on host port `8081`).
 
 ## Phala (prod)
 
 | Compose | CVM | Contents |
 |---------|-----|----------|
-| [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) | 4 GB (`tdx.medium`) | `signal-api` (phone B) + `signal-bot` + proxy `:8081`. **No Whisper sidecar.** |
-| [`docker/phala.transcription.yaml`](../docker/phala.transcription.yaml) | — | **Deprecated stub.** Do not deploy. |
+| [`docker/phala.yaml`](../docker/phala.yaml) | 4 GB (`tdx.medium`) | `signal-api` + `signal-bot` + proxy `:8081`. **No Whisper sidecar.** |
 
-Live CVM: `sigstack-translation` **`0e82fa77-8b15-4dbd-89c4-9045ab911353`** (app `9adac7636fe255182f699940ffd1924960415507`). The former transcription CVM `eba19afc-0c26-4409-b026-f757928d2ef8` was deleted (idle Whisper bill). Phone A is not re-registered; groups that still list it can remove that contact.
+Live CVM: `sigstack-translation` **`0e82fa77-8b15-4dbd-89c4-9045ab911353`** (app `9adac7636fe255182f699940ffd1924960415507`). The former transcription CVM `eba19afc-0c26-4409-b026-f757928d2ef8` was deleted (idle Whisper bill). The retired second number is not re-registered; groups that still list it can remove that contact.
 
 Upgrade **in place** only:
 
 ```bash
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
+  -c docker/phala.yaml -e docker/phala.env --wait
 ```
 
 [`scripts/deploy_phala.sh`](../scripts/deploy_phala.sh) defaults to that `--cvm-id`. Do not `phala deploy -n` against the live CVM.
@@ -86,7 +83,7 @@ Do **not** rename `signal-config-translation` / `group-prefs-translation` / `reg
 
 Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback includes `compose_hash` — a compose change then fails decrypt. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on `signal-api`.
 
-Do not change volume names in [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) without a deliberate migration.
+Do not change volume names in [`docker/phala.yaml`](../docker/phala.yaml) without a deliberate migration.
 
 ## Products on this CVM
 

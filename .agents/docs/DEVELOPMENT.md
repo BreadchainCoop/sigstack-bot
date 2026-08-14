@@ -4,11 +4,11 @@
 
 Interoperable Signal products (see [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)):
 
-1. **Voice transcription** — same process (`BOT__ROLE=translation`; NEAR AI Whisper Large V3, not an in-CVM sidecar)
+1. **Voice transcription** — same process (NEAR AI Whisper Large V3, not an in-CVM sidecar)
 2. **In-chat group translation** — see [`docs/in-chat-translation.md`](../../docs/in-chat-translation.md)
 3. **Language Threads** — multilingual main + N sidecars (see [`docs/language-threads.md`](../../docs/language-threads.md))
 
-Architecture: [`docs/two-cvm-architecture.md`](../../docs/two-cvm-architecture.md) (one Phala CVM, one Signal number). Why STT is remote: [`docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md`](../../docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
+Architecture: [`docs/one-cvm-architecture.md`](../../docs/one-cvm-architecture.md) (one Phala CVM, one Signal number). Why STT is remote: [`docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md`](../../docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 
 Fork legacy removed: general AI chat, tool use (`crates/tools`), x402 payments, in-memory conversation store.
 
@@ -40,14 +40,9 @@ Signal E2E encryption terminates at Signal CLI. Plaintext only exists in this TE
 
 Does **not** prove Signal CLI image integrity beyond pinning, hide network metadata (timing, sizes, phone numbers), or attest **NEAR AI Whisper weights** (`!verify` is this CVM only).
 
-## `BOT__ROLE`
+## Process
 
-| Role | Handlers | Requires |
-|------|----------|----------|
-| `translation` | Hub (`!help`, `!info`, `!privacy`, product menus), Language Threads, in-chat, voice / `!transcribe*`, `!transcription` menu, quote `!translate`, `!verify` | `NEAR_AI__API_KEY` + `WHISPER__ENABLED=true` |
-| `transcription` | **Retired** — process fail-fasts | — |
-
-Fail-fast if role is missing/invalid or required deps are missing. Do not add a third role. Do not drop `BOT__ROLE`.
+One `signal-bot` binary: hub (`!help`, `!info`, `!privacy`, product menus), Language Threads, Bilingual Threads, in-chat, voice / `!transcribe*`, `!transcription` menu, quote `!translate`, `!verify`. Requires `NEAR_AI__API_KEY` and `WHISPER__ENABLED=true`.
 
 ## Project structure
 
@@ -55,33 +50,30 @@ Fail-fast if role is missing/invalid or required deps are missing. Do not add a 
 crates/
   signal-bot/                 # Binary (unified handlers)
   signal-bot-core/            # CommandHandler + AppResult
-  signal-bot-transcription/   # Voice / !transcribe* product crate
+  signal-bot-voice/           # Voice / !transcribe* product crate
   whisper-client/             # OpenAI-compatible STT client (NEAR Whisper)
   near-ai-client/             # NEAR AI chat + audio transcriptions
   signal-client/
   dstack-client/
   signal-registration-proxy/  # Ops registration helper
 docker/
-  compose.translation.yaml    # local one-number stack
-  compose.transcription.yaml  # retired stub
-  phala.translation.yaml      # prod one-CVM suite
-  phala.transcription.yaml    # deprecated stub — do not deploy
+  compose.yaml                # local one-number stack
+  phala.yaml                  # prod one-CVM suite
+  env.example / phala.env.example
   Dockerfile / Dockerfile.proxy
 docs/
-  two-cvm-architecture.md
+  one-cvm-architecture.md
   voice-transcription.md
   language-threads.md
 ```
 
-`Dockerfile.whisper` is unused on the live path.
-
 ## Local Compose
 
 ```bash
-cp docker/translation.env.example docker/translation.env
+cp docker/env.example docker/env
 # SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+docker compose -f docker/compose.yaml --env-file docker/env up -d
 ```
 
 Network: `sigstack-translation-internal`.
@@ -95,10 +87,10 @@ docker buildx build --platform linux/amd64 -t YOUR/signal-bot-tee:latest -f dock
 docker buildx build --platform linux/amd64 -t YOUR/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
 
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
+  -c docker/phala.yaml -e docker/phala.env --wait
 ```
 
-Do **not** `phala deploy -n` against the live CVM. Do **not** deploy `docker/phala.transcription.yaml`. Env template: `docker/phala.translation.env.example`.
+Do **not** `phala deploy -n` against the live CVM. Env template: `docker/phala.env.example`.
 
 Encrypted secrets: `SIGNAL_PHONE` (phone B), `NEAR_AI_API_KEY`.
 
@@ -119,16 +111,15 @@ Use `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`. Do **not** `ph
 
 After upgrade, logs should show `Loaded group preferences for N groups` (not `starting fresh` / `TEE deployment may have changed`), and `signal-api` should still list its account.
 
-Canonical table: [`docs/two-cvm-architecture.md` — CVM storage](../../docs/two-cvm-architecture.md#cvm-storage-keep-intact). Agent rule: [`AGENTS.md` — CVM storage](../../AGENTS.md#cvm-storage-do-not-wipe).
+Canonical table: [`docs/one-cvm-architecture.md` — CVM storage](../../docs/one-cvm-architecture.md#cvm-storage-keep-intact). Agent rule: [`AGENTS.md` — CVM storage](../../AGENTS.md#cvm-storage-do-not-wipe).
 
 ## Configuration
 
 | Variable | Notes |
 |----------|-------|
-| `BOT__ROLE` | Live value `translation` (`transcription` fail-fasts) |
 | `SIGNAL__SERVICE_URL` | Default `http://signal-api:8080` |
 | `SIGNAL__PHONE_NUMBER` | Ops phone for this process |
-| `NEAR_AI__*` | Chat + API key for remote Whisper |
+| `NEAR_AI__*` | Chat + API key for remote Whisper (required) |
 | `WHISPER__*` | Required — `SERVICE_URL` is NEAR `/v1`, not `whisper-api:9000` |
 | `TRANSLATE_ALL__*` | In-chat translation |
 | `GROUP_PREFERENCES__*` | Encrypted group prefs volume |

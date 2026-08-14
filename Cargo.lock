@@ -2086,7 +2086,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "signal-bot-core",
- "signal-bot-transcription",
+ "signal-bot-voice",
  "signal-client",
  "tempfile",
  "thiserror",
@@ -2114,7 +2114,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-bot-transcription"
+name = "signal-bot-voice"
 version = "0.1.0"
 dependencies = [
  "anyhow",

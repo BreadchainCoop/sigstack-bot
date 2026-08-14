@@ -50,18 +50,18 @@ npm run ci               # all GitHub Actions gates (fmt + clippy + coverage + c
 pnpm run ci              # same as above if you use pnpm (NOT `pnpm ci` — that only installs)
 npm run prepush          # alias of npm run ci (also run by husky pre-push)
 
-cp docker/translation.env.example docker/translation.env
+cp docker/env.example docker/env
 # SIGNAL_PHONE + NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+docker compose -f docker/compose.yaml --env-file docker/env up -d
 ```
 
 ## Read next
 
 | Doc | Why |
 |-----|-----|
-| [`.agents/docs/DEVELOPMENT.md`](.agents/docs/DEVELOPMENT.md) | TEE trust model, `BOT__ROLE`, Phala one-CVM ops, **CVM volume / Signal identity** |
-| [`docs/two-cvm-architecture.md`](docs/two-cvm-architecture.md) | One CVM / one phone, **CVM storage (keep intact)** |
+| [`.agents/docs/DEVELOPMENT.md`](.agents/docs/DEVELOPMENT.md) | TEE trust model, Phala one-CVM ops, **CVM volume / Signal identity** |
+| [`docs/one-cvm-architecture.md`](docs/one-cvm-architecture.md) | One CVM / one phone, **CVM storage (keep intact)** |
 | [`docs/voice-transcription.md`](docs/voice-transcription.md) | Voice transcription product (NEAR Whisper; in-process fan-out) |
 | [`docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md`](docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md) | Why STT is remote; never re-home Whisper in a CPU TEE |
 | [`docs/in-chat-translation.md`](docs/in-chat-translation.md) | In-chat (group) bilingual auto/manual translate |
@@ -78,11 +78,11 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 1. **Registered Signal phone** (`signal-config-translation` = phone B) — losing the volume unlinks the bot until ops re-registers (and takes over the number).
 2. **Encrypted user prefs** (`group-prefs-translation` → `/data/group_prefs.enc`) — `!translate-me-on`, `!translate-all-on`, Language Threads bridges. Losing this forces every user to turn features back on.
 
-Upgrade with `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`. Do not create a new CVM, rename those volumes, or `down -v`. Do not recreate a transcription CVM or re-register phone A. TEE RAM wipe on reboot is expected; disk volumes are the identity. Details: [docs/two-cvm-architecture.md — CVM storage](docs/two-cvm-architecture.md#cvm-storage-keep-intact).
+Upgrade with `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`. Do not create a new CVM, rename those volumes, or `down -v`. Do not recreate a transcription CVM or re-register phone A. TEE RAM wipe on reboot is expected; disk volumes are the identity. Details: [docs/one-cvm-architecture.md — CVM storage](docs/one-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Rules of thumb
 
-- Required env: `BOT__ROLE=translation` (`transcription` is retired and fail-fasts)
+- Required env: `NEAR_AI__API_KEY` and `WHISPER__ENABLED=true`
 - Do not reintroduce tools, x402, or general chat paths
 - Do not reintroduce a local Whisper sidecar; STT is NEAR AI Whisper Large V3
 - Image digests stay pinned in compose for attestation

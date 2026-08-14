@@ -1,4 +1,4 @@
-//! Signal product bot — `BOT__ROLE=translation` (transcription is retired).
+//! Signal product bot — hub, voice, in-chat, and language threads.
 
 use anyhow::Context;
 use dstack_client::DstackClient;
@@ -23,10 +23,7 @@ async fn main() -> AppResult<()> {
 
     init_logging(&config.bot.log_level);
 
-    info!(
-        role = ?config.bot.role,
-        "Starting sigstack Signal bot"
-    );
+    info!("Starting sigstack Signal bot");
 
     let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
 

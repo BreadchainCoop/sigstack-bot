@@ -1,9 +1,0 @@
-# DEPRECATED monolith stack.
-# Local and prod: one Signal number via docker/compose.translation.yaml /
-# docker/phala.translation.yaml.
-#
-#   docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
-#
-# See docs/two-cvm-architecture.md
-
-services: {}

@@ -224,7 +224,7 @@ impl VerifyHandler {
             lines.push("3. **Verify Docker Compose:** Check that compose_hash matches the expected configuration".into());
             lines.push("   - Repository: https://github.com/zmanian/signal-bot-tee".into());
             lines.push(
-                "   - Compare the compose_hash above with: `sha256sum docker-compose.yaml`".into(),
+                "   - Compare the compose_hash above with: `sha256sum docker/phala.yaml`".into(),
             );
             lines.push("   - This proves the bot is running the expected code".into());
         } else if let Some(err) = &result.error {

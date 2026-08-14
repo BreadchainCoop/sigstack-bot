@@ -4,7 +4,7 @@ This document described the original **Private AI Chat Proxy** fork design (gene
 
 Current product direction:
 
-- [two-cvm-architecture.md](two-cvm-architecture.md)
+- [one-cvm-architecture.md](one-cvm-architecture.md)
 - [language-threads.md](language-threads.md)
 - [../.agents/docs/DEVELOPMENT.md](../.agents/docs/DEVELOPMENT.md)
 - [../README.md](../README.md)

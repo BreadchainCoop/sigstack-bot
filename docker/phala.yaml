@@ -11,8 +11,8 @@
 # First create: `phala deploy -n sigstack-translation …`
 # Later upgrades MUST use `--cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` (or the live app id)
 # so volumes stay (Signal phone session + group prefs). Do not rename volumes below.
-# See docs/two-cvm-architecture.md#cvm-storage-keep-intact
-#   phala deploy --cvm-id YOUR_CVM -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
+# See docs/one-cvm-architecture.md#cvm-storage-keep-intact
+#   phala deploy --cvm-id YOUR_CVM -c docker/phala.yaml -e docker/phala.env --wait
 #
 # Registration proxy :8081 (phone B). Do not re-register phone A.
 
@@ -35,7 +35,6 @@ services:
   signal-bot:
     image: ${SIGNAL_BOT_IMAGE}
     environment:
-      - BOT__ROLE=translation
       - SIGNAL__SERVICE_URL=http://signal-api:8080
       - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}

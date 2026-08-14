@@ -2,7 +2,7 @@
 # Hub, translation, and voice in one signal-api + signal-bot.
 # STT is NEAR AI Whisper Large V3 (no Whisper sidecar).
 #
-#   docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+#   docker compose -f docker/compose.yaml --env-file docker/env up -d
 
 name: sigstack-translation
 
@@ -30,7 +30,6 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     environment:
-      - BOT__ROLE=translation
       - SIGNAL__SERVICE_URL=http://signal-api:8080
       - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}

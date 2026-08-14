@@ -4,14 +4,6 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use std::time::Duration;
 
-/// Which product surface this process runs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum BotRole {
-    Transcription,
-    Translation,
-}
-
 /// Application configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -19,11 +11,12 @@ pub struct Config {
     #[serde(default)]
     pub signal: SignalConfig,
 
-    /// NEAR AI configuration (required for translation role)
+    /// NEAR AI configuration (required: chat + Whisper STT)
     #[serde(default)]
     pub near_ai: Option<NearAiConfig>,
 
-    /// Bot configuration (includes required `BOT__ROLE`)
+    /// Bot configuration
+    #[serde(default)]
     pub bot: BotConfig,
 
     /// Dstack configuration
@@ -78,9 +71,6 @@ pub struct NearAiConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BotConfig {
-    /// Product role: `transcription` or `translation` (required)
-    pub role: BotRole,
-
     /// Signal username (e.g., "nearai.54")
     #[serde(default)]
     pub signal_username: Option<String>,
@@ -157,6 +147,16 @@ impl Default for SignalConfig {
             service_url: default_signal_service(),
             poll_interval: default_poll_interval(),
             phone_number: None,
+        }
+    }
+}
+
+impl Default for BotConfig {
+    fn default() -> Self {
+        Self {
+            signal_username: None,
+            github_repo: None,
+            log_level: default_log_level(),
         }
     }
 }
@@ -287,23 +287,14 @@ impl Config {
     }
 
     pub(crate) fn validate(&self) -> Result<()> {
-        match self.bot.role {
-            BotRole::Transcription => {
-                bail!(
-                    "BOT__ROLE=transcription is retired; use BOT__ROLE=translation (unified bot)"
-                );
-            }
-            BotRole::Translation => {
-                if !self.whisper.enabled {
-                    bail!("BOT__ROLE=translation requires WHISPER__ENABLED=true");
-                }
-                let Some(near) = &self.near_ai else {
-                    bail!("BOT__ROLE=translation requires NEAR_AI__API_KEY (and related NEAR_AI__* settings)");
-                };
-                if near.api_key.trim().is_empty() {
-                    bail!("BOT__ROLE=translation requires a non-empty NEAR_AI__API_KEY");
-                }
-            }
+        if !self.whisper.enabled {
+            bail!("WHISPER__ENABLED=true is required");
+        }
+        let Some(near) = &self.near_ai else {
+            bail!("NEAR_AI__API_KEY (and related NEAR_AI__* settings) is required");
+        };
+        if near.api_key.trim().is_empty() {
+            bail!("NEAR_AI__API_KEY must be non-empty");
         }
         Ok(())
     }
@@ -313,80 +304,41 @@ impl Config {
 mod tests {
     use super::*;
 
-    fn transcription_config(whisper_enabled: bool, near_key: Option<&str>) -> Config {
+    fn bot_config() -> Config {
         Config {
             signal: SignalConfig::default(),
-            near_ai: near_key.map(|k| NearAiConfig {
-                api_key: k.into(),
-                base_url: default_near_ai_url(),
-                model: default_model(),
-                timeout: default_timeout(),
-            }),
-            bot: BotConfig {
-                role: BotRole::Transcription,
-                signal_username: None,
-                github_repo: None,
-                log_level: "info".into(),
-            },
+            near_ai: None,
+            bot: BotConfig::default(),
             dstack: DstackConfig::default(),
-            whisper: WhisperConfig {
-                enabled: whisper_enabled,
-                ..WhisperConfig::default()
-            },
+            whisper: WhisperConfig::default(),
             translate_all: TranslateAllConfig::default(),
             group_preferences: GroupPreferencesConfig::default(),
         }
     }
 
-    fn translation_config(api_key: Option<&str>, whisper_enabled: bool) -> Config {
-        Config {
-            signal: SignalConfig::default(),
-            near_ai: api_key.map(|k| NearAiConfig {
-                api_key: k.into(),
-                base_url: default_near_ai_url(),
-                model: default_model(),
-                timeout: default_timeout(),
-            }),
-            bot: BotConfig {
-                role: BotRole::Translation,
-                signal_username: None,
-                github_repo: None,
-                log_level: "info".into(),
-            },
-            dstack: DstackConfig::default(),
-            whisper: WhisperConfig {
-                enabled: whisper_enabled,
-                ..WhisperConfig::default()
-            },
-            translate_all: TranslateAllConfig::default(),
-            group_preferences: GroupPreferencesConfig::default(),
-        }
+    fn with_near(mut config: Config, api_key: Option<&str>) -> Config {
+        config.near_ai = api_key.map(|k| NearAiConfig {
+            api_key: k.into(),
+            base_url: default_near_ai_url(),
+            model: default_model(),
+            timeout: default_timeout(),
+        });
+        config
     }
 
     #[test]
-    fn transcription_role_is_retired() {
-        let err = transcription_config(true, Some("sk-test"))
-            .validate()
-            .unwrap_err();
-        assert!(err.to_string().contains("retired"));
-        assert!(err.to_string().contains("translation"));
-    }
+    fn requires_whisper_and_near_ai() {
+        assert!(with_near(bot_config(), Some("sk-test")).validate().is_ok());
 
-    #[test]
-    fn translation_requires_whisper_and_near_ai() {
-        assert!(translation_config(Some("sk-test"), true).validate().is_ok());
-
-        let err = translation_config(Some("sk-test"), false)
-            .validate()
-            .unwrap_err();
+        let mut no_whisper = with_near(bot_config(), Some("sk-test"));
+        no_whisper.whisper.enabled = false;
+        let err = no_whisper.validate().unwrap_err();
         assert!(err.to_string().contains("WHISPER__ENABLED"));
 
-        let err = translation_config(None, true).validate().unwrap_err();
+        let err = bot_config().validate().unwrap_err();
         assert!(err.to_string().contains("NEAR_AI__API_KEY"));
 
-        let err = translation_config(Some("   "), true)
-            .validate()
-            .unwrap_err();
+        let err = with_near(bot_config(), Some("   ")).validate().unwrap_err();
         assert!(err.to_string().contains("non-empty"));
     }
 

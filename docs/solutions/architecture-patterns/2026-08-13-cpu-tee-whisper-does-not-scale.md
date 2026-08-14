@@ -44,19 +44,18 @@ Two processes used to matter because each bot awaited `dispatch_message` inside 
 **Do**
 
 - `WHISPER__SERVICE_URL=https://cloud-api.near.ai/v1` with `NEAR_AI__API_KEY`
-- One compose: [`docker/phala.translation.yaml`](../../../docker/phala.translation.yaml) — one `signal-api` + one `signal-bot` (`BOT__ROLE=translation`)
+- One compose: [`docker/phala.yaml`](../../../docker/phala.yaml) — one `signal-api` + one `signal-bot`
 - In-place upgrades: `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`
 
 **Do not**
 
-- Add `whisper-api` / `Dockerfile.whisper` to live compose
-- Deploy `docker/phala.transcription.yaml` (deprecated stub)
+- Add `whisper-api` / a local Whisper Dockerfile to live compose
 - “Just use `medium`/`large` ggml” or `tdx.large`/`xlarge` to fix voice latency
 - Re-introduce a second Signal number / pairing, or re-home Whisper in this CVM
 
 ## Related
 
-- [`docs/two-cvm-architecture.md`](../../two-cvm-architecture.md)
+- [`docs/one-cvm-architecture.md`](../../one-cvm-architecture.md)
 - [`docs/voice-transcription.md`](../../voice-transcription.md)
 - [`AGENTS.md`](../../../AGENTS.md)
 - Historical dual-CVM deploy: [`docs/plans/2026-08-05-dual-cvm-phala-deploy.md`](../../plans/2026-08-05-dual-cvm-phala-deploy.md) (superseded)

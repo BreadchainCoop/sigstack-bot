@@ -2,7 +2,7 @@
 
 Thorough guide for running the one-number Compose stack on your machine, registering a Signal phone number (including captcha), and tailing logs.
 
-Quick start (env copy + `up -d`) stays in [README.md](../README.md#local). Architecture context: [two-cvm-architecture.md](../two-cvm-architecture.md) (prod is one Phala CVM, one Signal number). TEE / role details: [`.agents/docs/DEVELOPMENT.md`](../../.agents/docs/DEVELOPMENT.md).
+Quick start (env copy + `up -d`) stays in [README.md](../README.md#local). Architecture context: [one-cvm-architecture.md](../one-cvm-architecture.md) (prod is one Phala CVM, one Signal number). TEE / role details: [`.agents/docs/DEVELOPMENT.md`](../../.agents/docs/DEVELOPMENT.md).
 
 **Already running and code changed?** Plain `up -d` / `restart` keep the old binary — see [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot).
 
@@ -10,7 +10,7 @@ Quick start (env copy + `up -d`) stays in [README.md](../README.md#local). Archi
 
 - Docker with Compose v2
 - One Signal-capable phone number (E.164)
-- `NEAR_AI_API_KEY` in `docker/translation.env` (chat + Whisper STT)
+- `NEAR_AI_API_KEY` in `docker/env` (chat + Whisper STT)
 - Optional: a local `/var/run/dstack.sock` if you care about attestation paths; local Compose mounts it read-only — registration and day-to-day bot traffic do not require a live Phala socket
 
 ## Captcha token
@@ -42,51 +42,51 @@ That means:
 After you pull or edit bot code, rebuild and recreate the bot container (Signal registration volumes are untouched):
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   up -d --build --force-recreate signal-bot
 ```
 
 Confirm the container is new (Created time should be “seconds/minutes ago”):
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   ps signal-bot
 ```
 
 Then tail logs and look for a fresh `Starting sigstack Signal bot` / `Listening for messages...` line:
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   logs -f --tail=50 signal-bot
 ```
 
 Still on old behavior after that? Force a no-cache image rebuild, then recreate:
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   build --no-cache signal-bot
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   up -d --force-recreate signal-bot
 ```
 
-Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI state and you must re-register the phone. On Phala the same volumes hold the live bot identity and user prefs; upgrade in place (`--cvm-id`), never replace the CVM for a routine bump — [two-cvm-architecture.md — CVM storage](../two-cvm-architecture.md#cvm-storage-keep-intact).
+Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI state and you must re-register the phone. On Phala the same volumes hold the live bot identity and user prefs; upgrade in place (`--cvm-id`), never replace the CVM for a routine bump — [one-cvm-architecture.md — CVM storage](../one-cvm-architecture.md#cvm-storage-keep-intact).
 
 ---
 
 ## Stack
 
-Compose file: `docker/compose.translation.yaml`  
-Env file: `docker/translation.env`  
-Role: unified bot (`BOT__ROLE=translation`) — hub + voice + in-chat + Language Threads. Needs `NEAR_AI_API_KEY` and Whisper enabled.
+Compose file: `docker/compose.yaml`  
+Env file: `docker/env`  
+Unified bot — hub + voice + in-chat + Language Threads. Needs `NEAR_AI_API_KEY` and Whisper enabled.
 
 ### Env + start
 
 ```bash
-cp docker/translation.env.example docker/translation.env
+cp docker/env.example docker/env
 # Edit: SIGNAL_PHONE
 #       NEAR_AI_API_KEY = required (chat + Whisper STT)
 
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+docker compose -f docker/compose.yaml --env-file docker/env up -d
 ```
 
 First `up -d` builds `signal-bot` if needed. After later code changes, use [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot) — plain `up -d` keeps the old binary.
@@ -103,7 +103,7 @@ docker network ls | grep sigstack-translation
 `signal-api` `/v1/health` returns **HTTP 204** with an empty body — no printed output and exit code 0 means healthy. Failure exits non-zero (`curl -sf`).
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   exec signal-api curl -sf http://localhost:8080/v1/health
 ```
 
@@ -115,12 +115,12 @@ curl -sf http://localhost:8081/health
 
 ### Register the phone
 
-The number must match `SIGNAL_PHONE` in `docker/translation.env`.
+The number must match `SIGNAL_PHONE` in `docker/env`.
 
 Check whether the number is already registered with Signal CLI (skip captcha/register if it appears):
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   exec signal-api curl -sS 'http://localhost:8080/v1/accounts'
 # Expect JSON array, e.g. ["+1YYYYYYYYYY"]. Empty [] means not registered yet.
 ```
@@ -150,7 +150,7 @@ curl -sS -X POST "http://localhost:8081/v1/register/+1YYYYYYYYYY/verify/123456" 
 Confirm again with `/v1/accounts` (or `v1/debug/signal-accounts`), then restart the bot so it picks up the registered session:
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   restart signal-bot
 ```
 
@@ -161,7 +161,7 @@ Add this one bot to a Signal group (it auto-accepts invites). Quote a voice note
 Idle bots are quiet at `info` — empty polls do not print. Incoming receive lines are mostly `debug`; successful command/handler work logs at `info`.
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   logs -f signal-bot
 ```
 
@@ -169,21 +169,21 @@ Useful variants:
 
 ```bash
 # All services on this stack
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env logs -f
+docker compose -f docker/compose.yaml --env-file docker/env logs -f
 
 # Last 100 lines, then follow
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   logs -f --tail=100 signal-bot
 
 # signal-api (registration / receive issues)
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   logs -f signal-api
 ```
 
-Raise verbosity: set `LOG_LEVEL=debug` in `docker/translation.env`, then recreate the bot:
+Raise verbosity: set `LOG_LEVEL=debug` in `docker/env`, then recreate the bot:
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env \
+docker compose -f docker/compose.yaml --env-file docker/env \
   up -d signal-bot
 ```
 
@@ -192,7 +192,7 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 Stop the stack (keeps Signal CLI volumes):
 
 ```bash
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env down
+docker compose -f docker/compose.yaml --env-file docker/env down
 ```
 
 After code changes, rebuild/recreate — see [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot). Do **not** use `down -v` unless you intend to wipe Signal CLI state (you will need to re-register the phone).
@@ -204,4 +204,4 @@ After code changes, rebuild/recreate — see [Code changes (rebuild the bot)](#c
 | [voice-transcription.md](../voice-transcription.md) | Voice ops + in-process transcript fan-out |
 | [in-chat-translation.md](../in-chat-translation.md) | In-chat translate product |
 | [language-threads.md](../language-threads.md) | Language Threads |
-| [two-cvm-architecture.md](../two-cvm-architecture.md) | One CVM / one phone; CVM storage |
+| [one-cvm-architecture.md](../one-cvm-architecture.md) | One CVM / one phone; CVM storage |

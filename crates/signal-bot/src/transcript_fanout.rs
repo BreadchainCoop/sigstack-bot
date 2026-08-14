@@ -2,7 +2,7 @@
 
 use crate::commands::{TranslateAllHandler, TranslateMeHandler};
 use async_trait::async_trait;
-use signal_bot_transcription::TranscriptFanout;
+use signal_bot_voice::TranscriptFanout;
 use signal_client::BotMessage;
 
 pub struct SuiteTranscriptFanout {

@@ -869,6 +869,68 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn fan_out_transcript_translates_non_empty_spoken() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "1",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}, "finish_reason": "stop"}],
+                "created": 1,
+                "model": "m",
+                "object": "chat.completion"
+            })))
+            .expect(1)
+            .mount(&near)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(30);
+        store.set_member_translate(
+            "group.main",
+            "+alice",
+            GroupTranslateMode::new(
+                resolve_language("es").unwrap(),
+                resolve_language("en").unwrap(),
+            ),
+        );
+        let handler = TranslateAllHandler::new(
+            store,
+            Arc::new(
+                NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+        );
+
+        let msg = BotMessage {
+            source: "+alice".into(),
+            source_number: Some("+alice".into()),
+            source_name: Some("Alice".into()),
+            text: String::new(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: true,
+            group_id: Some("group.main".into()),
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: None,
+        };
+        handler.fan_out_transcript(&msg, "Hola amigos").await;
+    }
+
+    #[tokio::test]
     async fn execute_setup_commands_send_replies() {
         use serde_json::json;
         use wiremock::matchers::{method, path};

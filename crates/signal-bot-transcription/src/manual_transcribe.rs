@@ -349,6 +349,54 @@ mod tests {
         }
     }
 
+    fn typer_command() -> BotMessage {
+        BotMessage {
+            source: "+typer".into(),
+            source_number: Some("+typer".into()),
+            source_name: None,
+            text: "!transcribe".into(),
+            timestamp: 1,
+            message_timestamp: 1,
+            is_group: true,
+            group_id: Some("gid".into()),
+            group_name: None,
+            receiving_account: "+bot".into(),
+            attachments: vec![],
+            quote: None,
+        }
+    }
+
+    fn quote_with_author(author: Option<&str>) -> QuotedMessage {
+        QuotedMessage {
+            id: 1,
+            author_number: author.map(str::to_string),
+            text: None,
+            audio_attachment: None,
+        }
+    }
+
+    #[test]
+    fn speaker_msg_for_fanout_uses_quote_author_when_present() {
+        let out = speaker_msg_for_fanout(&typer_command(), &quote_with_author(Some("+speaker")));
+        assert_eq!(out.source, "+speaker");
+        assert_eq!(out.source_number.as_deref(), Some("+speaker"));
+    }
+
+    #[test]
+    fn speaker_msg_for_fanout_keeps_typer_when_quote_has_no_author() {
+        // Known gap: missing quote author attributes speech to the !transcribe typer.
+        let out = speaker_msg_for_fanout(&typer_command(), &quote_with_author(None));
+        assert_eq!(out.source, "+typer");
+        assert_eq!(out.source_number.as_deref(), Some("+typer"));
+    }
+
+    #[test]
+    fn speaker_msg_for_fanout_keeps_typer_when_quote_author_is_empty() {
+        let out = speaker_msg_for_fanout(&typer_command(), &quote_with_author(Some("")));
+        assert_eq!(out.source, "+typer");
+        assert_eq!(out.source_number.as_deref(), Some("+typer"));
+    }
+
     #[tokio::test]
     async fn execute_without_quote_sends_usage_hint() {
         use serde_json::json;

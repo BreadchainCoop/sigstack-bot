@@ -1520,4 +1520,37 @@ mod tests {
             .fan_out_transcript(&group_msg("+alice", ""), "  ")
             .await;
     }
+
+    #[tokio::test]
+    async fn fan_out_transcript_relays_non_empty_spoken() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        let handler = handler_pair(store, signal.uri(), near.uri());
+        let original = group_msg("+alice", "");
+        handler
+            .fan_out_transcript(&original, "Hello friends from the mutual aid group")
+            .await;
+
+        assert!(
+            send_recipients(&signal)
+                .await
+                .contains(&"group.es".to_string()),
+            "Language Threads should send the spoken transcript to the sidecar"
+        );
+        let messages = send_messages(&signal).await;
+        assert!(
+            messages.iter().any(|m| m.starts_with("Maria:\n")),
+            "sidecar attribution should use the original speaker display name: {messages:?}"
+        );
+    }
 }

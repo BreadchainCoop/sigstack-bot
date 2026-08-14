@@ -33,7 +33,8 @@ Stop group-wide only:
 ```
 
 - Auto-translates **that user’s** messages only (quote-reply in the same chat)
-- Other members’ messages are unchanged unless group-wide is also on
+- Only while group-wide is off; refused if `!translate-all-on` is already active
+- Other members’ messages are unchanged unless group-wide is on
 
 Stop personal:
 
@@ -51,9 +52,9 @@ Clear **all** in-chat auto (group-wide + every personal), and apply a pending La
 
 | Mode | How | Effect |
 |------|-----|--------|
-| **Group auto** | `!translate-all-on` active | Every non-command group text: detect → if in pair → NEAR translate → quote-reply `{flag} {translation}` |
-| **Personal auto** | `!translate-me-on` for author | Same as group auto, but only for that author’s messages. Personal pair wins over group-wide for that author (one quote-reply max). |
-| **Manual** | Reply with `!translate <lang>` | Translate only that quoted message (always allowed) |
+| **Group auto** | `!translate-all-on` active | Every non-command group text: detect → if in pair → NEAR translate → quote-reply `{flag} {translation}`. Used for **every** author while group-wide is on. |
+| **Personal auto** | `!translate-me-on` for author | Same as group auto, but only for that author’s messages, and **only while group-wide is off**. `!translate-me-on` is refused until `!translate-all-off`. A leftover personal pair applies again after group-wide is turned off. |
+| **Manual** | Reply with `!translate <lang>` | Translate only that quoted message (always allowed; ignores stored pairs) |
 
 Not dual-post: the original stays as the human message; the bot only quote-replies the translation.
 

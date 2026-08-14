@@ -205,7 +205,7 @@ U1 (store + resolver) → U2 (locale API, still English) → U3 (`!set-lang` + c
 - `crates/signal-bot/src/commands/translate_all.rs` — dual-key user identity.
 - `crates/signal-bot/src/handlers_setup.rs` — 21 handlers; `!set-lang` not registered; most menu handlers have no store.
 - `docs/solutions/signal-mobile-menus.md` — layout contract; English-only line to retire.
-- `docs/two-cvm-architecture.md` — CVM storage; “menu language” currently described as group prefs.
+- `docs/one-cvm-architecture.md` — CVM storage; “menu language” currently described as group prefs.
 
 External research was skipped. Local patterns cover persistence, commands, and layout.
 
@@ -345,7 +345,7 @@ External research was skipped. Local patterns cover persistence, commands, and l
 - **Dependencies:** U1–U5
 - **Files:**
   - `docs/solutions/signal-mobile-menus.md`
-  - `docs/two-cvm-architecture.md`
+  - `docs/one-cvm-architecture.md`
   - `docs/language-threads.md` and `docs/in-chat-translation.md` if they still say English-only
 - **Approach:**
   1. Replace “English-only / deferred” with: EN source in `menu_locale`, bundles by code, missing → English, add a bundle when adding catalog coverage, `!set-lang` to select.

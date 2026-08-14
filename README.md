@@ -6,16 +6,16 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 
 ## Products
 
-| Product | Bot role | Where it runs |
-|---------|----------|---------------|
-| Voice transcription | `BOT__ROLE=translation` | Same Phala CVM / same bot (NEAR AI Whisper; no local sidecar) |
-| In-chat (group) translation | `BOT__ROLE=translation` | Same CVM (NEAR AI chat) |
-| Language Threads | `BOT__ROLE=translation` | Same CVM |
-| Bilingual Threads | `BOT__ROLE=translation` | Same CVM |
+| Product | Where it runs |
+|---------|---------------|
+| Voice transcription | Same Phala CVM / same bot (NEAR AI Whisper; no local sidecar) |
+| In-chat (group) translation | Same CVM (NEAR AI chat) |
+| Language Threads | Same CVM |
+| Bilingual Threads | Same CVM |
 
-Add **one** bot to a Signal group. `BOT__ROLE=transcription` is retired.
+Add **one** bot to a Signal group.
 
-Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md) · [docs/bilingual-threads.md](docs/bilingual-threads.md)
+Details: [docs/one-cvm-architecture.md](docs/one-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md) · [docs/bilingual-threads.md](docs/bilingual-threads.md)
 
 ## Commands
 
@@ -61,10 +61,10 @@ Signal group
 ## Local
 
 ```bash
-cp docker/translation.env.example docker/translation.env
+cp docker/env.example docker/env
 # Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+docker compose -f docker/compose.yaml --env-file docker/env up -d
 ```
 
 More thorough local setup (Signal captcha registration, verify SMS/voice codes, and `docker compose logs -f` monitoring): [docs/local-dev/](docs/local-dev/).
@@ -74,31 +74,31 @@ More thorough local setup (Signal captcha registration, verify SMS/voice codes, 
 ```bash
 # In-place upgrade of the surviving CVM (phone B stays; do not create a replacement)
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
+  -c docker/phala.yaml -e docker/phala.env --wait
 ```
 
-**Do not replace this CVM or wipe its volumes** for a routine upgrade. Disk holds the **registered Signal phone** and **encrypted user prefs**. TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade. Details: [docs/two-cvm-architecture.md — CVM storage](docs/two-cvm-architecture.md#cvm-storage-keep-intact).
+**Do not replace this CVM or wipe its volumes** for a routine upgrade. Disk holds the **registered Signal phone** and **encrypted user prefs**. TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade. Details: [docs/one-cvm-architecture.md — CVM storage](docs/one-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Project structure
 
 ```
 crates/
-  signal-bot/                   # Binary; live role BOT__ROLE=translation
-  signal-bot-transcription/     # Voice / !transcribe* product crate
+  signal-bot/                   # Binary (hub + voice + translation)
+  signal-bot-voice/             # Voice / !transcribe* product crate
   whisper-client/               # NEAR Whisper STT client
   near-ai-client/               # NEAR AI (chat + audio transcriptions)
   signal-client/                # Signal CLI REST client
   dstack-client/                # TEE attestation / key derive
   signal-registration-proxy/    # Ops helper for Signal registration
 docker/
-  compose.translation.yaml      # local one-number stack
-  compose.transcription.yaml    # retired stub
-  phala.translation.yaml        # prod one-CVM suite
-  phala.transcription.yaml      # deprecated stub
+  compose.yaml                  # local one-number stack
+  phala.yaml                    # prod one-CVM suite
+  env.example / phala.env.example
 docs/
-  two-cvm-architecture.md       # one CVM / one phone; CVM storage
+  one-cvm-architecture.md       # one CVM / one phone; CVM storage
   in-chat-translation.md
   language-threads.md
+  bilingual-threads.md
 ```
 
 ## Build & test
@@ -121,7 +121,6 @@ Format: `type(scope): subject` — e.g. `feat: add whisper timeout`, `fix(docker
 
 | Variable | Description |
 |----------|-------------|
-| `BOT__ROLE` | Live value `translation` (required). `transcription` fail-fasts. |
 | `SIGNAL__SERVICE_URL` | Signal CLI REST URL (default `http://signal-api:8080`) |
 | `NEAR_AI__API_KEY` | Required (chat + remote Whisper) |
 | `WHISPER__ENABLED` / `WHISPER__SERVICE_URL` | Required on the unified bot; URL is NEAR `/v1` |

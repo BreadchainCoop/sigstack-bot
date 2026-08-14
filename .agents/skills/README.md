@@ -21,4 +21,4 @@ npx skills add rbaumier/skills --skill docker -a cursor --copy -y
 npx skills add midudev/autoskills --skill stripe-best-practices -a cursor --copy -y
 ```
 
-Domain ops (TEE, `BOT__ROLE`, dual CVM): [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md). Agent entrypoint: [../../AGENTS.md](../../AGENTS.md). Cursor project rules: [../../.cursor/rules/](../../.cursor/rules/).
+Domain ops (TEE, one CVM): [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md). Agent entrypoint: [../../AGENTS.md](../../AGENTS.md). Cursor project rules: [../../.cursor/rules/](../../.cursor/rules/).

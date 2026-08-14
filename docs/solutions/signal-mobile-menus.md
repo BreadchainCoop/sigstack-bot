@@ -54,7 +54,7 @@ Optional one-line blurb.
 
 Language Thread sidecars use `!commands` for the thread menu (rename / leave / info). Hub `!help` always returns the Bread Bot menu, including when sent from a sidecar.
 
-Voice transcription uses `!transcription` for its product menu (not hub `!help`). Hub `!help` / `!info` / `!privacy` and `!transcription` all live on the same bot. See [two-cvm-architecture.md](../two-cvm-architecture.md).
+Voice transcription uses `!transcription` for its product menu (not hub `!help`). Hub `!help` / `!info` / `!privacy` and `!transcription` all live on the same bot. See [one-cvm-architecture.md](../one-cvm-architecture.md).
 
 ## When adding menus
 

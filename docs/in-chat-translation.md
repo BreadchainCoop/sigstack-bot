@@ -64,7 +64,7 @@ Voice notes: after STT this bot quote-replies `📝 Transcript:` then fans out s
 
 ## Persistence
 
-`!translate-all-on` and `!translate-me-on` are stored in encrypted group prefs on the translation CVM (`group-prefs-translation` → `/data/group_prefs.enc`), not in TEE RAM. An **in-place** Phala upgrade keeps that volume: users do **not** re-enable after a routine image bump. A new CVM, volume wipe, or prefs decrypt failure starts empty. Same file also holds Language Threads bridges. Canonical ops: [two-cvm-architecture.md — CVM storage](two-cvm-architecture.md#cvm-storage-keep-intact).
+`!translate-all-on` and `!translate-me-on` are stored in encrypted group prefs on the translation CVM (`group-prefs-translation` → `/data/group_prefs.enc`), not in TEE RAM. An **in-place** Phala upgrade keeps that volume: users do **not** re-enable after a routine image bump. A new CVM, volume wipe, or prefs decrypt failure starts empty. Same file also holds Language Threads bridges. Canonical ops: [one-cvm-architecture.md — CVM storage](one-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Key code
 

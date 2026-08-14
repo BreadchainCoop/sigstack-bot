@@ -5,9 +5,9 @@
 # accounts already lists it. Do not re-register phone A.
 #
 # Usage:
-#   CAPTCHA_TR='signalcaptcha://...' ./scripts/register_phala_phones.sh
+#   CAPTCHA_TR='signalcaptcha://...' ./scripts/register_phala_phone.sh
 # Then when SMS arrives:
-#   SMS_TR=123456 ./scripts/register_phala_phones.sh --verify
+#   SMS_TR=123456 ./scripts/register_phala_phone.sh --verify
 set -euo pipefail
 
 APP_ID="${APP_ID:-9adac7636fe255182f699940ffd1924960415507}"

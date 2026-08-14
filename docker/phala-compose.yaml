@@ -1,8 +1,0 @@
-# DEPRECATED single-CVM compose from before the dual-CVM experiment.
-# Prod is again one CVM, but the live file is:
-#
-#   docker/phala.translation.yaml
-#
-# Do not deploy this stub. See docs/two-cvm-architecture.md
-
-services: {}

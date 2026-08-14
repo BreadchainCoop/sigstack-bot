@@ -2,7 +2,7 @@
 
 use crate::bot_identity::BotIdentity;
 use crate::commands::*;
-use crate::config::{BotRole, Config};
+use crate::config::Config;
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_prefs::GroupTranscribePrefs;
@@ -10,33 +10,15 @@ use crate::transcript_fanout::SuiteTranscriptFanout;
 use anyhow::Context;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
-use signal_bot_transcription::{build_voice_handlers, SharedTranscriptFanout};
+use signal_bot_voice::{build_voice_handlers, SharedTranscriptFanout};
 use signal_client::SignalClient;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{info, warn};
 use whisper_client::WhisperClient;
 
-/// Build handlers for the configured bot role.
-pub async fn build_handlers(
-    config: &Config,
-    signal: Arc<SignalClient>,
-    dstack: Arc<DstackClient>,
-    bot_identity: Arc<BotIdentity>,
-) -> AppResult<Vec<Box<dyn CommandHandler>>> {
-    match config.bot.role {
-        BotRole::Transcription => Err(anyhow::anyhow!(
-            "BOT__ROLE=transcription is retired; use BOT__ROLE=translation (unified bot)"
-        )
-        .into()),
-        BotRole::Translation => {
-            build_translation_handlers(config, signal, dstack, bot_identity).await
-        }
-    }
-}
-
 /// Unified bot: Language Threads → voice → in-chat → hub menus → quote translate → verify/help.
-pub async fn build_translation_handlers(
+pub async fn build_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
     dstack: Arc<DstackClient>,
@@ -197,7 +179,7 @@ mod tests {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    fn base_config(role: BotRole) -> Config {
+    fn base_config() -> Config {
         Config {
             signal: SignalConfig {
                 service_url: "http://127.0.0.1:9".into(),
@@ -205,12 +187,7 @@ mod tests {
                 phone_number: None,
             },
             near_ai: None,
-            bot: BotConfig {
-                role,
-                signal_username: None,
-                github_repo: None,
-                log_level: "info".into(),
-            },
+            bot: BotConfig::default(),
             dstack: DstackConfig {
                 socket_path: "/tmp/sigstack-bot-test-dstack.sock".into(),
             },
@@ -258,25 +235,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn transcription_role_is_rejected() {
-        let config = base_config(BotRole::Transcription);
-        let signal = Arc::new(SignalClient::new(&config.signal.service_url).unwrap());
-        let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
-        let identity = BotIdentity::new();
-
-        let result = build_handlers(&config, signal, dstack, identity).await;
-        assert!(result.is_err(), "transcription role should fail");
-        let err = result.err().unwrap().to_string();
-        assert!(
-            err.contains("retired") && err.contains("translation"),
-            "error should mention retired transcription: {err}"
-        );
-    }
-
-    #[tokio::test]
-    async fn translation_registers_unified_handlers_with_translate_all() {
+    async fn registers_unified_handlers_with_translate_all() {
         let near = mock_near().await;
-        let config = with_near(base_config(BotRole::Translation), &near);
+        let config = with_near(base_config(), &near);
 
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
@@ -321,7 +282,7 @@ mod tests {
     #[tokio::test]
     async fn translation_omits_translate_all_when_disabled() {
         let near = mock_near().await;
-        let mut config = with_near(base_config(BotRole::Translation), &near);
+        let mut config = with_near(base_config(), &near);
         config.translate_all.enabled = false;
 
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
@@ -351,7 +312,7 @@ mod tests {
 
     #[tokio::test]
     async fn translation_requires_near_ai_config() {
-        let config = base_config(BotRole::Translation);
+        let config = base_config();
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();

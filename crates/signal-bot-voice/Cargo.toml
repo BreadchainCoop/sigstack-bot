@@ -1,5 +1,5 @@
 [package]
-name = "signal-bot-transcription"
+name = "signal-bot-voice"
 version.workspace = true
 edition.workspace = true
 

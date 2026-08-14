@@ -1,7 +1,7 @@
 //! Adapter so [`GroupPreferencesStore`] implements transcription prefs trait.
 
 use crate::group_preferences_store::GroupPreferencesStore;
-use signal_bot_transcription::TranscribeGroupPrefs;
+use signal_bot_voice::TranscribeGroupPrefs;
 use std::sync::Arc;
 
 /// Thin wrapper so `set_transcribe_enabled` can use `Arc<GroupPreferencesStore>`.

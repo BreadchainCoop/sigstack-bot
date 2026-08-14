@@ -1,8 +1,8 @@
 # Voice transcription
 
-Status: **implemented** on the unified Bread Bot (`BOT__ROLE=translation`) on the surviving Phala CVM.
+Status: **implemented** on the unified Bread Bot on the surviving Phala CVM.
 
-Speech → text via **NEAR AI Whisper Large V3** (GPU TEE). Audio is decrypted in this CVM, stripped of Signal metadata, and uploaded as a generic file. See [one-CVM architecture](two-cvm-architecture.md), [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md), and [issue #8](https://github.com/BreadchainCoop/sigstack-bot/issues/8) under umbrella [#10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
+Speech → text via **NEAR AI Whisper Large V3** (GPU TEE). Audio is decrypted in this CVM, stripped of Signal metadata, and uploaded as a generic file. See [one-CVM architecture](one-cvm-architecture.md), [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md), and [issue #8](https://github.com/BreadchainCoop/sigstack-bot/issues/8) under umbrella [#10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
 
 Users add **one** bot to a group. `!transcription` is the **voice command menu** only (no invite, no pairing). Voice is **default off** (`!transcribe-on` / quote `!transcribe`).
 
@@ -10,8 +10,8 @@ Users add **one** bot to a group. `!transcription` is the **voice command menu**
 
 | Stack | Contents |
 |-------|----------|
-| Phala (prod) | Same CVM / same bot as translation: `signal-api` (phone B) + `signal-bot` (`BOT__ROLE=translation`, `WHISPER__ENABLED=true`). **No Whisper sidecar.** |
-| Local Compose | [`docker/compose.translation.yaml`](../docker/compose.translation.yaml) — one phone + bot; STT is NEAR AI |
+| Phala (prod) | Same CVM / same bot: `signal-api` + `signal-bot` (`WHISPER__ENABLED=true`). **No Whisper sidecar.** |
+| Local Compose | [`docker/compose.yaml`](../docker/compose.yaml) — one phone + bot; STT is NEAR AI |
 
 `!verify` attests **this** CVM’s compose (one reply). It does not imply Whisper weights live here.
 
@@ -45,37 +45,37 @@ Auto path: inbound voice notes are transcribed only after `!transcribe-on` (defa
 ### Local
 
 ```bash
-cp docker/translation.env.example docker/translation.env
+cp docker/env.example docker/env
 # Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
+docker compose -f docker/compose.yaml --env-file docker/env up -d
 ```
 
 Register the number against this stack’s `signal-api` or proxy `:8081`. Health:
 
 ```bash
-docker compose -f docker/compose.translation.yaml exec signal-api curl -sf http://localhost:8080/v1/health
+docker compose -f docker/compose.yaml exec signal-api curl -sf http://localhost:8080/v1/health
 ```
 
 ### Phala
 
-In-place upgrade of the **surviving** translation CVM (do not deploy `phala.transcription.yaml`; do not re-register phone A):
+In-place upgrade of the **surviving** CVM (do not re-register a second number):
 
 ```bash
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
+  -c docker/phala.yaml -e docker/phala.env --wait
 ```
 
-Env template: [`docker/phala.translation.env.example`](../docker/phala.translation.env.example). SKU stays **tdx.medium** (2 vCPU / 4 GB) — remote GPU is the STT speed lever, not a larger TDX. Attestation: `!verify <challenge>` inside Signal.
+Env template: [`docker/phala.env.example`](../docker/phala.env.example). SKU stays **tdx.medium** (2 vCPU / 4 GB) — remote GPU is the STT speed lever, not a larger TDX. Attestation: `!verify <challenge>` inside Signal.
 
 ## Key code
 
 | Area | Path |
 |------|------|
-| Voice / `!transcribe*` handlers | [`crates/signal-bot-transcription`](../crates/signal-bot-transcription) |
+| Voice / `!transcribe*` handlers | [`crates/signal-bot-voice`](../crates/signal-bot-voice) |
 | In-process transcript fan-out | [`crates/signal-bot/src/transcript_fanout.rs`](../crates/signal-bot/src/transcript_fanout.rs) |
 | Shared handler trait / errors | [`crates/signal-bot-core`](../crates/signal-bot-core) |
 | STT HTTP client | [`crates/whisper-client`](../crates/whisper-client) (NEAR `/audio/transcriptions`) |
 | NEAR client (chat + transcribe) | [`crates/near-ai-client`](../crates/near-ai-client) |
-| Role wiring | [`crates/signal-bot/src/handlers_setup.rs`](../crates/signal-bot/src/handlers_setup.rs) |
-| Compose / Phala | [`docker/compose.translation.yaml`](../docker/compose.translation.yaml), [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) |
+| Handler wiring | [`crates/signal-bot/src/handlers_setup.rs`](../crates/signal-bot/src/handlers_setup.rs) |
+| Compose / Phala | [`docker/compose.yaml`](../docker/compose.yaml), [`docker/phala.yaml`](../docker/phala.yaml) |

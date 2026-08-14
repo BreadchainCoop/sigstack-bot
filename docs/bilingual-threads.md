@@ -69,7 +69,7 @@ LanguageBridge
   members / member_addresses
 ```
 
-`main_lang: None` with non-empty sidecars is Language Threads. Legacy prefs without `main_lang` load as Language Threads (`#[serde(default)]`). `DATA_VERSION` stays `1`. In-place Phala upgrade only — do not wipe volumes. See [two-cvm-architecture.md — CVM storage](two-cvm-architecture.md#cvm-storage-keep-intact).
+`main_lang: None` with non-empty sidecars is Language Threads. Legacy prefs without `main_lang` load as Language Threads (`#[serde(default)]`). `DATA_VERSION` stays `1`. In-place Phala upgrade only — do not wipe volumes. See [one-cvm-architecture.md — CVM storage](one-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Key code
 

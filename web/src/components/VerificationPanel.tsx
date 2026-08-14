@@ -154,7 +154,7 @@ export function VerificationPanel() {
                   copyable
                   copied={copied === 'compose_hash'}
                   onCopy={() => copyToClipboard(displayAttestation.compose_hash!, 'compose_hash')}
-                  link="https://github.com/zmanian/signal-bot-tee/blob/main/docker/phala-compose.yaml"
+                  link="https://github.com/BreadchainCoop/sigstack-bot/blob/main/docker/phala.yaml"
                   linkLabel="View Source"
                 />
               )}

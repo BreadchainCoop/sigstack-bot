@@ -217,27 +217,31 @@ impl CommandHandler for ManualTranscribeHandler {
             return Ok(String::new());
         }
 
-        let body = match self.transcribe_audio(&audio, &bytes).await {
+        match self.transcribe_audio(&audio, &bytes).await {
             Ok((spoken, transcript)) => {
                 info!(
                     source = %message.source,
                     chars = transcript.len(),
                     "!transcribe completed"
                 );
+                self.send_reply(message, Some(quote), &transcript).await?;
                 spawn_fanout(
                     self.fanout.clone(),
                     &speaker_msg_for_fanout(message, quote),
                     &spoken,
                 );
-                transcript
             }
             Err(e) => {
                 warn!("Whisper transcription failed: {}", e);
-                Self::user_message_for_whisper_error(&e).to_string()
+                self.send_reply(
+                    message,
+                    Some(quote),
+                    Self::user_message_for_whisper_error(&e),
+                )
+                .await?;
             }
-        };
+        }
 
-        self.send_reply(message, Some(quote), &body).await?;
         Ok(String::new())
     }
 }
@@ -245,6 +249,7 @@ impl CommandHandler for ManualTranscribeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fanout::{wait_for_fanout, RecordSend, RecordingFanout, SharedTranscriptFanout};
     use signal_client::{BotMessage, QuotedMessage};
 
     fn sample_audio() -> signal_client::Attachment {
@@ -322,6 +327,28 @@ mod tests {
         assert!(!handler.matches(&msg));
     }
 
+    fn quoted_transcribe_msg() -> BotMessage {
+        BotMessage {
+            source: "+15550002222".into(),
+            source_number: Some("+15550002222".into()),
+            source_name: None,
+            text: "!transcribe".into(),
+            timestamp: 2,
+            message_timestamp: 2,
+            is_group: false,
+            group_id: None,
+            group_name: None,
+            receiving_account: "+15550001111".into(),
+            attachments: vec![],
+            quote: Some(QuotedMessage {
+                id: 100,
+                author_number: Some("+15550003333".into()),
+                text: None,
+                audio_attachment: Some(sample_audio()),
+            }),
+        }
+    }
+
     #[tokio::test]
     async fn execute_without_quote_sends_usage_hint() {
         use serde_json::json;
@@ -336,6 +363,8 @@ mod tests {
             .mount(&signal_mock)
             .await;
 
+        let rec = RecordingFanout::new();
+        let fanout: SharedTranscriptFanout = rec.clone();
         let handler = ManualTranscribeHandler::new(
             test_whisper("http://127.0.0.1:9"),
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
@@ -343,7 +372,8 @@ mod tests {
             5_000_000,
             VoiceAttachmentCache::new(10),
             empty_store(),
-        );
+        )
+        .with_fanout(Some(fanout));
 
         let msg = BotMessage {
             source: "+15550002222".into(),
@@ -361,6 +391,7 @@ mod tests {
         };
         let out = handler.execute(&msg).await.unwrap();
         assert!(out.is_empty());
+        assert!(rec.spoken.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -401,26 +432,7 @@ mod tests {
             empty_store(),
         );
 
-        let msg = BotMessage {
-            source: "+15550002222".into(),
-            source_number: Some("+15550002222".into()),
-            source_name: None,
-            text: "!transcribe".into(),
-            timestamp: 2,
-            message_timestamp: 2,
-            is_group: false,
-            group_id: None,
-            group_name: None,
-            receiving_account: "+15550001111".into(),
-            attachments: vec![],
-            quote: Some(QuotedMessage {
-                id: 100,
-                author_number: Some("+15550003333".into()),
-                text: None,
-                audio_attachment: Some(sample_audio()),
-            }),
-        };
-        let out = handler.execute(&msg).await.unwrap();
+        let out = handler.execute(&quoted_transcribe_msg()).await.unwrap();
         assert!(out.is_empty());
     }
 
@@ -441,6 +453,8 @@ mod tests {
         let store = empty_store();
         store.set_enabled("+15550002222", true, false);
 
+        let rec = RecordingFanout::new();
+        let fanout: SharedTranscriptFanout = rec.clone();
         let handler = ManualTranscribeHandler::new(
             test_whisper("http://127.0.0.1:9"),
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
@@ -448,28 +462,110 @@ mod tests {
             5_000_000,
             VoiceAttachmentCache::new(10),
             store,
-        );
+        )
+        .with_fanout(Some(fanout));
 
-        let msg = BotMessage {
-            source: "+15550002222".into(),
-            source_number: Some("+15550002222".into()),
-            source_name: None,
-            text: "!transcribe".into(),
-            timestamp: 2,
-            message_timestamp: 2,
-            is_group: false,
-            group_id: None,
-            group_name: None,
-            receiving_account: "+15550001111".into(),
-            attachments: vec![],
-            quote: Some(QuotedMessage {
-                id: 100,
-                author_number: Some("+15550003333".into()),
-                text: None,
-                audio_attachment: Some(sample_audio()),
-            }),
-        };
-        let out = handler.execute(&msg).await.unwrap();
+        let out = handler.execute(&quoted_transcribe_msg()).await.unwrap();
         assert!(out.is_empty());
+        assert!(rec.spoken.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_sends_transcript_before_fanout() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        let whisper_mock = MockServer::start().await;
+        let rec = RecordingFanout::new();
+
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/cached-voice-id"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"audio"))
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(RecordSend(rec.clone()))
+            .expect(1)
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/audio/transcriptions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "text": "quoted transcript",
+                "language": "english"
+            })))
+            .mount(&whisper_mock)
+            .await;
+
+        let fanout: SharedTranscriptFanout = rec.clone();
+        let handler = ManualTranscribeHandler::new(
+            test_whisper(&whisper_mock.uri()),
+            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
+            "📝 Transcript:",
+            5_000_000,
+            VoiceAttachmentCache::new(10),
+            empty_store(),
+        )
+        .with_fanout(Some(fanout));
+
+        handler.execute(&quoted_transcribe_msg()).await.unwrap();
+        wait_for_fanout(&rec).await;
+        assert_eq!(*rec.events.lock().unwrap(), vec!["send", "fanout"]);
+        assert_eq!(
+            *rec.spoken.lock().unwrap(),
+            vec!["quoted transcript".to_string()]
+        );
+        assert_eq!(
+            *rec.sources.lock().unwrap(),
+            vec!["+15550003333".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_skips_fanout_when_send_fails() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal_mock = MockServer::start().await;
+        let whisper_mock = MockServer::start().await;
+        let rec = RecordingFanout::new();
+
+        Mock::given(method("GET"))
+            .and(path("/v1/attachments/cached-voice-id"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"audio"))
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("fail"))
+            .mount(&signal_mock)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/audio/transcriptions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "text": "quoted transcript",
+                "language": "english"
+            })))
+            .mount(&whisper_mock)
+            .await;
+
+        let fanout: SharedTranscriptFanout = rec.clone();
+        let handler = ManualTranscribeHandler::new(
+            test_whisper(&whisper_mock.uri()),
+            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
+            "📝 Transcript:",
+            5_000_000,
+            VoiceAttachmentCache::new(10),
+            empty_store(),
+        )
+        .with_fanout(Some(fanout));
+
+        assert!(handler.execute(&quoted_transcribe_msg()).await.is_err());
+        assert!(rec.spoken.lock().unwrap().is_empty());
+        assert!(rec.events.lock().unwrap().is_empty());
     }
 }

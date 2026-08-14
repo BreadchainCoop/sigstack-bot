@@ -1,12 +1,11 @@
 //! Product menus: `!translation-threads`, `!translation-in-chat`, `!transcription`, redirects.
 
 use crate::commands::menu_locale::{
-    help_in_chat_guide, help_menu, help_threads_guide, help_transcription_guide, is_exact_command,
-    is_translation_in_chat_menu_command, is_translation_threads_menu_command,
+    help_in_chat_guide, help_threads_guide, help_transcription_guide, is_exact_command,
+    is_translation_in_chat_menu_command, is_translation_threads_menu_command, transcription_menu,
     translation_in_chat_menu, translation_split_redirect, translation_threads_menu,
 };
 use crate::commands::CommandHandler;
-use crate::config::BotRole;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use signal_client::BotMessage;
@@ -117,7 +116,7 @@ impl CommandHandler for TranscriptionMenuHandler {
     }
 
     async fn execute(&self, _message: &BotMessage) -> AppResult<String> {
-        Ok(help_menu(BotRole::Transcription).into())
+        Ok(transcription_menu().into())
     }
 }
 
@@ -366,5 +365,19 @@ mod tests {
             .unwrap();
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
+    }
+
+    #[tokio::test]
+    async fn transcription_menu_returns_voice_commands() {
+        let out = TranscriptionMenuHandler::new()
+            .execute(&msg("!transcription"))
+            .await
+            .unwrap();
+        assert!(out.contains("!transcribe-on"));
+        assert!(out.contains("!transcribe-off"));
+        assert!(out.contains("!transcribe"));
+        assert!(out.contains("!help-transcription"));
+        assert!(!out.contains("!privacy"));
+        assert!(!out.contains("!translation-threads"));
     }
 }

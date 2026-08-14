@@ -1,7 +1,6 @@
 //! Verify command - provides cryptographic attestation proofs.
 
 use crate::commands::CommandHandler;
-use crate::config::BotRole;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use dstack_client::DstackClient;
@@ -31,17 +30,14 @@ impl OperatorAddresses {
 
 pub struct VerifyHandler {
     dstack: Arc<DstackClient>,
-    /// Kept so callers still pass `BotRole`; challenge prefix is unified.
-    _role: BotRole,
     /// Optional operator addresses to display.
     operator_addresses: Option<OperatorAddresses>,
 }
 
 impl VerifyHandler {
-    pub fn new(dstack: Arc<DstackClient>, role: BotRole) -> Self {
+    pub fn new(dstack: Arc<DstackClient>) -> Self {
         Self {
             dstack,
-            _role: role,
             operator_addresses: None,
         }
     }
@@ -49,12 +45,10 @@ impl VerifyHandler {
     /// Create handler with operator addresses to display.
     pub fn with_operator_addresses(
         dstack: Arc<DstackClient>,
-        role: BotRole,
         addresses: OperatorAddresses,
     ) -> Self {
         Self {
             dstack,
-            _role: role,
             operator_addresses: Some(addresses),
         }
     }
@@ -307,31 +301,26 @@ impl CommandHandler for VerifyHandler {
 mod tests {
     use super::*;
 
-    fn create_test_handler(role: BotRole) -> VerifyHandler {
-        VerifyHandler::new(Arc::new(DstackClient::new("/fake")), role)
+    fn create_test_handler() -> VerifyHandler {
+        VerifyHandler::new(Arc::new(DstackClient::new("/fake")))
     }
 
     #[test]
     fn prefixed_challenge_uses_bot_label() {
-        let tr = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         assert_eq!(
-            tr.prefixed_challenge(Some("hello".into())),
+            handler.prefixed_challenge(Some("hello".into())),
             "Bread Bot: hello"
         );
         assert_eq!(
-            tr.prefixed_challenge(None),
+            handler.prefixed_challenge(None),
             "Bread Bot: no-challenge-provided"
-        );
-        let tx = create_test_handler(BotRole::Transcription);
-        assert_eq!(
-            tx.prefixed_challenge(Some("hello".into())),
-            "Bread Bot: hello"
         );
     }
 
     #[test]
     fn test_parse_challenge_with_nonce() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
 
         assert_eq!(
             handler.parse_challenge("!verify abc123"),
@@ -345,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_parse_challenge_without_nonce() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
 
         assert_eq!(handler.parse_challenge("!verify"), None);
         assert_eq!(handler.parse_challenge("!verify   "), None);
@@ -353,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_format_response_not_in_tee() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let result = AttestationResult {
             in_tee: false,
             error: Some("Not running in TEE".into()),
@@ -373,7 +362,7 @@ mod tests {
 
         let expected_hex = hex::encode(challenge.as_bytes());
 
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let result = AttestationResult {
             in_tee: true,
             compose_hash: Some("abc123".into()),
@@ -403,7 +392,7 @@ mod tests {
         let expected_hash = hasher.finalize();
         let expected_hex = hex::encode(expected_hash);
 
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let result = AttestationResult {
             in_tee: true,
             compose_hash: Some("abc123".into()),
@@ -424,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_format_response_with_challenge() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let challenge = "my-nonce";
         let report_data_hex = hex::encode(challenge.as_bytes());
 
@@ -451,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_format_response_without_challenge() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let result = AttestationResult {
             in_tee: true,
             compose_hash: Some("abc123".into()),
@@ -468,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_verification_instructions_present() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let result = AttestationResult {
             in_tee: true,
             compose_hash: Some("abc123".into()),
@@ -495,7 +484,6 @@ mod tests {
     fn test_operator_addresses_displayed() {
         let handler = VerifyHandler::with_operator_addresses(
             Arc::new(DstackClient::new("/fake")),
-            BotRole::Translation,
             OperatorAddresses {
                 base: Some("0xABC123".into()),
                 near: Some("operator.near".into()),
@@ -524,7 +512,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_reports_not_in_tee() {
-        let handler = create_test_handler(BotRole::Translation);
+        let handler = create_test_handler();
         let msg = BotMessage {
             source: "+15550002222".into(),
             source_number: Some("+15550002222".into()),

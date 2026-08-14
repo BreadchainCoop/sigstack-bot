@@ -14,7 +14,7 @@ Menus are **English-only** for now; multi-language UI is deferred.
 2. **Section header** (optional) + optional one-line blurb.
 3. **Each command** on its own line. No `cmd — desc` on one line.
 4. Prefer plain `!command` lines over `- !command` bullets.
-5. **Hub / nav lists** (e.g. main `!help` on the translation bot): commands only — skip indented descriptions when they would just restate the command name.
+5. **Hub / nav lists** (e.g. main `!help` on Bread Bot): commands only — skip indented descriptions when they would just restate the command name.
 6. **Product / how-to lists** (e.g. `!translation-in-chat`, transcription toggles): put a short description on the next line, indented with two spaces (aim ≤~40 chars).
 7. **`!help` footer** is the bare command — no “Main menu” / “Show this menu” line (`!help` is implicit).
 8. Prose blocks (privacy explanations, invite/status messages) stay paragraphs; only **command lists** use the forms above.
@@ -54,7 +54,7 @@ Optional one-line blurb.
 
 Language Thread sidecars use `!commands` for the thread menu (rename / leave / info). Hub `!help` always returns the Bread Bot menu, including when sent from a sidecar.
 
-Voice transcription uses `!transcription` on the **transcription** bot for its product menu (not `!help`). Hub `!help` / `!info` / `!privacy` stay on the **translation** bot only. See [two-cvm-architecture.md — Bot hierarchy](../two-cvm-architecture.md#bot-hierarchy).
+Voice transcription uses `!transcription` for its product menu (not hub `!help`). Hub `!help` / `!info` / `!privacy` and `!transcription` all live on the same bot. See [two-cvm-architecture.md](../two-cvm-architecture.md).
 
 ## When adding menus
 

@@ -2,7 +2,6 @@
 //!
 //! Unified bot: accept any pending invite/request (`AcceptAll`).
 
-use crate::config::BotRole;
 use signal_client::{Group, SignalClient};
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,13 +15,6 @@ pub const DEFAULT_INVITE_POLL_INTERVAL: Duration = Duration::from_secs(5);
 pub enum InvitePolicy {
     /// Accept every group where this account is pending.
     AcceptAll,
-}
-
-impl InvitePolicy {
-    /// Unified bot always auto-accepts group invites.
-    pub fn for_role(_role: BotRole) -> Self {
-        Self::AcceptAll
-    }
 }
 
 /// Whether this account should `POST .../join` for `group`.
@@ -139,18 +131,6 @@ mod tests {
 
     fn sample_group(members: &[&str], pending: &[&str], admins: &[&str]) -> Group {
         serde_json::from_value(group_json("group.abc==", members, pending, admins)).unwrap()
-    }
-
-    #[test]
-    fn policy_for_role() {
-        assert_eq!(
-            InvitePolicy::for_role(BotRole::Translation),
-            InvitePolicy::AcceptAll
-        );
-        assert_eq!(
-            InvitePolicy::for_role(BotRole::Transcription),
-            InvitePolicy::AcceptAll
-        );
     }
 
     #[test]

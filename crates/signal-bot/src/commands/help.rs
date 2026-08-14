@@ -4,7 +4,6 @@ use crate::commands::menu_locale::{
     help_menu, info_menu, is_exact_command, thread_help_menu, thread_info_menu,
 };
 use crate::commands::CommandHandler;
-use crate::config::BotRole;
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use async_trait::async_trait;
@@ -13,13 +12,17 @@ use std::sync::Arc;
 
 const NOT_THREAD_MSG: &str = "!commands is only available in a Language Thread.";
 
-pub struct HelpHandler {
-    role: BotRole,
-}
+pub struct HelpHandler;
 
 impl HelpHandler {
-    pub fn new(role: BotRole) -> Self {
-        Self { role }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for HelpHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -36,7 +39,7 @@ impl CommandHandler for HelpHandler {
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
         let _ = message;
-        Ok(help_menu(self.role).into())
+        Ok(help_menu().into())
     }
 }
 
@@ -75,12 +78,11 @@ impl CommandHandler for CommandsHandler {
 /// Same menus as [`HelpHandler`], with per-command explanations and blank-line breaks.
 pub struct InfoHandler {
     group_prefs: Arc<GroupPreferencesStore>,
-    role: BotRole,
 }
 
 impl InfoHandler {
-    pub fn new(group_prefs: Arc<GroupPreferencesStore>, role: BotRole) -> Self {
-        Self { group_prefs, role }
+    pub fn new(group_prefs: Arc<GroupPreferencesStore>) -> Self {
+        Self { group_prefs }
     }
 }
 
@@ -95,14 +97,12 @@ impl CommandHandler for InfoHandler {
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        if self.role == BotRole::Translation {
-            if let Some(group_id) = message.group_id.as_deref() {
-                if self.group_prefs.lookup_sidecar(group_id).is_some() {
-                    return Ok(thread_info_menu().into());
-                }
+        if let Some(group_id) = message.group_id.as_deref() {
+            if self.group_prefs.lookup_sidecar(group_id).is_some() {
+                return Ok(thread_info_menu().into());
             }
         }
-        Ok(info_menu(self.role).into())
+        Ok(info_menu().into())
     }
 }
 
@@ -135,25 +135,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn help_returns_role_specific_menu() {
-        let transcription = HelpHandler::new(BotRole::Transcription);
-        let translation = HelpHandler::new(BotRole::Translation);
+    async fn help_returns_hub_menu() {
+        let handler = HelpHandler::new();
 
-        assert!(transcription.matches(&dm("!help")));
-        assert!(!transcription.matches(&dm("!help-threads")));
-        assert!(!transcription.matches(&dm("!help-in-chat")));
-        let t = transcription.execute(&dm("!help")).await.unwrap();
-        assert!(t.contains("!transcribe"));
-        assert!(t.contains("!help-transcription"));
-        assert!(!t.contains("!privacy"));
-        assert!(!t.contains("!translate-me-on"));
-
-        let t = translation.execute(&dm("!help")).await.unwrap();
+        assert!(handler.matches(&dm("!help")));
+        assert!(!handler.matches(&dm("!help-threads")));
+        assert!(!handler.matches(&dm("!help-in-chat")));
+        let t = handler.execute(&dm("!help")).await.unwrap();
         assert!(t.contains("!translation-threads"));
         assert!(t.contains("!translation-in-chat"));
         assert!(t.contains("!transcription"));
         assert!(t.contains("!privacy"));
         assert!(t.contains("!info"));
+        assert!(t.contains("!help-transcription"));
+        assert!(!t.contains("!transcribe-on"));
+        assert!(!t.contains("!translate-me-on"));
         assert!(!t.contains("Voice notes in this chat"));
         assert!(!t.contains("!set-en"));
     }
@@ -161,7 +157,7 @@ mod tests {
     #[tokio::test]
     async fn info_returns_described_hub() {
         let store = GroupPreferencesStore::new_in_memory(0);
-        let handler = InfoHandler::new(store, BotRole::Translation);
+        let handler = InfoHandler::new(store);
         assert!(handler.matches(&dm("!info")));
         let out = handler.execute(&dm("!info")).await.unwrap();
         assert!(out.contains("!translation-threads\n  "));
@@ -176,7 +172,7 @@ mod tests {
     async fn help_in_sidecar_returns_hub_menu() {
         let store = GroupPreferencesStore::new_in_memory(0);
         store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
-        let handler = HelpHandler::new(BotRole::Translation);
+        let handler = HelpHandler::new();
         let out = handler
             .execute(&group("!help", "it-internal"))
             .await
@@ -220,7 +216,7 @@ mod tests {
     async fn info_in_sidecar_returns_thread_info() {
         let store = GroupPreferencesStore::new_in_memory(0);
         store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
-        let handler = InfoHandler::new(store, BotRole::Translation);
+        let handler = InfoHandler::new(store);
         let out = handler
             .execute(&group("!info", "it-internal"))
             .await
@@ -232,7 +228,7 @@ mod tests {
 
     #[tokio::test]
     async fn help_in_main_stays_hub() {
-        let handler = HelpHandler::new(BotRole::Translation);
+        let handler = HelpHandler::new();
         let out = handler.execute(&group("!help", "main-1")).await.unwrap();
         assert!(out.contains("!translation-threads"));
         assert!(!out.contains("!rename"));

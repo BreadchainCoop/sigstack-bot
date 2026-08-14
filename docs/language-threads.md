@@ -39,15 +39,13 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!commands` | Sidecar only | Compact Language Thread command list |
 | `!list-langs` | Any | Language codes |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
-| `!help` / `!privacy` | Any | Hub menus (`!help` is always the Bread Bot hub; `!privacy` and `!verify` on translation bot) |
+| `!help` / `!privacy` | Any | Hub menus (`!help` is always the Bread Bot hub; `!privacy` and `!verify` on this bot) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 
 Aliases: `!translation-me-thread es`.
 
-**Also on the translation bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path).
-
-**Not registered on translation (worker CVM handles these):** `!ask`, DM chat, voice/`!transcribe*`, `!transcription` product menu on the transcription bot, `!models`.
+**Also on this bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path). Voice (`!transcription` / `!transcribe*`) is registered here too.
 
 Menus: `!help` → `!translation-threads` / `!translation-in-chat`. `!in-chat` opens the in-chat menu; `!translation` redirects to both.
 

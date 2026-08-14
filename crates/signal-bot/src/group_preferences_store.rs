@@ -342,14 +342,13 @@ impl GroupPreferencesStore {
             .and_then(|p| p.translate.clone())
     }
 
-    /// Resolve intercept pair: personal for `user` wins over group-wide.
+    /// Resolve intercept pair: group-wide wins while set; otherwise personal for `user`.
     pub fn resolve_in_chat_mode(&self, group_id: &str, user: &str) -> Option<GroupTranslateMode> {
         let groups = self.groups.read().unwrap();
         let pref = groups.get(group_id)?;
-        pref.translate_members
-            .get(user)
-            .cloned()
-            .or_else(|| pref.translate.clone())
+        pref.translate
+            .clone()
+            .or_else(|| pref.translate_members.get(user).cloned())
     }
 
     pub fn set(self: &Arc<Self>, group_id: String, mode: GroupTranslateMode) {
@@ -918,15 +917,25 @@ mod tests {
             store.resolve_in_chat_mode(gid, "+bob").unwrap().lang_a,
             "es"
         );
-        // Personal still wins for alice if we set a different pair.
-        let fr_en = GroupTranslateMode::new(
-            resolve_language("fr").unwrap(),
+        // Group-wide wins over a stale personal pair (e.g. fa/en left from !translate-me-on).
+        let fa_en = GroupTranslateMode::new(
+            resolve_language("fa").unwrap(),
             resolve_language("en").unwrap(),
         );
-        store.set_member_translate(gid, "+alice", fr_en);
+        store.set_member_translate(gid, "+alice", fa_en);
         assert_eq!(
             store.resolve_in_chat_mode(gid, "+alice").unwrap().lang_a,
-            "fr"
+            "es"
+        );
+        assert_eq!(
+            store.resolve_in_chat_mode(gid, "+alice").unwrap().lang_b,
+            "en"
+        );
+
+        assert!(store.clear(gid));
+        assert_eq!(
+            store.resolve_in_chat_mode(gid, "+alice").unwrap().lang_a,
+            "fa"
         );
 
         assert!(store.disable_in_chat(gid));

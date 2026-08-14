@@ -40,6 +40,13 @@ const SIDECAR_REJECT_MSG: &str =
     "In-chat auto-translate is only available in the main group (not a Language Thread).";
 const THREADS_BLOCK_MSG: &str = "Language Threads is already on in this group, so in-chat auto-translate can't run alongside it.\n\nTo switch, send:\n!enable-in-chat";
 
+fn group_blocks_personal_msg(mode: &GroupTranslateMode) -> String {
+    format!(
+        "Group translate is already on ({}). Use !translate-all-off first if you only want personal translate.",
+        mode.display_pair()
+    )
+}
+
 /// Whether the message is any in-chat auto on/off/disable command (excludes quote `!translate`).
 pub(crate) fn is_translate_on_or_off_command(text: &str) -> bool {
     let text = text.trim();
@@ -328,6 +335,10 @@ impl TranslateAllHandler {
             .await
         {
             return Ok(msg);
+        }
+
+        if let Some(group_mode) = self.store.get(group_id) {
+            return Ok(group_blocks_personal_msg(&group_mode));
         }
 
         let pair_label = mode.display_pair();
@@ -940,7 +951,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/v2/send"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-            .expect(7)
+            .expect(8)
             .mount(&signal)
             .await;
 
@@ -989,13 +1000,23 @@ mod tests {
 
         msg.text = "!translate-me-on fr en".into();
         assert!(handler.execute(&msg).await.unwrap().is_empty());
-        assert!(store
-            .get_member_translate("group.main", "+15550002222")
-            .is_some());
+        assert!(
+            store
+                .get_member_translate("group.main", "+15550002222")
+                .is_none(),
+            "personal pair must not be stored while group-wide is on"
+        );
 
         msg.text = "!translate-all-off".into();
         assert!(handler.execute(&msg).await.unwrap().is_empty());
         assert!(!store.is_active("group.main"));
+        assert!(!store.in_chat_auto_active("group.main"));
+
+        msg.text = "!translate-me-on fr en".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(store
+            .get_member_translate("group.main", "+15550002222")
+            .is_some());
         assert!(store.in_chat_auto_active("group.main"));
 
         msg.text = "!translate-me-off".into();

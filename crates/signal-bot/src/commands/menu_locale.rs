@@ -234,8 +234,8 @@ Use when everyone stays in one Signal group and wants bilingual (or quote) trans
 
 How it works:
 - No sidecar groups — replies stay in this chat as quote-replies.
-- Group-wide: !translate-all-on es en auto-translates messages between that pair.
-- Personal: !translate-me-on es en auto-translates only your messages.
+- Group-wide: !translate-all-on es en auto-translates messages between that pair (everyone uses this pair while it is on).
+- Personal: !translate-me-on es en auto-translates only your messages when group-wide is off.
 - One-off: reply to a message with !translate <lang>
 
 Typical use:

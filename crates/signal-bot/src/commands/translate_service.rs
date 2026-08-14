@@ -247,6 +247,15 @@ pub fn resolve_translate_all_text_pair(
     mode: &GroupTranslateMode,
     text: &str,
 ) -> Option<(&'static Language, &'static Language)> {
+    // Pair allowlist always picks a winner. If unconstrained detection is
+    // confident the text is a third language, skip rather than forcing it
+    // into the pair (e.g. "buenos dias" as Portuguese/Spanish in a fa/en
+    // allowlist collapsing to English → Persian).
+    let unconstrained = detect_text_language(text).or_else(|| detect_text_language_voice(text));
+    if let Some(open) = unconstrained {
+        normalize_for_translate_all_pair(mode, &open)?;
+    }
+
     for code in text_language_candidates(mode, text) {
         if let Some(normalized) = normalize_for_translate_all_pair(mode, &code) {
             if let (Some(target), Some(source)) = (
@@ -367,5 +376,21 @@ mod tests {
             .expect("Spanish should translate to Italian");
         assert_eq!(pair.0.code, "es");
         assert_eq!(pair.1.code, "it");
+    }
+
+    #[test]
+    fn resolve_text_pair_skips_confident_out_of_pair_language() {
+        let mode = GroupTranslateMode::new(
+            resolve_language("fa").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        assert!(
+            resolve_translate_all_text_pair(&mode, "buenos dias").is_none(),
+            "Spanish must not collapse to en→fa in a fa/en pair"
+        );
+        let pair = resolve_translate_all_text_pair(&mode, "hello good morning")
+            .expect("English in fa/en pair should target Persian");
+        assert_eq!(pair.0.code, "en");
+        assert_eq!(pair.1.code, "fa");
     }
 }

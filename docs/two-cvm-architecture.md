@@ -76,6 +76,29 @@ E2E still needs two registered Signal numbers in a shared test group. Dual compo
 
 Deploy each compose to its **own** CVM. Do not co-locate Whisper with the translation bot.
 
+### CVM storage (keep intact)
+
+The suite stays cohesive only if each live CVM keeps two kinds of disk state. **TEE RAM is wiped** on every restart or upgrade; that is expected. User prefs and Signal identity are **not** in RAM — they live on named Docker volumes that Phala reattaches on an in-place upgrade.
+
+| Volume | Compose | What it holds | If wiped |
+|--------|---------|---------------|----------|
+| `signal-config-transcription` / `signal-config-translation` | `signal-api` | That CVM’s **registered Signal phone** (CLI session) | Bot disappears from Signal until ops re-register; re-registering also takes the number over from any other device |
+| `group-prefs-transcription` / `group-prefs-translation` | `signal-bot` → `/data/group_prefs.enc` | Encrypted prefs: `!translate-me-on`, `!translate-all-on`, Language Threads bridges, menu language | Users must re-enable features; bots look forgetful |
+| `registry-data` / `registry-data-transcription` | registration proxy | Ops registration helper state | Re-register via proxy; does not by itself drop Signal CLI |
+
+**Upgrade live CVMs in place** (`phala deploy --cvm-id <existing>` or the dashboard compose update). Do **not** create a replacement CVM, rename those volumes, or `down -v` for a routine image bump. First bring-up of a **new** CVM is the exception (empty volumes; register phones there).
+
+| Event | Volumes | Users re-enable prefs? | Re-register phones? |
+|-------|---------|------------------------|---------------------|
+| In-place CVM upgrade (`--cvm-id`) | Kept (Phala reattaches) | No | No |
+| Container / CVM restart, same compose | Kept | No | No |
+| New CVM / `phala cvms delete` / volume rename | Empty | Yes | Yes |
+| Prefs decrypt fail (key mismatch) | File present, unreadable | Yes (bot starts empty) | No (Signal volume is separate) |
+
+Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback includes `compose_hash` — a compose change then fails decrypt. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on each CVM’s `signal-api`.
+
+Do not change volume names in [`docker/phala.transcription.yaml`](../docker/phala.transcription.yaml) / [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) without a deliberate migration. [`scripts/deploy_phala.sh`](../scripts/deploy_phala.sh) deploys by **name** (`-n`); that is for first create, not a safe in-place upgrade of an already-registered CVM.
+
 ## Products on each CVM
 
 | Product | CVM | Doc |
@@ -88,7 +111,7 @@ Deploy each compose to its **own** CVM. Do not co-locate Whisper with the transl
 
 - **Transcription** (worker CVM) composes with translation products in the same group. The **translation bot** invites via `!transcription` and posts the voice menu after invite; the **transcription bot** runs voice and answers `!transcription` when already paired.
 - **In-chat** translates inside one group thread (quote-reply).
-- **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-on`).
+- **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-thread`).
 
 ## Why split
 

@@ -71,10 +71,16 @@ More thorough local setup (Signal captcha registration, verify SMS/voice codes, 
 ## Phala
 
 ```bash
-# Build linux/amd64 images, then deploy each compose to its own CVM @ tdx.medium (4 GB)
-phala deploy … -c docker/phala.transcription.yaml …
-phala deploy … -c docker/phala.translation.yaml …
+# First create (empty volumes — register phones on the CVM afterward)
+phala deploy -n sigstack-transcription -c docker/phala.transcription.yaml …
+phala deploy -n sigstack-translation   -c docker/phala.translation.yaml …
+
+# Later image/compose bumps: upgrade the *existing* CVM so volumes stay attached
+phala deploy --cvm-id sigstack-transcription -c docker/phala.transcription.yaml …
+phala deploy --cvm-id sigstack-translation   -c docker/phala.translation.yaml …
 ```
+
+**Do not replace a live CVM or wipe its volumes** for a routine upgrade. Each CVM’s disk holds the bot’s **registered Signal phone** and **encrypted user prefs** (`!translate-me-on`, Language Threads, and so on). TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade, so users should not have to turn features back on. Details: [docs/two-cvm-architecture.md — CVM storage](docs/two-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Project structure
 
@@ -92,7 +98,8 @@ docker/
   phala.transcription.yaml
   phala.translation.yaml
 docs/
-  two-cvm-architecture.md
+  two-cvm-architecture.md       # includes CVM storage / in-place upgrade
+  in-chat-translation.md
   language-threads.md
 ```
 

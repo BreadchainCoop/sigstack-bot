@@ -80,7 +80,7 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 
 (Same pattern with `compose.transcription.yaml` / `transcription.env` for the transcription bot.)
 
-Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI state and you must re-register the phone.
+Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI state and you must re-register the phone. On Phala the same volumes hold the live bot identity and user prefs; upgrade in place (`--cvm-id`), never replace the CVM for a routine bump — [two-cvm-architecture.md — CVM storage](../two-cvm-architecture.md#cvm-storage-keep-intact).
 
 ---
 

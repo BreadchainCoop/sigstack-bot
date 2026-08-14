@@ -2,14 +2,17 @@
 
 **Goal:** Deploy the product suite on two Phala TDX CVMs — **2 vCPU / 4 GB each** (`tdx.medium`) — matching [`docs/two-cvm-architecture.md`](../two-cvm-architecture.md).
 
-| CVM | Instance | Compose | Role |
-|-----|----------|---------|------|
-| Transcription (worker) | `tdx.medium` | [`docker/phala.transcription.yaml`](../../docker/phala.transcription.yaml) | Phone A + Whisper + `BOT__ROLE=transcription` |
-| Translation (hub) | `tdx.medium` | [`docker/phala.translation.yaml`](../../docker/phala.translation.yaml) | Phone B + NEAR AI + `BOT__ROLE=translation` + registration proxy |
+| CVM | Instance | Compose | Role | Live |
+|-----|----------|---------|------|------|
+| `sigstack-transcription` | `tdx.medium` | [`docker/phala.transcription.yaml`](../../docker/phala.transcription.yaml) | Phone A + Whisper + `BOT__ROLE=transcription` | running — app `c5df154154e8c61105fefe84d43515e69b0e2537` |
+| `sigstack-translation` | `tdx.medium` | [`docker/phala.translation.yaml`](../../docker/phala.translation.yaml) | Phone B + NEAR AI + `BOT__ROLE=translation` + registration proxy | running — app `9adac7636fe255182f699940ffd1924960415507` |
 
 **Cost:** ~$0.232/hr combined (~$167/mo if always on).  
-**Auth (already true here):** Phala CLI logged in as `daopunk` / workspace **Bread Coop**.  
-**Existing:** one stopped CVM `dstack-app-hqvaf` — delete or ignore before creating the two new apps.
+**Auth:** Phala CLI / workspace **Bread Coop**. Images digest-pinned in gitignored `docker/phala.*.env`.
+
+**Registration proxies:**
+- TX: `https://c5df154154e8c61105fefe84d43515e69b0e2537-8081.dstack-pha-prod9.phala.network`
+- TR: `https://9adac7636fe255182f699940ffd1924960415507-8081.dstack-pha-prod9.phala.network`
 
 ---
 
@@ -84,8 +87,8 @@ phala deploy \
   -n sigstack-transcription \
   -c docker/phala.transcription.yaml \
   -e docker/phala.transcription.env \
-  -t tdx.medium \
-  --disk-size 40G \
+  -t tdx.medium \          # 2 vCPU / 4 GB RAM
+  --disk-size 40G \        # 40 GB disk (not RAM); Phala default
   --wait
 
 # Translation hub
@@ -93,8 +96,8 @@ phala deploy \
   -n sigstack-translation \
   -c docker/phala.translation.yaml \
   -e docker/phala.translation.env \
-  -t tdx.medium \
-  --disk-size 40G \
+  -t tdx.medium \          # 2 vCPU / 4 GB RAM
+  --disk-size 40G \        # 40 GB disk (not RAM)
   --wait
 ```
 
@@ -114,15 +117,18 @@ Cleanup (optional): `phala cvms delete --cvm-id dstack-app-hqvaf` once the new p
 
 ---
 
-## Phase 3 — Register Signal phones
+## Phase 3 — Register Signal phones on the CVMs
 
-Fresh CVM ⇒ empty Signal CLI volumes ⇒ **re-register** both numbers.
+**Why:** Fresh CVMs have empty Signal CLI volumes. Registration that exists on your laptop Compose stacks does **not** transfer. Both numbers must be registered into each product CVM’s `signal-api` so plaintext Signal sessions live inside that TEE.
 
-1. **Translation (phone B):** use registration proxy on `:8081` (same captcha flow as [docs/local-dev](../local-dev/README.md)), or `phala ssh` / exec into `signal-api` and hit `/v1/register`.
-2. **Transcription (phone A):** register against that CVM’s `signal-api` (no public proxy in transcription compose — SSH/exec or temporary ops path).
-3. Verify SMS/voice codes; confirm both numbers appear as Signal contacts.
+**Target = Phala CVMs, not local Docker.** Do not use `localhost:8080` / `localhost:8081` from the dual Compose guide for this step.
 
-Do **not** `down -v` / wipe volumes after registration unless you intend to re-register.
+1. Captcha: https://signalcaptchas.org/registration/generate.html — copy the full `signalcaptcha://…` token.
+2. **Translation CVM (phone B):** register + verify via that CVM’s registration proxy (`:8081` through Phala gateway / `phala ssh`) or its in-CVM `signal-api` `/v1/register/...`.
+3. **Transcription CVM (phone A):** register + verify against **that** CVM’s `signal-api` only (no proxy in transcription compose — `phala ssh` / container exec).
+4. Confirm `/v1/accounts` on each CVM; restart that CVM’s `signal-bot` if the session was created after the bot started.
+
+Do **not** wipe CVM volumes after registration unless you intend to re-register.
 
 ---
 

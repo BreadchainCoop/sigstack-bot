@@ -54,3 +54,4 @@ credentials.json
 # Compound Engineering machine-local config (keep *.example.yaml tracked)
 .compound-engineering/*.local.yaml
 .compound-engineering/config.local.yaml
+docker/ops/

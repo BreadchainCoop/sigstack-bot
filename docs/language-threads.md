@@ -97,6 +97,8 @@ In-memory reverse index: sidecar `internal_id` → `(main_id, lang)`.
 
 Local Docker without dstack may not persist prefs across restarts; Phala with dstack does.
 
+The same encrypted file on `group-prefs-translation` also holds in-chat `!translate-me-on` / `!translate-all-on`. An **in-place** Phala CVM upgrade reattaches that volume (and `signal-config-translation`, the hub’s registered Signal phone). Users should not have to re-subscribe. Replacing the CVM or wiping volumes drops bridges, personal auto-translate, **and** the bot’s Signal session — the suite looks broken until ops re-registers and users opt in again. See [two-cvm-architecture.md — CVM storage](two-cvm-architecture.md#cvm-storage-keep-intact).
+
 Legacy encrypted prefs that still contain a `parallel_bridge` key are ignored on load and dropped on the next persist.
 
 ## Key code
@@ -139,12 +141,14 @@ Whisper / voice live on the **transcription** stack — see [voice-transcription
 - **Transcription** (worker CVM) composes with Language Threads or in-chat in the same Signal groups. The **translation hub** invites via `!transcription`; the worker only transcribes voice.
 - **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars.
 
-## Phala / TEE (paused)
+## Phala / TEE
 
-- Deploy uses **Docker images** in compose, not a public git clone.
-- Translation CVM target: **4 GB** (`tdx.medium`) via [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) — **no Whisper** on this box.
-- Env template: [`docker/phala.translation.env.example`](../docker/phala.translation.env.example) (secrets; do not commit filled env).
-- Fresh CVM ⇒ expect **re-register** Signal phone (volume died with old CVM).
+- Dual CVMs live on Phala (`tdx.medium` = 2 vCPU / 4 GB RAM each):
+  - **Transcription:** `sigstack-transcription` — Whisper + phone A ([`docker/phala.transcription.yaml`](../docker/phala.transcription.yaml))
+  - **Translation:** `sigstack-translation` — hub + phone B, no Whisper ([`docker/phala.translation.yaml`](../docker/phala.translation.yaml))
+- Deploy uses **Docker images** (digest-pinned in env), not a public git clone.
+- Env templates: [`docker/phala.transcription.env.example`](../docker/phala.transcription.env.example), [`docker/phala.translation.env.example`](../docker/phala.translation.env.example) (secrets; do not commit filled env).
+- Fresh CVM ⇒ register Signal phones against each CVM’s registration proxy (`:8081` via Phala gateway).
 
 ## Trust / privacy notes
 
@@ -155,6 +159,4 @@ Whisper / voice live on the **transcription** stack — see [voice-transcription
 
 ## Open follow-ups
 
-- Resume Phala deploy at 4 GB; confirm memory with `phala cvms get`
-- Pin image digest in compose for stronger attestation
 - Optional: delete empty sidecars after last member leaves

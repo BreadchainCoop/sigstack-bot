@@ -27,4 +27,5 @@ Product docs stay as siblings under `docs/` (architecture, voice, translation). 
 - Required env: `BOT__ROLE=transcription|translation`
 - Do not reintroduce tools, x402, or general chat paths
 - Image digests stay pinned in compose for attestation
+- **Keep live CVM storage:** never wipe or replace Phala volumes / registered Signal phones for a routine TEE upgrade. User prefs (`group-prefs-*`) and Signal CLI sessions (`signal-config-*`) must stay on the existing CVM (`phala deploy --cvm-id`). See [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md#cvm-storage-keep-intact) and [AGENTS.md](AGENTS.md#cvm-storage-do-not-wipe)
 - Before finishing Rust work run `npm run ci` / `pnpm run ci` (never bare `pnpm ci`)

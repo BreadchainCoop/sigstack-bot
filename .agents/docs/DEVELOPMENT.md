@@ -99,8 +99,9 @@ docker buildx build --platform linux/amd64 -t YOUR/signal-bot-tee:latest -f dock
 docker buildx build --platform linux/amd64 -t YOUR/signal-whisper-api:latest -f docker/Dockerfile.whisper --push .
 docker buildx build --platform linux/amd64 -t YOUR/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
 
-phala deploy … -c docker/phala.transcription.yaml -e docker/phala.transcription.env --wait -t tdx.medium
-phala deploy … -c docker/phala.translation.yaml -e docker/phala.translation.env --wait -t tdx.medium
+phala deploy -n … -c docker/phala.transcription.yaml -e docker/phala.transcription.env --wait -t tdx.medium
+phala deploy -n … -c docker/phala.translation.yaml -e docker/phala.translation.env --wait -t tdx.medium
+# After phones are registered: upgrade with --cvm-id (not a new CVM) so volumes stay.
 ```
 
 Env templates: `docker/phala.transcription.env.example`, `docker/phala.translation.env.example`.
@@ -108,6 +109,21 @@ Env templates: `docker/phala.transcription.env.example`, `docker/phala.translati
 Encrypted secrets: phone numbers per CVM; `PEER_PHONE` for pairing; `NEAR_AI_API_KEY` on translation only.
 
 Health (transcription): Whisper `GET /health` on `:9000`, Signal CLI `GET /v1/health` on `:8080`. Attestation: `!verify <challenge>`.
+
+### CVM storage — do not wipe
+
+**In-place upgrades only** once phones are registered. TEE RAM wipe is expected; **disk volumes are the product identity.**
+
+| Must keep | Volume | Breakage if lost |
+|-----------|--------|------------------|
+| Bot Signal phone session | `signal-config-transcription` / `signal-config-translation` | Bot gone from groups until re-register (takes over the number) |
+| User prefs (`!translate-me-on`, `!translate-all-on`, Language Threads) | `group-prefs-*` → `/data/group_prefs.enc` | Users must re-enable; suite looks broken |
+
+Use `phala deploy --cvm-id <existing>`. Do **not** `phala cvms delete`, create a replacement CVM, rename those volumes, or `down -v` for an image bump. [`scripts/deploy_phala.sh`](../../scripts/deploy_phala.sh) uses `-n` (first create), not a safe upgrade of a registered CVM.
+
+After upgrade, logs should show `Loaded group preferences for N groups` (not `starting fresh` / `TEE deployment may have changed`), and each CVM’s `signal-api` should still list its account.
+
+Canonical table: [`docs/two-cvm-architecture.md` — CVM storage](../../docs/two-cvm-architecture.md#cvm-storage-keep-intact). Agent rule: [`AGENTS.md` — CVM storage](../../AGENTS.md#cvm-storage-do-not-wipe).
 
 ## Configuration
 

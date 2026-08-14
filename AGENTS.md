@@ -62,20 +62,30 @@ docker compose -f docker/compose.translation.yaml --env-file docker/translation.
 
 | Doc | Why |
 |-----|-----|
-| [`.agents/docs/DEVELOPMENT.md`](.agents/docs/DEVELOPMENT.md) | TEE trust model, `BOT__ROLE`, Phala dual-CVM ops |
-| [`docs/two-cvm-architecture.md`](docs/two-cvm-architecture.md) | Architecture diagram and compose/Phala split |
+| [`.agents/docs/DEVELOPMENT.md`](.agents/docs/DEVELOPMENT.md) | TEE trust model, `BOT__ROLE`, Phala dual-CVM ops, **CVM volume / Signal identity** |
+| [`docs/two-cvm-architecture.md`](docs/two-cvm-architecture.md) | Architecture diagram, compose/Phala split, **CVM storage (keep intact)** |
 | [`docs/voice-transcription.md`](docs/voice-transcription.md) | Voice transcription product + pairing |
 | [`docs/in-chat-translation.md`](docs/in-chat-translation.md) | In-chat (group) bilingual auto/manual translate |
 | [`docs/language-threads.md`](docs/language-threads.md) | Language Threads (multilingual main + N sidecars) |
 | [`docs/solutions/`](docs/solutions/) | Compounded learnings from prior work |
 | [`docs/plans/`](docs/plans/) | CE implementation plans |
 | [`.agents/skills/`](.agents/skills/) | Domain skills (Rust, Docker, Stripe) |
-| [`.cursor/rules/`](.cursor/rules/) | Cursor project rules (commits, compound loop) |
+| [`.cursor/rules/`](.cursor/rules/) | Cursor project rules (commits, compound loop, **CVM storage**) |
+
+## CVM storage (do not wipe)
+
+**Never destroy live Phala volumes or replace a registered CVM for a routine upgrade.** The product is cohesive only if each TEE keeps:
+
+1. **The bot’s registered Signal phone** (`signal-config-*` on `signal-api`) — losing this unlinks the bot from every group until ops re-registers (and takes over the number).
+2. **Encrypted user prefs** (`group-prefs-*` → `/data/group_prefs.enc`) — `!translate-me-on`, `!translate-all-on`, Language Threads bridges. Losing this forces every user to turn features back on.
+
+Upgrade with `phala deploy --cvm-id <existing>`. Do not create a new CVM, rename those volumes, or `down -v`. TEE RAM wipe on reboot is expected; disk volumes are the identity. Details: [docs/two-cvm-architecture.md — CVM storage](docs/two-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Rules of thumb
 
 - Required env: `BOT__ROLE=transcription|translation`
 - Do not reintroduce tools, x402, or general chat paths
 - Image digests stay pinned in compose for attestation
+- **Keep CVM volumes and Signal registrations** — in-place Phala upgrades only; see [CVM storage](#cvm-storage-do-not-wipe)
 - Commits must pass [commitlint](https://github.com/conventional-changelog/commitlint) (`type: subject`); subject all lowercase, no trailing period, dashes not snake_case — see [`.cursor/rules/commit-messages.mdc`](.cursor/rules/commit-messages.mdc). Run `npm install` or `pnpm install` so husky `commit-msg` / `pre-push` hooks are active
 - **CI style gates are not optional.** GitHub Actions (`test.yml` + `commitlint.yml`) fails on fmt, Clippy `-D warnings`, llvm-cov ≥90% lines, and conventional commits. Before finishing Rust work run `npm run ci` / `pnpm run ci` (never bare `pnpm ci`). Husky `pre-push` runs that script; `commit-msg` runs commitlint on each commit. Cursor auto-fmts `.rs` edits and re-prompts on stop if fmt/clippy would fail CI.

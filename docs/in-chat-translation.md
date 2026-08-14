@@ -61,6 +61,10 @@ Skip when language is undetected or not in the pair. Rate-limited per group (`TR
 
 Voice notes: the **transcription** bot posts a transcript in-group; with `!translate-all-on` (or personal auto for the speaker), the **translation** bot intercepts that text like any other message — including when the transcript quote-reply still carries voice attachment metadata. The `📝 Transcript:` label is stripped before detect/translate (same as manual quote `!translate`).
 
+## Persistence
+
+`!translate-all-on` and `!translate-me-on` are stored in encrypted group prefs on the translation CVM (`group-prefs-translation` → `/data/group_prefs.enc`), not in TEE RAM. An **in-place** Phala upgrade keeps that volume: users do **not** re-enable after a routine image bump. A new CVM, volume wipe, or prefs decrypt failure starts empty. Same file also holds Language Threads bridges. Canonical ops: [two-cvm-architecture.md — CVM storage](two-cvm-architecture.md#cvm-storage-keep-intact).
+
 ## Key code
 
 | Area | Path |

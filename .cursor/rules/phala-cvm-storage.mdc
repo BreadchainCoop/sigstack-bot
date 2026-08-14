@@ -1,0 +1,18 @@
+---
+description: Keep live Phala CVM volumes (Signal phone + user prefs) on TEE upgrades
+globs: docker/phala*.yaml,docker/compose.*.yaml,scripts/deploy_phala.sh,scripts/register_phala_phones.sh
+alwaysApply: false
+---
+
+# CVM storage — do not wipe
+
+Routine TEE / image upgrades must **keep** each live CVM’s named volumes. TEE RAM wipe is expected; disk is the product identity.
+
+- **Signal phone:** `signal-config-transcription` / `signal-config-translation` on `signal-api`. Losing it unlinks the bot from every group until re-register (which takes over the number).
+- **User prefs:** `group-prefs-*` → `/data/group_prefs.enc` (`!translate-me-on`, `!translate-all-on`, Language Threads). Losing it forces every user to opt in again.
+
+**Do:** `phala deploy --cvm-id <existing>`. Keep volume names unchanged.
+
+**Do not:** create a replacement CVM, `phala cvms delete`, rename volumes, or `down -v` for an image bump. [`scripts/deploy_phala.sh`](scripts/deploy_phala.sh) is first-create (`-n`), not a safe upgrade of a registered CVM.
+
+Canonical: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md#cvm-storage-keep-intact). Agent entry: [AGENTS.md](AGENTS.md#cvm-storage-do-not-wipe).

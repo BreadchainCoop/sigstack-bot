@@ -5,7 +5,10 @@
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-bot-tee:latest -f docker/Dockerfile --push .
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
 #
-# Deploy to a dedicated CVM (separate from transcription):
+# Deploy to a dedicated CVM (separate from transcription).
+# First create: `phala deploy -n …`. Later upgrades MUST use `--cvm-id` so volumes stay
+# (Signal phone session + group prefs). Do not rename volumes below. See
+# docs/two-cvm-architecture.md#cvm-storage-keep-intact
 #   phala deploy --cvm-id YOUR_TR_CVM -c docker/phala.translation.yaml -e docker/phala.translation.env --wait -t tdx.medium
 
 services:
@@ -72,6 +75,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  # Keep these names: renaming creates empty volumes and drops Signal identity + prefs.
   signal-config-translation:
     driver: local
   registry-data:

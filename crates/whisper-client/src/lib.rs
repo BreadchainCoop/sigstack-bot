@@ -1,4 +1,4 @@
-//! HTTP client for whisper.cpp `whisper-server` sidecar.
+//! HTTP client for OpenAI-compatible audio transcription (NEAR AI Whisper).
 
 mod client;
 mod error;
@@ -16,14 +16,20 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     async fn test_client(server: &MockServer) -> WhisperClient {
-        WhisperClient::new(server.uri(), Duration::from_secs(5)).unwrap()
+        WhisperClient::new(
+            server.uri(),
+            Duration::from_secs(5),
+            "test-key",
+            "openai/whisper-large-v3",
+        )
+        .unwrap()
     }
 
     #[tokio::test]
     async fn test_health_check_success() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/health"))
+            .and(path("/models"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "status": "ok"
             })))
@@ -38,7 +44,7 @@ mod tests {
     async fn test_transcribe_multipart() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path("/inference"))
+            .and(path("/audio/transcriptions"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "text": " Hello world\n",
                 "language": "english"
@@ -54,13 +60,21 @@ mod tests {
 
         assert_eq!(result.trimmed_text(), "Hello world");
         assert_eq!(result.language.as_deref(), Some("en"));
+
+        let received = server.received_requests().await.unwrap();
+        let body = String::from_utf8_lossy(&received[0].body);
+        assert!(body.contains("filename=\"note.m4a\""));
+        assert!(body.contains("openai/whisper-large-v3"));
+        assert!(!body.contains("+1555"));
+        assert!(!body.contains("group_id"));
+        assert!(!body.contains("display_name"));
     }
 
     #[tokio::test]
     async fn test_transcribe_empty_fails() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path("/inference"))
+            .and(path("/audio/transcriptions"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "text": "   \n"
             })))
@@ -80,7 +94,7 @@ mod tests {
     async fn health_endpoint_parses_status() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/health"))
+            .and(path("/models"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "status": "ok"
             })))
@@ -95,7 +109,7 @@ mod tests {
     async fn health_endpoint_http_error() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/health"))
+            .and(path("/models"))
             .respond_with(ResponseTemplate::new(503).set_body_string("down"))
             .mount(&server)
             .await;
@@ -107,10 +121,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn translate_to_english_uses_inference() {
+    async fn translate_to_english_uses_translations() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path("/inference"))
+            .and(path("/audio/translations"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "text": " Hello from Spanish\n",
                 "language": "spanish"

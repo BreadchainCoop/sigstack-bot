@@ -2,13 +2,13 @@
 
 use serde::Deserialize;
 
-/// Response from `GET /health`.
+/// Response from `GET /models` mapped to a coarse status.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HealthResponse {
     pub status: String,
 }
 
-/// JSON response from `POST /inference` with `response_format=verbose_json`.
+/// JSON response from OpenAI-compatible `POST /audio/transcriptions`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct InferenceResponse {
     pub text: String,

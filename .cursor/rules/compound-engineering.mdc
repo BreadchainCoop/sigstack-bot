@@ -24,7 +24,9 @@ Product docs stay as siblings under `docs/` (architecture, voice, translation). 
 
 ## Product constraints
 
-- Required env: `BOT__ROLE=transcription|translation`
+- Required env: `BOT__ROLE=translation` (`transcription` is retired and fail-fasts)
 - Do not reintroduce tools, x402, or general chat paths
+- Do not reintroduce a local Whisper sidecar (`whisper-api`); STT is NEAR AI Whisper Large V3 (GPU TEE). Do not put Whisper on a larger CPU TEE as the scale path. See [docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md](docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md)
 - Image digests stay pinned in compose for attestation
+- **Keep live CVM storage:** never wipe or replace Phala volumes / the registered Signal phone for a routine TEE upgrade. User prefs (`group-prefs-translation`) and Signal CLI session (`signal-config-translation`) must stay on the existing CVM (`phala deploy --cvm-id`). See [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md#cvm-storage-keep-intact) and [AGENTS.md](AGENTS.md#cvm-storage-do-not-wipe)
 - Before finishing Rust work run `npm run ci` / `pnpm run ci` (never bare `pnpm ci`)

@@ -3,16 +3,13 @@
 use crate::commands::menu_locale::{
     help_in_chat_guide, help_menu, help_threads_guide, help_transcription_guide, is_exact_command,
     is_translation_in_chat_menu_command, is_translation_threads_menu_command,
-    transcription_group_only, transcription_invited, transcription_unavailable,
     translation_in_chat_menu, translation_split_redirect, translation_threads_menu,
 };
 use crate::commands::CommandHandler;
 use crate::config::BotRole;
 use crate::error::AppResult;
 use async_trait::async_trait;
-use signal_client::{BotMessage, SignalClient};
-use std::sync::Arc;
-use tracing::warn;
+use signal_client::BotMessage;
 
 /// Legacy `!translation` → points at the two product menus.
 pub struct TranslationMenuHandler;
@@ -94,129 +91,7 @@ impl CommandHandler for TranslationInChatMenuHandler {
     }
 }
 
-/// Translation role: invite the transcription peer, or stay silent when already paired.
-pub struct TranscriptionPairingHandler {
-    signal: Arc<SignalClient>,
-    peer_phone: Option<String>,
-}
-
-impl TranscriptionPairingHandler {
-    pub fn new(signal: Arc<SignalClient>, peer_phone: Option<String>) -> Self {
-        Self {
-            signal,
-            peer_phone: peer_phone.and_then(|p| {
-                let t = p.trim().to_string();
-                if t.is_empty() {
-                    None
-                } else {
-                    Some(t)
-                }
-            }),
-        }
-    }
-
-    async fn send(&self, message: &BotMessage, body: &str) -> AppResult<()> {
-        self.signal.reply(message, body).await?;
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl CommandHandler for TranscriptionPairingHandler {
-    fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!transcription")
-    }
-
-    fn handles_own_reply(&self) -> bool {
-        true
-    }
-
-    fn label(&self) -> &'static str {
-        "transcription_pairing"
-    }
-
-    async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        if !message.is_group {
-            self.send(message, transcription_group_only()).await?;
-            return Ok(String::new());
-        }
-
-        let Some(peer) = self.peer_phone.as_deref() else {
-            self.send(message, transcription_unavailable()).await?;
-            return Ok(String::new());
-        };
-
-        let Some(group_id) = message.group_id.as_deref() else {
-            self.send(message, transcription_unavailable()).await?;
-            return Ok(String::new());
-        };
-
-        let bot = message.receiving_account.as_str();
-        let groups = match self.signal.list_groups(bot).await {
-            Ok(g) => g,
-            Err(e) => {
-                warn!(error = %e, "Failed to list groups for transcription pairing");
-                self.send(message, "Could not look up this group. Try again shortly.")
-                    .await?;
-                return Ok(String::new());
-            }
-        };
-
-        let Some(group) = groups
-            .iter()
-            .find(|g| g.internal_id == group_id || g.id == group_id)
-        else {
-            self.send(message, transcription_unavailable()).await?;
-            return Ok(String::new());
-        };
-
-        if group.contains_member_or_pending(peer) {
-            // Paired (or invite pending): stay silent so the transcription bot can answer.
-            return Ok(String::new());
-        }
-
-        let send_id = match self
-            .signal
-            .resolve_group_send_id_for_account(bot, group_id)
-            .await
-        {
-            Ok(id) => id,
-            Err(e) => {
-                warn!(error = %e, "Failed to resolve group send id for pairing");
-                self.send(
-                    message,
-                    "Could not resolve this group for invites. Try again shortly.",
-                )
-                .await?;
-                return Ok(String::new());
-            }
-        };
-
-        match self
-            .signal
-            .add_members(bot, &send_id, vec![peer.to_string()])
-            .await
-        {
-            Ok(()) => {
-                self.send(message, &transcription_invited()).await?;
-            }
-            Err(e) => {
-                warn!(error = %e, peer, "Failed to invite transcription bot");
-                let body = format!(
-                    "Could not add the transcription bot ({peer}): {e}\n\n\
-                     This bot must be a group admin to invite members. \
-                     Or set SIGNAL__PEER_PHONE and try again.\n\n\
-                     !help\n  Main menu"
-                );
-                self.send(message, &body).await?;
-            }
-        }
-
-        Ok(String::new())
-    }
-}
-
-/// Transcription role: product menu for `!transcription`.
+/// Voice command menu for `!transcription` (no pairing / invite).
 pub struct TranscriptionMenuHandler;
 
 impl TranscriptionMenuHandler {
@@ -366,9 +241,6 @@ impl CommandHandler for HelpTranscriptionHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn msg(text: &str) -> BotMessage {
         BotMessage {
@@ -420,12 +292,6 @@ mod tests {
         assert!(htr.matches(&msg("!help-transcription")));
         assert!(!htr.matches(&msg("!help")));
         assert!(!htr.matches(&msg("!transcription")));
-
-        let s = TranscriptionPairingHandler::new(
-            Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap()),
-            None,
-        );
-        assert!(s.matches(&msg("!transcription")));
 
         let m = TranscriptionMenuHandler::new();
         assert!(m.matches(&msg("!transcription")));
@@ -500,75 +366,5 @@ mod tests {
             .unwrap();
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
-    }
-
-    #[tokio::test]
-    async fn pairing_without_peer_reports_unavailable() {
-        let signal_mock = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/v1/groups/%2B15550001111"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-                "name": "Main",
-                "id": "group.send=",
-                "internal_id": "g-internal",
-                "members": ["+15550001111"]
-            }])))
-            .mount(&signal_mock)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/v2/send"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-            .expect(1)
-            .mount(&signal_mock)
-            .await;
-
-        let handler = TranscriptionPairingHandler::new(
-            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
-            None,
-        );
-        let out = handler.execute(&msg("!transcription")).await.unwrap();
-        assert!(out.is_empty());
-    }
-
-    #[tokio::test]
-    async fn pairing_invites_missing_peer() {
-        let signal_mock = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/v1/groups/%2B15550001111"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-                "name": "Main",
-                "id": "group.send=",
-                "internal_id": "g-internal",
-                "members": ["+15550001111"],
-                "pending_invites": [],
-                "pending_requests": [],
-                "admins": ["+15550001111"]
-            }])))
-            .mount(&signal_mock)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/v1/groups/%2B15550001111/group.send%3D/members"))
-            .respond_with(ResponseTemplate::new(204))
-            .expect(1)
-            .mount(&signal_mock)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/v2/send"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-            .expect(1)
-            .mount(&signal_mock)
-            .await;
-
-        let handler = TranscriptionPairingHandler::new(
-            Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
-            Some("+15550009999".into()),
-        );
-        let out = handler.execute(&msg("!transcription")).await.unwrap();
-        assert!(out.is_empty());
-
-        let invited = transcription_invited();
-        assert!(invited.contains("Voice Transcription"));
-        assert!(invited.contains("!transcribe-on"));
-        assert!(!invited.contains("send !transcription again"));
     }
 }

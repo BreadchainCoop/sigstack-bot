@@ -51,23 +51,6 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
-    if let (Some(self_phone), Some(peer_raw)) = (
-        config.signal.phone_number.as_deref(),
-        config.signal.peer_phone.as_deref(),
-    ) {
-        let peer = peer_raw.trim();
-        if !peer.is_empty() {
-            match signal.trust_identity(self_phone, peer).await {
-                Ok(()) => info!(peer, "Trusted Signal peer identity (PEER_PHONE)"),
-                Err(e) => warn!(
-                    peer,
-                    error = %e,
-                    "Could not trust PEER_PHONE identity — peer messages may not decrypt until trusted"
-                ),
-            }
-        }
-    }
-
     let bot_identity = BotIdentity::new();
 
     let handlers = build_handlers(
@@ -78,22 +61,16 @@ async fn main() -> AppResult<()> {
     )
     .await?;
 
+    let handlers = Arc::new(handlers);
     info!("Registered {} command handlers", handlers.len());
 
-    match InvitePolicy::for_role(config.bot.role, config.signal.peer_phone.as_deref()) {
-        Some(policy) => {
-            let signal_invites = signal.clone();
-            let phone = config.signal.phone_number.clone();
-            tokio::spawn(async move {
-                run_invite_acceptor(signal_invites, phone, policy, DEFAULT_INVITE_POLL_INTERVAL)
-                    .await;
-            });
-        }
-        None => {
-            warn!(
-                "Group invite auto-accept disabled (transcription requires SIGNAL__PEER_PHONE = translation bot)"
-            );
-        }
+    {
+        let policy = InvitePolicy::for_role(config.bot.role);
+        let signal_invites = signal.clone();
+        let phone = config.signal.phone_number.clone();
+        tokio::spawn(async move {
+            run_invite_acceptor(signal_invites, phone, policy, DEFAULT_INVITE_POLL_INTERVAL).await;
+        });
     }
 
     info!("Listening for messages...");
@@ -104,7 +81,18 @@ async fn main() -> AppResult<()> {
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
-                let _ = dispatch_message(&handlers, &signal, &bot_identity, &message).await;
+                let handlers = handlers.clone();
+                let signal = signal.clone();
+                let bot_identity = bot_identity.clone();
+                tokio::spawn(async move {
+                    let _ = dispatch_message(
+                        handlers.as_slice(),
+                        &signal,
+                        &bot_identity,
+                        &message,
+                    )
+                    .await;
+                });
             }
             _ = signal::ctrl_c() => {
                 info!("Shutdown signal received");

@@ -1,4 +1,4 @@
-//! Build role-specific command handler stacks.
+//! Build the unified command handler stack (one Signal number).
 
 use crate::bot_identity::BotIdentity;
 use crate::commands::*;
@@ -6,10 +6,11 @@ use crate::config::{BotRole, Config};
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_prefs::GroupTranscribePrefs;
+use crate::transcript_fanout::SuiteTranscriptFanout;
 use anyhow::Context;
 use dstack_client::DstackClient;
 use near_ai_client::NearAiClient;
-use signal_bot_transcription::build_voice_handlers;
+use signal_bot_transcription::{build_voice_handlers, SharedTranscriptFanout};
 use signal_client::SignalClient;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,63 +25,17 @@ pub async fn build_handlers(
     bot_identity: Arc<BotIdentity>,
 ) -> AppResult<Vec<Box<dyn CommandHandler>>> {
     match config.bot.role {
-        BotRole::Transcription => build_transcription_handlers(config, signal, dstack).await,
+        BotRole::Transcription => Err(anyhow::anyhow!(
+            "BOT__ROLE=transcription is retired; use BOT__ROLE=translation (unified bot)"
+        )
+        .into()),
         BotRole::Translation => {
             build_translation_handlers(config, signal, dstack, bot_identity).await
         }
     }
 }
 
-/// Transcription CVM: voice / !transcribe* / !transcription / help-transcription / verify.
-pub async fn build_transcription_handlers(
-    config: &Config,
-    signal: Arc<SignalClient>,
-    dstack: Arc<DstackClient>,
-) -> AppResult<Vec<Box<dyn CommandHandler>>> {
-    let whisper = Arc::new(
-        WhisperClient::new(&config.whisper.service_url, config.whisper.timeout)
-            .context("Failed to create Whisper client")?,
-    );
-
-    if whisper.health_check().await {
-        info!(
-            "Whisper healthy at {} (model={})",
-            config.whisper.service_url, config.whisper.model
-        );
-    } else {
-        warn!(
-            "Whisper health check failed at {} — will retry on requests",
-            config.whisper.service_url
-        );
-    }
-
-    let group_prefs = GroupPreferencesStore::open(
-        dstack.clone(),
-        PathBuf::from(&config.group_preferences.storage_path),
-        config.group_preferences.persist,
-        config.translate_all.max_messages_per_minute,
-    )
-    .await;
-
-    // Voice only — no NEAR translate-on-voice; translation CVM handles posted text.
-    let mut handlers = build_voice_handlers(
-        whisper,
-        signal,
-        config.whisper.reply_prefix.clone(),
-        config.whisper.max_attachment_bytes,
-        Arc::new(GroupTranscribePrefs(group_prefs.clone())),
-    );
-    handlers.push(Box::new(TranscriptionMenuHandler::new()));
-    handlers.push(Box::new(HelpTranscriptionHandler::new()));
-    handlers.push(Box::new(VerifyHandler::new(dstack, BotRole::Transcription)));
-
-    info!(
-        "Transcription role: voice / !transcribe* / !transcription / help-transcription / verify (hub !help / !info / !privacy on translation bot only)"
-    );
-    Ok(handlers)
-}
-
-/// Translation CVM: Language Threads + in-chat + quote !translate.
+/// Unified bot: Language Threads → voice → in-chat → hub menus → quote translate → verify/help.
 pub async fn build_translation_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
@@ -108,6 +63,28 @@ pub async fn build_translation_handlers(
         warn!("NEAR AI health check failed - will retry on requests");
     }
 
+    let whisper = Arc::new(
+        WhisperClient::new(
+            &config.whisper.service_url,
+            config.whisper.timeout,
+            &near_cfg.api_key,
+            &config.whisper.model,
+        )
+        .context("Failed to create Whisper client")?,
+    );
+
+    if whisper.health_check().await {
+        info!(
+            "NEAR Whisper healthy at {} (model={})",
+            config.whisper.service_url, config.whisper.model
+        );
+    } else {
+        warn!(
+            "NEAR Whisper health check failed at {} — will retry on requests",
+            config.whisper.service_url
+        );
+    }
+
     let group_prefs = GroupPreferencesStore::open(
         dstack.clone(),
         PathBuf::from(&config.group_preferences.storage_path),
@@ -123,27 +100,52 @@ pub async fn build_translation_handlers(
         );
     }
 
-    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
-
-    handlers.push(Box::new(TranslateMeHandler::new(
+    let translate_me = TranslateMeHandler::new(
         group_prefs.clone(),
         near_ai.clone(),
         signal.clone(),
-        bot_identity,
-    )));
+        bot_identity.clone(),
+    );
+
+    let translate_all = if config.translate_all.enabled {
+        Some(
+            TranslateAllHandler::with_prefix(
+                group_prefs.clone(),
+                near_ai.clone(),
+                signal.clone(),
+                DEFAULT_TRANSCRIPT_PREFIX,
+            )
+            .with_bot_identity(bot_identity.clone()),
+        )
+    } else {
+        None
+    };
+
+    let fanout: SharedTranscriptFanout = Arc::new(SuiteTranscriptFanout {
+        translate_all: translate_all.clone(),
+        translate_me: translate_me.clone(),
+    });
+
+    let mut handlers: Vec<Box<dyn CommandHandler>> = Vec::new();
+
+    handlers.push(Box::new(translate_me));
     info!(
         "Language Threads enabled: !translate-me-thread / !leave / !enable-in-chat (max {}/min)",
         config.translate_all.max_messages_per_minute
     );
 
-    if config.translate_all.enabled {
-        handlers.push(Box::new(TranslateAllHandler::with_peer(
-            group_prefs.clone(),
-            near_ai.clone(),
-            signal.clone(),
-            config.signal.peer_phone.clone(),
-            DEFAULT_TRANSCRIPT_PREFIX,
-        )));
+    handlers.extend(build_voice_handlers(
+        whisper,
+        signal.clone(),
+        config.whisper.reply_prefix.clone(),
+        config.whisper.max_attachment_bytes,
+        Arc::new(GroupTranscribePrefs(group_prefs.clone())),
+        Some(fanout),
+    ));
+    info!("Voice transcription enabled: !transcribe* / auto voice notes");
+
+    if let Some(in_chat) = translate_all {
+        handlers.push(Box::new(in_chat));
         info!(
             "In-chat translation enabled: !translate-all-on / !translate-me-on / !enable-threads"
         );
@@ -159,10 +161,7 @@ pub async fn build_translation_handlers(
     handlers.push(Box::new(HelpThreadsHandler::new()));
     handlers.push(Box::new(HelpInChatHandler::new()));
     handlers.push(Box::new(HelpTranscriptionHandler::new()));
-    handlers.push(Box::new(TranscriptionPairingHandler::new(
-        signal.clone(),
-        config.signal.peer_phone.clone(),
-    )));
+    handlers.push(Box::new(TranscriptionMenuHandler::new()));
     handlers.push(Box::new(InChatMenuHandler::new(
         config.translate_all.enabled,
     )));
@@ -189,7 +188,7 @@ pub async fn build_translation_handlers(
     )));
     handlers.push(Box::new(PrivacyHandler::new()));
 
-    info!("Translation role: hub menus + in-chat + Language Threads");
+    info!("Unified bot: hub menus + voice + in-chat + Language Threads");
     Ok(handlers)
 }
 
@@ -210,7 +209,6 @@ mod tests {
                 service_url: "http://127.0.0.1:9".into(),
                 poll_interval: Duration::from_millis(50),
                 phone_number: None,
-                peer_phone: None,
             },
             near_ai: None,
             bot: BotConfig {
@@ -238,56 +236,53 @@ mod tests {
         handlers.iter().map(|h| h.label()).collect()
     }
 
-    #[tokio::test]
-    async fn transcription_registers_expected_handlers() {
-        let whisper = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/health"))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&whisper)
-            .await;
-
-        let mut config = base_config(BotRole::Transcription);
-        config.whisper.service_url = whisper.uri();
-
-        let signal = Arc::new(SignalClient::new(&config.signal.service_url).unwrap());
-        let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
-        let identity = BotIdentity::new();
-
-        let handlers = build_handlers(&config, signal, dstack, identity)
-            .await
-            .expect("transcription handlers");
-
-        assert_eq!(handlers.len(), 6);
-        assert_eq!(
-            labels(&handlers),
-            vec![
-                "voice",
-                "manual_transcribe",
-                "transcribe",
-                "transcription_menu",
-                "help_transcription",
-                "command", // verify
-            ]
-        );
-    }
-
-    #[tokio::test]
-    async fn translation_registers_expected_handlers_with_translate_all() {
+    async fn mock_near() -> MockServer {
         let near = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&near)
+            .await;
         Mock::given(method("POST"))
             .and(path("/chat/completions"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&near)
             .await;
+        near
+    }
 
-        let mut config = base_config(BotRole::Translation);
+    fn with_near(mut config: Config, near: &MockServer) -> Config {
         config.near_ai = Some(NearAiConfig {
             api_key: "test-key".into(),
             base_url: near.uri(),
             model: "test-model".into(),
             timeout: Duration::from_secs(5),
         });
+        config.whisper.service_url = near.uri();
+        config.whisper.enabled = true;
+        config
+    }
+
+    #[tokio::test]
+    async fn transcription_role_is_rejected() {
+        let config = base_config(BotRole::Transcription);
+        let signal = Arc::new(SignalClient::new(&config.signal.service_url).unwrap());
+        let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
+        let identity = BotIdentity::new();
+
+        let result = build_handlers(&config, signal, dstack, identity).await;
+        assert!(result.is_err(), "transcription role should fail");
+        let err = result.err().unwrap().to_string();
+        assert!(
+            err.contains("retired") && err.contains("translation"),
+            "error should mention retired transcription: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn translation_registers_unified_handlers_with_translate_all() {
+        let near = mock_near().await;
+        let config = with_near(base_config(BotRole::Translation), &near);
 
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
@@ -297,9 +292,12 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 18);
+        assert_eq!(handlers.len(), 21);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
+        assert!(got.contains(&"voice"));
+        assert!(got.contains(&"manual_transcribe"));
+        assert!(got.contains(&"transcribe"));
         assert!(got.contains(&"translate_all"));
         assert!(got.contains(&"translation_menu"));
         assert!(got.contains(&"translation_threads_menu"));
@@ -307,7 +305,8 @@ mod tests {
         assert!(got.contains(&"help_threads"));
         assert!(got.contains(&"help_in_chat"));
         assert!(got.contains(&"help_transcription"));
-        assert!(got.contains(&"transcription_pairing"));
+        assert!(got.contains(&"transcription_menu"));
+        assert!(!got.contains(&"transcription_pairing"));
         assert!(got.contains(&"in_chat_menu"));
         assert!(!got.contains(&"translate_parallel"));
         assert!(!got.contains(&"parallel_menu"));
@@ -320,25 +319,16 @@ mod tests {
         assert!(got.contains(&"help"));
         assert!(got.contains(&"info"));
         assert!(got.contains(&"privacy"));
+        assert_eq!(got[0], "translate_me");
+        assert_eq!(&got[1..4], &["voice", "manual_transcribe", "transcribe"]);
+        assert_eq!(got[4], "translate_all");
     }
 
     #[tokio::test]
     async fn translation_omits_translate_all_when_disabled() {
-        let near = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/chat/completions"))
-            .respond_with(ResponseTemplate::new(200))
-            .mount(&near)
-            .await;
-
-        let mut config = base_config(BotRole::Translation);
+        let near = mock_near().await;
+        let mut config = with_near(base_config(BotRole::Translation), &near);
         config.translate_all.enabled = false;
-        config.near_ai = Some(NearAiConfig {
-            api_key: "test-key".into(),
-            base_url: near.uri(),
-            model: "test-model".into(),
-            timeout: Duration::from_secs(5),
-        });
 
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
@@ -348,15 +338,21 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 17);
-        assert!(!labels(&handlers).contains(&"translate_all"));
-        assert!(labels(&handlers).contains(&"translate_me"));
-        assert!(labels(&handlers).contains(&"in_chat_menu"));
-        assert!(labels(&handlers).contains(&"translation_threads_menu"));
-        assert!(labels(&handlers).contains(&"help_threads"));
-        assert!(labels(&handlers).contains(&"help_in_chat"));
-        assert!(labels(&handlers).contains(&"help_transcription"));
-        assert!(labels(&handlers).contains(&"info"));
+        assert_eq!(handlers.len(), 20);
+        let got = labels(&handlers);
+        assert!(!got.contains(&"translate_all"));
+        assert!(got.contains(&"translate_me"));
+        assert!(got.contains(&"voice"));
+        assert!(got.contains(&"manual_transcribe"));
+        assert!(got.contains(&"transcribe"));
+        assert!(got.contains(&"transcription_menu"));
+        assert!(!got.contains(&"transcription_pairing"));
+        assert!(got.contains(&"in_chat_menu"));
+        assert!(got.contains(&"translation_threads_menu"));
+        assert!(got.contains(&"help_threads"));
+        assert!(got.contains(&"help_in_chat"));
+        assert!(got.contains(&"help_transcription"));
+        assert!(got.contains(&"info"));
     }
 
     #[tokio::test]

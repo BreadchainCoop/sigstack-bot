@@ -1,5 +1,6 @@
 //! Build the transcription product handler stack (voice / !transcribe*).
 
+use crate::fanout::SharedTranscriptFanout;
 use crate::manual_transcribe::ManualTranscribeHandler;
 use crate::prefs::SharedTranscribeGroupPrefs;
 use crate::transcribe::TranscribeHandler;
@@ -11,13 +12,14 @@ use signal_client::SignalClient;
 use std::sync::Arc;
 use whisper_client::WhisperClient;
 
-/// Voice + `!transcribe` + `!transcribe-on/off` handlers for the transcription role.
+/// Voice + `!transcribe` + `!transcribe-on/off` handlers.
 pub fn build_voice_handlers(
     whisper: Arc<WhisperClient>,
     signal: Arc<SignalClient>,
     reply_prefix: impl Into<String>,
     max_attachment_bytes: usize,
     group_prefs: SharedTranscribeGroupPrefs,
+    fanout: Option<SharedTranscriptFanout>,
 ) -> Vec<Box<dyn CommandHandler>> {
     let reply_prefix = reply_prefix.into();
     let transcribe_store = Arc::new(TranscribeStore::new(Some(group_prefs)));
@@ -32,16 +34,20 @@ pub fn build_voice_handlers(
                 max_attachment_bytes,
             )
             .with_transcribe_store(transcribe_store.clone())
-            .with_voice_cache(voice_cache.clone()),
+            .with_voice_cache(voice_cache.clone())
+            .with_fanout(fanout.clone()),
         ),
-        Box::new(ManualTranscribeHandler::new(
-            whisper,
-            signal,
-            reply_prefix,
-            max_attachment_bytes,
-            voice_cache,
-            transcribe_store.clone(),
-        )),
+        Box::new(
+            ManualTranscribeHandler::new(
+                whisper,
+                signal,
+                reply_prefix,
+                max_attachment_bytes,
+                voice_cache,
+                transcribe_store.clone(),
+            )
+            .with_fanout(fanout),
+        ),
         Box::new(TranscribeHandler::new(transcribe_store, true)),
     ]
 }

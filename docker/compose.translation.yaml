@@ -1,6 +1,6 @@
-# Local translation stack — mirrors Phala translation CVM.
-# Own Docker network; does not share a network with the transcription stack.
-# Integration with transcription is via Signal group chat only.
+# Local unified stack — one Signal number (phone B).
+# Hub, translation, and voice in one signal-api + signal-bot.
+# STT is NEAR AI Whisper Large V3 (no Whisper sidecar).
 #
 #   docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
 
@@ -33,12 +33,14 @@ services:
       - BOT__ROLE=translation
       - SIGNAL__SERVICE_URL=http://signal-api:8080
       - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
-      - SIGNAL__PEER_PHONE=${PEER_PHONE:-}
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}
       - NEAR_AI__BASE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
       - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V4-Flash}
       - NEAR_AI__TIMEOUT=${NEAR_AI_TIMEOUT:-120s}
-      - WHISPER__ENABLED=false
+      - WHISPER__ENABLED=true
+      - WHISPER__SERVICE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
+      - WHISPER__MODEL=${WHISPER_MODEL:-openai/whisper-large-v3}
+      - WHISPER__TIMEOUT=${WHISPER_TIMEOUT:-120s}
       - TRANSLATE_ALL__ENABLED=${TRANSLATE_ALL_ENABLED:-true}
       - TRANSLATE_ALL__MAX_MESSAGES_PER_MINUTE=${TRANSLATE_ALL_MAX_MESSAGES_PER_MINUTE:-30}
       - BOT__LOG_LEVEL=${LOG_LEVEL:-info}

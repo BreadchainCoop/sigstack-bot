@@ -368,7 +368,7 @@ impl SignalClient {
     /// Trust a peer identity (`PUT /v1/identities/{number}/trust/{numberToTrust}`).
     ///
     /// Uses `trust_all_known_keys` so paired product bots can exchange group messages after
-    /// re-registration (safety-number change). Intended for the configured `PEER_PHONE` only.
+    /// re-registration (safety-number change).
     #[instrument(skip(self))]
     pub async fn trust_identity(
         &self,

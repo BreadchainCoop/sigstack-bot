@@ -2,7 +2,7 @@
 
 Status: **implemented and verified locally**; Phala TEE redeploy paused (image `daopunk/signal-bot-tee:latest` already pushed for `linux/amd64`).
 
-The sole **cross-group** bridging product on the translation bot (**hub**): one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch). Voice and hub menus live on other roles — see [two-cvm-architecture.md — Bot hierarchy](two-cvm-architecture.md#bot-hierarchy).
+The sole **cross-group** bridging product: one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch). Voice and hub menus live on the same bot — see [two-cvm-architecture.md](two-cvm-architecture.md).
 
 ## Problem
 
@@ -97,6 +97,8 @@ In-memory reverse index: sidecar `internal_id` → `(main_id, lang)`.
 
 Local Docker without dstack may not persist prefs across restarts; Phala with dstack does.
 
+The same encrypted file on `group-prefs-translation` also holds in-chat `!translate-me-on` / `!translate-all-on`. An **in-place** Phala CVM upgrade reattaches that volume (and `signal-config-translation`, the hub’s registered Signal phone). Users should not have to re-subscribe. Replacing the CVM or wiping volumes drops bridges, personal auto-translate, **and** the bot’s Signal session — the suite looks broken until ops re-registers and users opt in again. See [two-cvm-architecture.md — CVM storage](two-cvm-architecture.md#cvm-storage-keep-intact).
+
 Legacy encrypted prefs that still contain a `parallel_bridge` key are ignored on load and dropped on the next persist.
 
 ## Key code
@@ -132,29 +134,27 @@ Only **signal-bot** on the translation stack needs rebuild for Language Threads 
 4. Bot-attributed posts are not re-relayed (no ping-pong).
 5. From sidecar → `!leave` unsubscribes; from main → `!enable-in-chat` tears down the product.
 
-Whisper / voice live on the **transcription** stack — see [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
+Whisper / voice run in the same bot process (NEAR AI Whisper) — after STT, spoken text fans out into Language Threads as the original speaker. See [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
 
 ## Interoperability
 
-- **Transcription** (worker CVM) composes with Language Threads or in-chat in the same Signal groups. The **translation hub** invites via `!transcription`; the worker only transcribes voice.
+- **Voice** composes with Language Threads or in-chat in the same Signal groups. Transcripts fan out in-process (this number does not receive its own posts).
 - **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars.
 
-## Phala / TEE (paused)
+## Phala / TEE
 
-- Deploy uses **Docker images** in compose, not a public git clone.
-- Translation CVM target: **4 GB** (`tdx.medium`) via [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) — **no Whisper** on this box.
+- One CVM on Phala (`tdx.medium` = 2 vCPU / 4 GB RAM): [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) — one Signal number (phone B). No Whisper sidecar; STT is NEAR AI. See [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
+- Deploy uses **Docker images** (digest-pinned in env), not a public git clone. Upgrade in place: `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`.
 - Env template: [`docker/phala.translation.env.example`](../docker/phala.translation.env.example) (secrets; do not commit filled env).
-- Fresh CVM ⇒ expect **re-register** Signal phone (volume died with old CVM).
+- Registration proxy on this CVM: `:8081` phone B.
 
 ## Trust / privacy notes
 
 - Signal E2E still terminates at Signal CLI inside the TEE (same architecture as before).
-- Translation plaintext goes to **NEAR AI** (their GPU TEE / cloud path as configured).
+- Translation plaintext and voice audio (metadata-stripped) go to **NEAR AI** (chat + Whisper Large V3 GPU TEE).
 - Operator still sees metadata (timing, sizes, which numbers).
 - Sidecar names and bridged posts are visible to members of those Signal groups.
 
 ## Open follow-ups
 
-- Resume Phala deploy at 4 GB; confirm memory with `phala cvms get`
-- Pin image digest in compose for stronger attestation
 - Optional: delete empty sidecars after last member leaves

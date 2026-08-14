@@ -1,12 +1,20 @@
-# Phala Cloud TEE — translation CVM (4 GB / tdx.medium)
-# Hosts in-chat translation + Language Threads.
+# Phala Cloud TEE — one Signal number on one CVM (tdx.medium).
+#
+# No local Whisper sidecar. Voice posts audio to NEAR AI Whisper Large V3.
+# One signal-api + one signal-bot: hub, translation, and voice. Per-message
+# tokio::spawn keeps STT from stalling other handlers.
 #
 # Build & push (linux/amd64):
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-bot-tee:latest -f docker/Dockerfile --push .
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
 #
-# Deploy to a dedicated CVM (separate from transcription):
-#   phala deploy --cvm-id YOUR_TR_CVM -c docker/phala.translation.yaml -e docker/phala.translation.env --wait -t tdx.medium
+# First create: `phala deploy -n sigstack-translation …`
+# Later upgrades MUST use `--cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` (or the live app id)
+# so volumes stay (Signal phone session + group prefs). Do not rename volumes below.
+# See docs/two-cvm-architecture.md#cvm-storage-keep-intact
+#   phala deploy --cvm-id YOUR_CVM -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
+#
+# Registration proxy :8081 (phone B). Do not re-register phone A.
 
 services:
   signal-api:
@@ -30,12 +38,14 @@ services:
       - BOT__ROLE=translation
       - SIGNAL__SERVICE_URL=http://signal-api:8080
       - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
-      - SIGNAL__PEER_PHONE=${PEER_PHONE:-}
       - NEAR_AI__API_KEY=${NEAR_AI_API_KEY}
       - NEAR_AI__BASE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
       - NEAR_AI__MODEL=${NEAR_AI_MODEL:-deepseek-ai/DeepSeek-V4-Flash}
       - NEAR_AI__TIMEOUT=${NEAR_AI_TIMEOUT:-120s}
-      - WHISPER__ENABLED=false
+      - WHISPER__ENABLED=true
+      - WHISPER__SERVICE_URL=${NEAR_AI_BASE_URL:-https://cloud-api.near.ai/v1}
+      - WHISPER__MODEL=${WHISPER_MODEL:-openai/whisper-large-v3}
+      - WHISPER__TIMEOUT=${WHISPER_TIMEOUT:-120s}
       - TRANSLATE_ALL__ENABLED=${TRANSLATE_ALL_ENABLED:-true}
       - TRANSLATE_ALL__MAX_MESSAGES_PER_MINUTE=${TRANSLATE_ALL_MAX_MESSAGES_PER_MINUTE:-30}
       - BOT__LOG_LEVEL=${LOG_LEVEL:-info}
@@ -72,6 +82,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  # Keep these names: renaming creates empty volumes and drops Signal identity + prefs.
   signal-config-translation:
     driver: local
   registry-data:

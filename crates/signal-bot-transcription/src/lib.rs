@@ -1,5 +1,6 @@
 //! Voice transcription product handlers (Whisper pipeline).
 
+mod fanout;
 mod handlers;
 mod manual_transcribe;
 mod prefs;
@@ -8,6 +9,7 @@ mod transcribe_store;
 mod voice;
 mod voice_attachment_cache;
 
+pub use fanout::{SharedTranscriptFanout, TranscriptFanout};
 pub use handlers::build_voice_handlers;
 pub use manual_transcribe::ManualTranscribeHandler;
 pub use prefs::{SharedTranscribeGroupPrefs, TranscribeGroupPrefs};

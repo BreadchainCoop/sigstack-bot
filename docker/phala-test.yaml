@@ -1,6 +1,5 @@
 # Minimal Phala smoke: Signal CLI only (useful before attaching a product bot).
-# Prefer product stacks for real deploys:
-#   docker/phala.transcription.yaml
+# Prefer the product suite for real deploys:
 #   docker/phala.translation.yaml
 
 services:

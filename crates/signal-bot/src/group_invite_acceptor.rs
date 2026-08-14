@@ -1,7 +1,6 @@
 //! Auto-accept pending Signal group invites.
 //!
-//! - **Translation:** accept any pending invite/request (MVP).
-//! - **Transcription:** accept only when the translation peer is already a member/admin.
+//! Unified bot: accept any pending invite/request (`AcceptAll`).
 
 use crate::config::BotRole;
 use signal_client::{Group, SignalClient};
@@ -15,41 +14,20 @@ pub const DEFAULT_INVITE_POLL_INTERVAL: Duration = Duration::from_secs(5);
 /// Policy for which pending invites to accept.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InvitePolicy {
-    /// Accept every group where this account is pending (translation hub).
+    /// Accept every group where this account is pending.
     AcceptAll,
-    /// Accept only when `peer` is already a member or admin (transcription worker).
-    AcceptIfPeerPresent { peer: String },
 }
 
 impl InvitePolicy {
-    /// Build policy from bot role and optional peer phone.
-    ///
-    /// Transcription without `PEER_PHONE` refuses all invites.
-    pub fn for_role(role: BotRole, peer_phone: Option<&str>) -> Option<Self> {
-        match role {
-            BotRole::Translation => Some(Self::AcceptAll),
-            BotRole::Transcription => {
-                let peer = peer_phone?.trim();
-                if peer.is_empty() {
-                    return None;
-                }
-                Some(Self::AcceptIfPeerPresent {
-                    peer: peer.to_string(),
-                })
-            }
-        }
+    /// Unified bot always auto-accepts group invites.
+    pub fn for_role(_role: BotRole) -> Self {
+        Self::AcceptAll
     }
 }
 
 /// Whether this account should `POST .../join` for `group`.
-pub fn should_join(group: &Group, self_identity: &str, policy: &InvitePolicy) -> bool {
-    if !group.is_pending_for(self_identity) {
-        return false;
-    }
-    match policy {
-        InvitePolicy::AcceptAll => true,
-        InvitePolicy::AcceptIfPeerPresent { peer } => group.has_member_or_admin(peer),
-    }
+pub fn should_join(group: &Group, self_identity: &str, _policy: &InvitePolicy) -> bool {
+    group.is_pending_for(self_identity)
 }
 
 /// One scan: list groups and join those that match policy.
@@ -166,17 +144,13 @@ mod tests {
     #[test]
     fn policy_for_role() {
         assert_eq!(
-            InvitePolicy::for_role(BotRole::Translation, None),
-            Some(InvitePolicy::AcceptAll)
+            InvitePolicy::for_role(BotRole::Translation),
+            InvitePolicy::AcceptAll
         );
         assert_eq!(
-            InvitePolicy::for_role(BotRole::Transcription, Some("+15550009999")),
-            Some(InvitePolicy::AcceptIfPeerPresent {
-                peer: "+15550009999".into()
-            })
+            InvitePolicy::for_role(BotRole::Transcription),
+            InvitePolicy::AcceptAll
         );
-        assert!(InvitePolicy::for_role(BotRole::Transcription, None).is_none());
-        assert!(InvitePolicy::for_role(BotRole::Transcription, Some("  ")).is_none());
     }
 
     #[test]
@@ -185,22 +159,6 @@ mod tests {
         let pending = sample_group(&["+15550001111"], &["+15550002222"], &["+15550001111"]);
         assert!(should_join(&pending, "+15550002222", &policy));
         assert!(!should_join(&pending, "+15550001111", &policy));
-    }
-
-    #[test]
-    fn transcription_requires_peer_member() {
-        let policy = InvitePolicy::AcceptIfPeerPresent {
-            peer: "+15550003333".into(),
-        };
-        let with_peer = sample_group(
-            &["+15550003333", "+15550001111"],
-            &["+15550002222"],
-            &["+15550003333"],
-        );
-        assert!(should_join(&with_peer, "+15550002222", &policy));
-
-        let without_peer = sample_group(&["+15550001111"], &["+15550002222"], &["+15550001111"]);
-        assert!(!should_join(&without_peer, "+15550002222", &policy));
     }
 
     #[tokio::test]
@@ -230,27 +188,5 @@ mod tests {
         let signal = SignalClient::new(server.uri()).unwrap();
         let n = accept_pending_invites(&signal, "+15550002222", &InvitePolicy::AcceptAll).await;
         assert_eq!(n, 1);
-    }
-
-    #[tokio::test]
-    async fn transcription_skips_when_peer_absent() {
-        let server = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/v1/groups/%2B15550002222"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([group_json(
-                "group.nopeer==",
-                &["+15550001111"],
-                &["+15550002222"],
-                &["+15550001111"]
-            )])))
-            .mount(&server)
-            .await;
-
-        let signal = SignalClient::new(server.uri()).unwrap();
-        let policy = InvitePolicy::AcceptIfPeerPresent {
-            peer: "+15550003333".into(),
-        };
-        let n = accept_pending_invites(&signal, "+15550002222", &policy).await;
-        assert_eq!(n, 0);
     }
 }

@@ -1,5 +1,6 @@
 //! Implicit voice note handler — transcribe via Whisper and quote-reply.
 
+use crate::fanout::SharedTranscriptFanout;
 use crate::transcribe_store::TranscribeStore;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
@@ -19,6 +20,7 @@ pub struct VoiceHandler {
     max_attachment_bytes: usize,
     transcribe_store: Option<Arc<TranscribeStore>>,
     voice_cache: Option<Arc<VoiceAttachmentCache>>,
+    fanout: Option<SharedTranscriptFanout>,
 }
 
 impl VoiceHandler {
@@ -35,6 +37,7 @@ impl VoiceHandler {
             max_attachment_bytes,
             transcribe_store: None,
             voice_cache: None,
+            fanout: None,
         }
     }
 
@@ -48,16 +51,21 @@ impl VoiceHandler {
         self
     }
 
+    pub fn with_fanout(mut self, fanout: Option<SharedTranscriptFanout>) -> Self {
+        self.fanout = fanout;
+        self
+    }
+
+    fn spawn_fanout(&self, original: &signal_client::BotMessage, spoken: &str) {
+        crate::fanout::spawn_fanout(self.fanout.clone(), original, spoken);
+    }
+
     pub fn format_transcript(text: &str, prefix: &str) -> String {
         format!("{prefix}\n{text}")
     }
 
     pub fn attachment_filename(audio: &Attachment) -> String {
-        if let Some(name) = &audio.filename {
-            if !name.is_empty() {
-                return name.clone();
-            }
-        }
+        // Generic names only — do not forward Signal filenames to the STT vendor.
         if audio.content_type.contains("aac") || audio.content_type.contains("mp4") {
             "voice.m4a".into()
         } else if audio.content_type.contains("ogg") {
@@ -150,10 +158,9 @@ impl CommandHandler for VoiceHandler {
                     chars = transcription.text.len(),
                     "Voice note transcribed"
                 );
-                Ok(Self::format_transcript(
-                    transcription.trimmed_text(),
-                    &self.reply_prefix,
-                ))
+                let spoken = transcription.trimmed_text().to_string();
+                self.spawn_fanout(message, &spoken);
+                Ok(Self::format_transcript(&spoken, &self.reply_prefix))
             }
             Err(e) => {
                 warn!("Whisper transcription failed: {}", e);
@@ -175,15 +182,15 @@ mod tests {
     }
 
     #[test]
-    fn attachment_filename_from_mime() {
+    fn attachment_filename_ignores_signal_name() {
         let audio = Attachment {
-            content_type: "audio/aac".into(),
-            filename: None,
+            content_type: "audio/ogg".into(),
+            filename: Some("from-alice-group.ogg".into()),
             id: "x".into(),
             size: None,
             upload_timestamp: None,
         };
-        assert_eq!(VoiceHandler::attachment_filename(&audio), "voice.m4a");
+        assert_eq!(VoiceHandler::attachment_filename(&audio), "voice.ogg");
     }
 
     fn dm_voice(size: Option<i64>) -> BotMessage {
@@ -212,7 +219,13 @@ mod tests {
     #[tokio::test]
     async fn execute_without_audio_attachment() {
         let whisper = Arc::new(
-            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+            WhisperClient::new(
+                "http://127.0.0.1:9",
+                std::time::Duration::from_secs(2),
+                "test-key",
+                "openai/whisper-large-v3",
+            )
+            .unwrap(),
         );
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
         let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 1024);
@@ -225,7 +238,13 @@ mod tests {
     #[tokio::test]
     async fn execute_rejects_oversized_declared_size() {
         let whisper = Arc::new(
-            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+            WhisperClient::new(
+                "http://127.0.0.1:9",
+                std::time::Duration::from_secs(2),
+                "test-key",
+                "openai/whisper-large-v3",
+            )
+            .unwrap(),
         );
         let signal = Arc::new(SignalClient::new("http://127.0.0.1:9").unwrap());
         let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 100);
@@ -247,7 +266,7 @@ mod tests {
             .mount(&signal_mock)
             .await;
         Mock::given(method("POST"))
-            .and(path("/inference"))
+            .and(path("/audio/transcriptions"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "text": " Hola mundo\n",
                 "language": "spanish"
@@ -256,7 +275,13 @@ mod tests {
             .await;
 
         let whisper = Arc::new(
-            WhisperClient::new(whisper_mock.uri(), std::time::Duration::from_secs(5)).unwrap(),
+            WhisperClient::new(
+                whisper_mock.uri(),
+                std::time::Duration::from_secs(5),
+                "test-key",
+                "openai/whisper-large-v3",
+            )
+            .unwrap(),
         );
         let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
         let cache = VoiceAttachmentCache::with_default_capacity();
@@ -286,7 +311,13 @@ mod tests {
             .await;
 
         let whisper = Arc::new(
-            WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2)).unwrap(),
+            WhisperClient::new(
+                "http://127.0.0.1:9",
+                std::time::Duration::from_secs(2),
+                "test-key",
+                "openai/whisper-large-v3",
+            )
+            .unwrap(),
         );
         let signal = Arc::new(SignalClient::new(signal_mock.uri()).unwrap());
         let handler = VoiceHandler::new(whisper, signal, DEFAULT_REPLY_PREFIX, 10_000);

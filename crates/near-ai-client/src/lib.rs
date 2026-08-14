@@ -65,6 +65,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_transcribe_audio() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/audio/transcriptions"))
+            .and(header("Authorization", "Bearer test-api-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "text": " Hello from NEAR\n"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let text = client
+            .transcribe(b"fake-audio", "voice.ogg", "audio/ogg")
+            .await
+            .unwrap();
+        assert_eq!(text, "Hello from NEAR");
+
+        let received = mock_server.received_requests().await.unwrap();
+        let body = String::from_utf8_lossy(&received[0].body);
+        assert!(body.contains("filename=\"voice.ogg\""));
+        assert!(body.contains("openai/whisper-large-v3"));
+        assert!(!body.contains("+1555"));
+        assert!(!body.contains("group_id"));
+        assert!(!body.contains("display_name"));
+    }
+
+    #[tokio::test]
+    async fn test_transcribe_empty_fails() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/audio/transcriptions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "text": "  "
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let err = client
+            .transcribe(b"fake-audio", "voice.m4a", "audio/aac")
+            .await
+            .unwrap_err();
+        assert!(matches!(err, NearAiError::EmptyResponse));
+    }
+
+    #[tokio::test]
     async fn test_chat_empty_response() {
         let mock_server = MockServer::start().await;
 

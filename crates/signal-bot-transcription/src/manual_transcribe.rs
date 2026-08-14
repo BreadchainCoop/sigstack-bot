@@ -1,5 +1,6 @@
 //! `!transcribe` — quote-reply manual voice transcription via Whisper.
 
+use crate::fanout::{spawn_fanout, SharedTranscriptFanout};
 use crate::transcribe_store::TranscribeStore;
 use crate::voice::VoiceHandler;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
@@ -17,6 +18,7 @@ pub struct ManualTranscribeHandler {
     max_attachment_bytes: usize,
     voice_cache: Arc<VoiceAttachmentCache>,
     transcribe_store: Arc<TranscribeStore>,
+    fanout: Option<SharedTranscriptFanout>,
 }
 
 const AUTO_ALREADY_ON_MSG: &str = "Automatic transcription is already on. Voice notes are transcribed as they arrive — no need to !transcribe.";
@@ -37,7 +39,13 @@ impl ManualTranscribeHandler {
             max_attachment_bytes,
             voice_cache,
             transcribe_store,
+            fanout: None,
         }
+    }
+
+    pub fn with_fanout(mut self, fanout: Option<SharedTranscriptFanout>) -> Self {
+        self.fanout = fanout;
+        self
     }
 
     pub(crate) fn resolve_quoted_audio(
@@ -107,17 +115,29 @@ impl ManualTranscribeHandler {
         &self,
         audio: &Attachment,
         bytes: &[u8],
-    ) -> Result<String, WhisperError> {
+    ) -> Result<(String, String), WhisperError> {
         let filename = VoiceHandler::attachment_filename(audio);
         let transcript = self
             .whisper
             .transcribe(bytes, &filename, &audio.content_type)
             .await?;
-        Ok(VoiceHandler::format_transcript(
-            transcript.trimmed_text(),
-            &self.reply_prefix,
+        let spoken = transcript.trimmed_text().to_string();
+        Ok((
+            spoken.clone(),
+            VoiceHandler::format_transcript(&spoken, &self.reply_prefix),
         ))
     }
+}
+
+fn speaker_msg_for_fanout(command: &BotMessage, quote: &QuotedMessage) -> BotMessage {
+    let mut msg = command.clone();
+    if let Some(author) = quote.author_number.as_deref() {
+        if !author.is_empty() {
+            msg.source = author.to_string();
+            msg.source_number = Some(author.to_string());
+        }
+    }
+    msg
 }
 
 #[async_trait]
@@ -198,11 +218,16 @@ impl CommandHandler for ManualTranscribeHandler {
         }
 
         let body = match self.transcribe_audio(&audio, &bytes).await {
-            Ok(transcript) => {
+            Ok((spoken, transcript)) => {
                 info!(
                     source = %message.source,
                     chars = transcript.len(),
                     "!transcribe completed"
+                );
+                spawn_fanout(
+                    self.fanout.clone(),
+                    &speaker_msg_for_fanout(message, quote),
+                    &spoken,
                 );
                 transcript
             }

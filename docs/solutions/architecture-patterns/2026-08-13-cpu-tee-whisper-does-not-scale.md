@@ -23,7 +23,7 @@ Dual-CVM was supposed to give Whisper room. It did not. Live `tdx.medium` (2 vCP
 
 Decrypt voice notes in the Signal TEE, strip Signal metadata, and send **audio bytes only** to **NEAR AI Whisper Large V3** (`POST /v1/audio/transcriptions`, model `openai/whisper-large-v3`) in their GPU TEE — the same vendor already used for translation text.
 
-Keep **two bot processes** (and two Signal numbers) on **one** Phala CVM (`tdx.medium`) so translation never awaits STT. Do **not** add `whisper-api` back to compose. Do **not** put Whisper on a larger CPU TEE as the scale path.
+Keep **one** bot process on **one** Phala CVM (`tdx.medium`). Per-message `tokio::spawn` keeps translation off the STT wait. Do **not** add `whisper-api` back to compose. Do **not** put Whisper on a larger CPU TEE as the scale path.
 
 Outbound STT is a multipart file plus model name. Generic filename (`voice.ogg` / `voice.m4a`). No phone, group id, Signal timestamp, or display name in form fields, headers, or filenames.
 
@@ -31,7 +31,7 @@ Outbound STT is a multipart file plus model name. Generic filename (`voice.ogg` 
 
 Local Whisper on 2 vCPU cannot run real parallel jobs. Isolation across two CVMs only stopped translation from sharing RAM with Whisper; it did not make inference fast. Remote GPU STT is the latency lever. A dedicated transcription CVM was idle cost with no product win.
 
-Two processes matter because each bot awaits `dispatch_message` inside its own poll loop. Merging roles into one process with serial dispatch would block translation behind STT. Shared CVM contention is mild I/O (two Java CLIs + two Rust bots waiting on NEAR), not a CPU Whisper queue.
+Two processes used to matter because each bot awaited `dispatch_message` inside its own poll loop, and a second Signal number let translation *see* transcripts. One number does not receive its own group sends, so transcripts fan out in-process; `tokio::spawn` per inbound message replaces the second process for latency isolation. Shared CVM contention is mild I/O (one Java CLI + one Rust bot waiting on NEAR), not a CPU Whisper queue.
 
 ## When to Apply
 
@@ -44,7 +44,7 @@ Two processes matter because each bot awaits `dispatch_message` inside its own p
 **Do**
 
 - `WHISPER__SERVICE_URL=https://cloud-api.near.ai/v1` with `NEAR_AI__API_KEY`
-- One compose: [`docker/phala.translation.yaml`](../../../docker/phala.translation.yaml) — two `signal-api` + two `signal-bot` (`BOT__ROLE` unchanged)
+- One compose: [`docker/phala.translation.yaml`](../../../docker/phala.translation.yaml) — one `signal-api` + one `signal-bot` (`BOT__ROLE=translation`)
 - In-place upgrades: `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`
 
 **Do not**
@@ -52,7 +52,7 @@ Two processes matter because each bot awaits `dispatch_message` inside its own p
 - Add `whisper-api` / `Dockerfile.whisper` to live compose
 - Deploy `docker/phala.transcription.yaml` (deprecated stub)
 - “Just use `medium`/`large` ggml” or `tdx.large`/`xlarge` to fix voice latency
-- Merge both Signal numbers into one bot process
+- Re-introduce a second Signal number / pairing, or re-home Whisper in this CVM
 
 ## Related
 

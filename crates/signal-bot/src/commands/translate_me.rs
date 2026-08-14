@@ -37,6 +37,7 @@ const ENABLE_IN_CHAT_CMDS: &[&str] = &["!enable-in-chat", "!translation-enable-i
 const THREADS_DISABLED_SIDECAR_MSG: &str = "Language Threads were disabled in the main group (in-chat translation is on).\n\nReturn to the main chat to continue — this thread will no longer relay messages.";
 const LEAVE_CMDS: &[&str] = &["!leave"];
 
+#[derive(Clone)]
 pub struct TranslateMeHandler {
     store: Arc<GroupPreferencesStore>,
     near_ai: Arc<NearAiClient>,
@@ -371,6 +372,18 @@ impl TranslateMeHandler {
         Ok(())
     }
 
+    /// Relay spoken transcript text as if the original speaker posted it.
+    pub(crate) async fn fan_out_transcript(&self, original: &BotMessage, spoken: &str) {
+        if spoken.trim().is_empty() {
+            return;
+        }
+        let mut msg = original.clone();
+        msg.text = spoken.to_string();
+        if let Err(e) = self.handle_relay(&msg).await {
+            warn!(error = %e, "Language Threads fan-out after transcript failed");
+        }
+    }
+
     /// Subscribe `user` (defaults to message.source) to a language sidecar on `main_id`.
     pub(crate) async fn subscribe_user_to_thread(
         store: &Arc<GroupPreferencesStore>,
@@ -672,6 +685,9 @@ fn strip_word_prefix<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
 impl CommandHandler for TranslateMeHandler {
     fn matches(&self, message: &BotMessage) -> bool {
         if self.bot_identity.is_bot_message(message) {
+            return false;
+        }
+        if message.is_voice_note() {
             return false;
         }
         Self::is_command(&message.text) || self.is_relay_candidate(message)
@@ -1490,5 +1506,18 @@ mod tests {
         let mut from_side = group_msg("+15550002222", "!translate-me-thread es");
         from_side.group_id = Some("es-internal".into());
         assert!(handler.execute(&from_side).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn fan_out_transcript_skips_empty_spoken() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(
+            store,
+            "http://127.0.0.1:9".into(),
+            "http://127.0.0.1:9".into(),
+        );
+        handler
+            .fan_out_transcript(&group_msg("+alice", ""), "  ")
+            .await;
     }
 }

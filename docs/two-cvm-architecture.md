@@ -1,78 +1,58 @@
-# One CVM, two Signal numbers
+# One CVM, one Signal number
 
-Prod runs both products on **one** Phala CVM (today’s translation box). Two phone numbers / two bot processes stay. Signal group chat is still the only coupling between roles — they do not HTTP to each other.
+Prod runs hub, translation, and voice on **one** Phala CVM as **one** Signal member (the surviving translation number, phone B). Users add **one** bot to a group. STT is remote **NEAR AI Whisper Large V3**; after a transcript, in-chat and Language Threads fan out **in-process** (Signal does not echo this bot’s own posts).
 
 See also: [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10) and the architecture learning [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 
-Local development still uses **two Compose projects** (separate Docker networks) as a mock of two phones.
-
-## Bot hierarchy
-
-In a shared Signal group, users interact with **one hub** and one optional **worker**:
+## Bot
 
 | Role | Phone | Duty |
 |------|-------|------|
-| **Translation bot** (Bread Bot hub) | Phone B | Product menus (`!help`, `!info`, `!privacy`, `!translation-*`), Language Threads, in-chat translation, pairing (`!transcription` invite), `!verify` (this CVM quote) |
-| **Transcription bot** (worker) | Phone A | Voice only: `!transcription`, `!transcribe*`, `!verify` (same CVM, second Signal number). **No hub** — does not answer `!help` / `!info` / `!privacy` |
+| **Bread Bot** (`BOT__ROLE=translation`) | Phone B | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
 
-Signal still delivers every message to both members; the transcription stack **ignores** hub text commands and non-voice work. The translation bot **leads** suite navigation and inviting the transcription peer; the transcription bot **executes** voice→text and its own product toggles.
+`BOT__ROLE=transcription` is retired and fail-fasts. Do not add a third role. Do not drop `BOT__ROLE` from compose.
 
-Hub vs worker command split: [voice-transcription.md](voice-transcription.md#commands-transcription-bot).
+Voice crate [`crates/signal-bot-transcription`](../crates/signal-bot-transcription) stays; pairing / `PEER_PHONE` / a second Signal number do not.
 
 ## Diagram
 
 ```mermaid
 flowchart LR
-  subgraph oneCvm [Translation_CVM_tdx_medium]
-    sigA[signal-api_phone_A]
-    sigB[signal-api_phone_B]
-    txBot[signal-bot_transcription]
-    trBot[signal-bot_translation]
-    txBot --> sigA
-    trBot --> sigB
-  end
-  Users[Signal_group] --> sigA
-  Users --> sigB
-  txBot -->|"audio bytes only"| NearWhisper[NEAR_AI_Whisper_large_v3]
-  NearWhisper -->|text| txBot
-  trBot -->|"text"| NearChat[NEAR_AI_chat]
+  Users[Signal_group] --> sigApi[signal-api_phone_B]
+  sigApi --> bot[signal-bot]
+  bot -->|"audio bytes only"| NearWhisper[NEAR_AI_Whisper_large_v3]
+  NearWhisper -->|text| bot
+  bot -->|"text"| NearChat[NEAR_AI_chat]
 ```
 
 ## Rules
 
-- **Two phone numbers**, two bots in the group. **Translation = hub manager; transcription = specialized worker** (see [Bot hierarchy](#bot-hierarchy)).
-- Signal delivers **all** group messages to every member bot. The transcription bot **receives** text but **ignores** it; it only **acts** on voice. The translation bot receives voice too but only **acts** on text (including transcripts posted by the transcription bot).
+- **One phone number**, one bot in the group. Auto-accepts invites (`AcceptAll`).
 - No local Whisper sidecar. Voice audio is decrypted in this TEE, stripped of Signal metadata, and sent to **NEAR AI Whisper Large V3** (GPU TEE). Translation text uses the same vendor.
-- Keep two bot **processes** so a voice note in flight (HTTP wait to NEAR Whisper) cannot stall translation polling.
-- Same `signal-bot` image; role selected by `BOT__ROLE=transcription|translation`.
+- Per-message `tokio::spawn` so an STT wait cannot stall other handlers in the same process.
+- After STT, fan out spoken text in-process so in-chat auto and Language Threads still see transcripts.
+- Same `signal-bot` image; live role is `BOT__ROLE=translation` (Whisper + NEAR required).
 - Do not reintroduce `whisper-api` or put Whisper on a larger CPU TEE as the scale path.
 
-## Local dual stack (mock two phones)
+## Local stack
 
 ```bash
-cp docker/transcription.env.example docker/transcription.env
 cp docker/translation.env.example docker/translation.env
-# Set two different SIGNAL_PHONE values; NEAR_AI_API_KEY in both (STT + chat)
+# Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
-
-docker network ls | grep sigstack
-# Expect: sigstack-transcription-internal and sigstack-translation-internal
 ```
 
-Register each number against its own stack’s `signal-api` (e.g. `docker compose … exec signal-api curl …`). Translation compose also exposes the registration proxy on host port `8081`.
-
-E2E still needs two registered Signal numbers in a shared test group. Dual compose mocks **two phones**, not two Phala CVMs.
+Register the number against this stack’s `signal-api` (or the registration proxy on host port `8081`). [`docker/compose.transcription.yaml`](../docker/compose.transcription.yaml) is a retired stub.
 
 ## Phala (prod)
 
 | Compose | CVM | Contents |
 |---------|-----|----------|
-| [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) | 4 GB (`tdx.medium`) | `signal-api` (phone B) + `signal-api-transcription` (phone A) + two `signal-bot` + proxies `:8081` / `:8082`. **No Whisper sidecar.** |
+| [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) | 4 GB (`tdx.medium`) | `signal-api` (phone B) + `signal-bot` + proxy `:8081`. **No Whisper sidecar.** |
 | [`docker/phala.transcription.yaml`](../docker/phala.transcription.yaml) | — | **Deprecated stub.** Do not deploy. |
 
-Live CVM: `sigstack-translation` **`0e82fa77-8b15-4dbd-89c4-9045ab911353`** (app `9adac7636fe255182f699940ffd1924960415507`). The former transcription CVM `eba19afc-0c26-4409-b026-f757928d2ef8` was deleted (idle Whisper bill).
+Live CVM: `sigstack-translation` **`0e82fa77-8b15-4dbd-89c4-9045ab911353`** (app `9adac7636fe255182f699940ffd1924960415507`). The former transcription CVM `eba19afc-0c26-4409-b026-f757928d2ef8` was deleted (idle Whisper bill). Phone A is not re-registered; groups that still list it can remove that contact.
 
 Upgrade **in place** only:
 
@@ -83,47 +63,45 @@ phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
 
 [`scripts/deploy_phala.sh`](../scripts/deploy_phala.sh) defaults to that `--cvm-id`. Do not `phala deploy -n` against the live CVM.
 
-Phone A must be **re-registered** on proxy `:8082` after the first one-CVM merge (that session died with the deleted CVM). Phone B on `:8081` stays.
-
 ### CVM storage (keep intact)
 
 The suite stays cohesive only if the live CVM keeps disk state. **TEE RAM is wiped** on every restart or upgrade; that is expected. User prefs and Signal identity are **not** in RAM — they live on named Docker volumes that Phala reattaches on an in-place upgrade.
 
 | Volume | Compose | What it holds | If wiped |
 |--------|---------|---------------|----------|
-| `signal-config-translation` | `signal-api` (phone B) | Translation bot **registered Signal phone** | Hub disappears from Signal until ops re-register |
-| `signal-config-transcription` | `signal-api-transcription` (phone A) | Transcription bot session | Voice worker gone until re-register (expected empty after first merge) |
-| `group-prefs-translation` | translation `signal-bot` → `/data/group_prefs.enc` | Encrypted prefs: `!translate-me-on`, `!translate-all-on`, Language Threads bridges, menu language | Users must re-enable features |
-| `group-prefs-transcription` | transcription `signal-bot` → `/data/group_prefs.enc` | Encrypted `!transcribe-on` prefs | Users must re-enable auto transcribe |
-| `registry-data` / `registry-data-transcription` | registration proxies | Ops registration helper state | Re-register via proxy; does not by itself drop Signal CLI |
+| `signal-config-translation` | `signal-api` (phone B) | Bot **registered Signal phone** | Bot disappears from Signal until ops re-register |
+| `group-prefs-translation` | `signal-bot` → `/data/group_prefs.enc` | Encrypted prefs: `!translate-me-on`, `!translate-all-on`, Language Threads bridges, menu language | Users must re-enable features |
+| `registry-data` | registration proxy | Ops registration helper state | Re-register via proxy; does not by itself drop Signal CLI |
 
-**Upgrade the live CVM in place** (`phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` or the dashboard compose update). Do **not** create a replacement CVM, rename `signal-config-translation` / `group-prefs-translation` / `registry-data`, or `down -v` for a routine image bump. First bring-up of a **new** CVM is the exception (empty volumes; register phones there).
+Do **not** rename `signal-config-translation` / `group-prefs-translation` / `registry-data`. Do not migrate `group-prefs-transcription` (`!transcribe-on` default off is the product). Unused transcription volumes from the old two-phone compose may remain on disk; they are not attached.
 
-| Event | Volumes | Users re-enable prefs? | Re-register phones? |
+**Upgrade the live CVM in place** (`phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` or the dashboard compose update). Do **not** create a replacement CVM or `down -v` for a routine image bump. First bring-up of a **new** CVM is the exception (empty volumes; register the phone there).
+
+| Event | Volumes | Users re-enable prefs? | Re-register phone? |
 |-------|---------|------------------------|---------------------|
-| In-place CVM upgrade (`--cvm-id`) | Kept (Phala reattaches) | No | No (phone A only if that volume was new/empty) |
+| In-place CVM upgrade (`--cvm-id`) | Kept (Phala reattaches) | No | No |
 | Container / CVM restart, same compose | Kept | No | No |
 | New CVM / `phala cvms delete` / volume rename | Empty | Yes | Yes |
 | Prefs decrypt fail (key mismatch) | File present, unreadable | Yes (bot starts empty) | No (Signal volume is separate) |
 
-Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback includes `compose_hash` — a compose change then fails decrypt. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on each `signal-api`.
+Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback includes `compose_hash` — a compose change then fails decrypt. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on `signal-api`.
 
 Do not change volume names in [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) without a deliberate migration.
 
 ## Products on this CVM
 
-| Product | Bot process | Doc |
-|---------|-------------|-----|
-| Voice transcription | Transcription | [voice-transcription.md](voice-transcription.md) |
-| In-chat (group) translation | Translation | [in-chat-translation.md](in-chat-translation.md) |
-| Language Threads | Translation | [language-threads.md](language-threads.md) |
+| Product | Process | Doc |
+|---------|---------|-----|
+| Voice transcription | Same `signal-bot` | [voice-transcription.md](voice-transcription.md) |
+| In-chat (group) translation | Same `signal-bot` | [in-chat-translation.md](in-chat-translation.md) |
+| Language Threads | Same `signal-bot` | [language-threads.md](language-threads.md) |
 
 ### Interoperability
 
-- **Transcription** (worker) composes with translation products in the same group. The **translation bot** invites via `!transcription` and posts the voice menu after invite; the **transcription bot** runs voice and answers `!transcription` when already paired.
-- **In-chat** translates inside one group thread (quote-reply).
+- **Voice** quote-replies `📝 Transcript:` then fans out spoken text to in-chat / Language Threads as the **original speaker** (not the bot).
+- **In-chat** translates inside one group thread (quote-reply). Bot translation replies are not re-translated.
 - **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-thread`).
 
-## Why two processes (not two CVMs)
+## Why one process (not two phones)
 
-The old split existed to isolate **CPU Whisper** from translation. That is obsolete: STT is remote GPU. Two CVMs did not make ~5s notes usable and billed a second `tdx.medium` idle. Two **processes** on one CVM still matter — translation must not await STT in a single serial dispatch loop. Do not merge roles into one bot in this architecture.
+Two **processes** used to keep translation off the STT wait, with two Signal numbers so the translation bot could *see* transcripts as another member’s posts. One number does not receive its own group sends, so transcripts must fan out in-process. Per-message `tokio::spawn` replaces the second process for latency isolation. Do not re-home Whisper in this CVM.

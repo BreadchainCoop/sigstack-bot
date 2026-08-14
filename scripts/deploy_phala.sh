@@ -1,11 +1,11 @@
 #!/bin/bash
-# Deploy the one-CVM product suite (two Signal numbers, no local Whisper).
+# Deploy the one-CVM product suite (one Signal number, no local Whisper).
 #
 # Live upgrades MUST use --cvm-id so volumes stay (phone B + group prefs):
 #   CVM_ID=0e82fa77-8b15-4dbd-89c4-9045ab911353 ./scripts/deploy_phala.sh
 #
 # Do NOT `phala deploy -n` against the live translation CVM — that can create a
-# replacement with empty volumes (lost Signal sessions + user prefs).
+# replacement with empty volumes (lost Signal session + user prefs).
 # Do NOT deploy docker/phala.transcription.yaml (deprecated stub).
 # See docs/two-cvm-architecture.md#cvm-storage-keep-intact
 #
@@ -27,7 +27,7 @@ TR_ENV="${TR_ENV:-$ROOT/docker/phala.translation.env}"
 TR_NAME="${TR_NAME:-sigstack-translation}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-tdx.medium}"
 DISK_SIZE="${DISK_SIZE:-40G}"
-# Surviving prod CVM (phone B). Transcription CVM eba19afc-… was deleted.
+# Surviving prod CVM (phone B).
 CVM_ID="${CVM_ID:-0e82fa77-8b15-4dbd-89c4-9045ab911353}"
 FIRST_CREATE="${FIRST_CREATE:-0}"
 
@@ -41,7 +41,7 @@ if [[ ! -f "$TR_ENV" ]]; then
 fi
 
 if [[ "$FIRST_CREATE" == "1" ]]; then
-  echo "First-create $TR_NAME ($INSTANCE_TYPE, disk $DISK_SIZE) — empty volumes; register phones after."
+  echo "First-create $TR_NAME ($INSTANCE_TYPE, disk $DISK_SIZE) — empty volumes; register phone after."
   phala deploy \
     -n "$TR_NAME" \
     -c "$TR_COMPOSE" \
@@ -60,4 +60,4 @@ fi
 
 echo ""
 echo "Done. Check status with: phala cvms list"
-echo "Phone B stays on this CVM. Re-register phone A on proxy :8082 if this is the first one-CVM merge."
+echo "Phone B stays on this CVM (proxy :8081). Do not re-register phone A."

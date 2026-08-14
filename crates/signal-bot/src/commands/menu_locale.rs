@@ -61,22 +61,6 @@ pub fn translation_split_redirect() -> &'static str {
     TRANSLATION_SPLIT_REDIRECT
 }
 
-pub fn transcription_unavailable() -> &'static str {
-    TRANSCRIPTION_UNAVAILABLE
-}
-
-pub fn transcription_invited() -> String {
-    format!(
-        "Invited the transcription bot to this group.\n\n\
-         {}",
-        help_menu(BotRole::Transcription)
-    )
-}
-
-pub fn transcription_group_only() -> &'static str {
-    TRANSCRIPTION_GROUP_ONLY
-}
-
 pub fn privacy_menu() -> &'static str {
     PRIVACY_MENU
 }
@@ -156,7 +140,7 @@ const INFO_HUB: &str = r#"--Bread Bot--
   In-chat translation — auto or quote-translate in this group
 
 !transcription
-  Voice transcription — pair/open the transcription bot
+  Voice transcription — quote !transcribe or !transcribe-on
 
 !privacy
   Privacy, TEE, and !verify attestation
@@ -273,7 +257,7 @@ const HELP_TRANSCRIPTION_GUIDE: &str = r#"Voice transcription — how it works
 
 Use when people send voice notes and you want text in the same Signal chat.
 
-Voice is decrypted in this TEE, then sent (audio only, no Signal metadata) to NEAR AI Whisper Large V3 in their GPU TEE. The translation hub is a second Signal number on the same CVM. Use !privacy on the translation bot for suite privacy and !verify.
+Voice is decrypted in this TEE, then sent (audio only, no Signal metadata) to NEAR AI Whisper Large V3 in their GPU TEE. Use !privacy for suite privacy and !verify.
 
 How it works:
 - Auto mode (default off): send !transcribe-on so inbound voice notes become quote-reply transcripts.
@@ -281,34 +265,17 @@ How it works:
 - Toggle with !transcribe-on / !transcribe-off
 
 Typical use:
-1. Add the translation bot to the group (it auto-accepts invites), or invite via Signal
-2. !transcription — hub invites the transcription bot; that bot auto-joins when PEER_PHONE is the translation number
-3. Send a voice note and quote-reply !transcribe, or !transcribe-on for auto
-4. With the translation bot in the group, transcripts can also be auto-translated
+1. Add this bot to the group (it auto-accepts invites)
+2. Quote a voice note and send !transcribe, or !transcribe-on for auto
+3. With in-chat auto or Language Threads on, transcripts are translated in this same bot
 
 Commands: !transcription
-Privacy / TEE: !privacy on the translation bot"#;
+Privacy / TEE: !privacy"#;
 
 const TRANSLATION_SPLIT_REDIRECT: &str = r#"Translation has two menus:
 
 !translation-threads
 !translation-in-chat
-
-!help"#;
-
-const TRANSCRIPTION_UNAVAILABLE: &str = r#"Voice transcription is currently unavailable.
-
-The transcription bot is not paired with this group yet. Meanwhile, try translation:
-
-!translation-threads
-!translation-in-chat
-
-!help-transcription
-!help"#;
-
-const TRANSCRIPTION_GROUP_ONLY: &str = r#"Voice transcription pairing works in a Signal group.
-
-Add both bots to a group, then send !transcription there.
 
 !help"#;
 
@@ -319,15 +286,13 @@ const PRIVACY_MENU: &str = r#"Privacy & TEE
 example:
    !verify "write something unique here"
 
-Bread Bot runs two Signal numbers in one Phala TEE/CVM:
-- translation bot (hub)
-- transcription bot (voice worker)
+Bread Bot is one Signal number in one Phala TEE/CVM.
 
 Translation: Signal text is processed in this TEE and translated via NEAR AI private inference.
 
 Transcription: Voice notes are decrypted in this TEE. Audio bytes (no phone, group id, or filename) are sent to NEAR AI Whisper Large V3 (GPU TEE). Transcripts come back here and are posted in Signal.
 
-Attestation: !verify <your text> attests this CVM's compose, not the remote Whisper weights. In a group with both bots you get two replies (one per Signal number). Message one bot directly for a single quote.
+Attestation: !verify <your text> attests this CVM's compose, not the remote Whisper weights. You get one reply from this bot.
 
 !help"#;
 
@@ -415,7 +380,7 @@ mod tests {
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
         assert!(transcription.contains("default off"));
-        assert!(transcription.contains("same CVM"));
+        assert!(transcription.contains("Add this bot"));
         assert!(transcription.contains("!privacy"));
         assert!(!transcription.trim_end().ends_with("!help"));
     }
@@ -492,10 +457,13 @@ mod tests {
     fn privacy_menu_covers_near_stt() {
         let m = privacy_menu();
         assert!(m.contains("one Phala TEE/CVM"));
+        assert!(m.contains("one Signal number"));
         assert!(m.contains("Translation:"));
         assert!(m.contains("Transcription:"));
         assert!(m.contains("NEAR AI Whisper"));
         assert!(m.contains("!verify <challenge>"));
+        assert!(!m.contains("two Signal"));
+        assert!(!m.contains("both bots"));
         assert!(!m.contains("**"));
     }
 
@@ -509,10 +477,11 @@ mod tests {
     }
 
     #[test]
-    fn transcription_unavailable_offers_translation() {
-        let m = transcription_unavailable();
-        assert!(m.contains("unavailable"));
-        assert!(m.contains("!translation-threads"));
-        assert!(m.contains("!translation-in-chat"));
+    fn help_transcription_guide_is_one_bot() {
+        let g = help_transcription_guide();
+        assert!(g.contains("Add this bot"));
+        assert!(g.contains("!transcribe"));
+        assert!(!g.contains("PEER_PHONE"));
+        assert!(!g.contains("invites the transcription"));
     }
 }

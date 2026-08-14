@@ -1,5 +1,6 @@
 //! Implicit voice note handler — transcribe via Whisper and quote-reply.
 
+use crate::fanout::SharedTranscriptFanout;
 use crate::transcribe_store::TranscribeStore;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
@@ -19,6 +20,7 @@ pub struct VoiceHandler {
     max_attachment_bytes: usize,
     transcribe_store: Option<Arc<TranscribeStore>>,
     voice_cache: Option<Arc<VoiceAttachmentCache>>,
+    fanout: Option<SharedTranscriptFanout>,
 }
 
 impl VoiceHandler {
@@ -35,6 +37,7 @@ impl VoiceHandler {
             max_attachment_bytes,
             transcribe_store: None,
             voice_cache: None,
+            fanout: None,
         }
     }
 
@@ -46,6 +49,15 @@ impl VoiceHandler {
     pub fn with_voice_cache(mut self, cache: Arc<VoiceAttachmentCache>) -> Self {
         self.voice_cache = Some(cache);
         self
+    }
+
+    pub fn with_fanout(mut self, fanout: Option<SharedTranscriptFanout>) -> Self {
+        self.fanout = fanout;
+        self
+    }
+
+    fn spawn_fanout(&self, original: &signal_client::BotMessage, spoken: &str) {
+        crate::fanout::spawn_fanout(self.fanout.clone(), original, spoken);
     }
 
     pub fn format_transcript(text: &str, prefix: &str) -> String {
@@ -146,10 +158,9 @@ impl CommandHandler for VoiceHandler {
                     chars = transcription.text.len(),
                     "Voice note transcribed"
                 );
-                Ok(Self::format_transcript(
-                    transcription.trimmed_text(),
-                    &self.reply_prefix,
-                ))
+                let spoken = transcription.trimmed_text().to_string();
+                self.spawn_fanout(message, &spoken);
+                Ok(Self::format_transcript(&spoken, &self.reply_prefix))
             }
             Err(e) => {
                 warn!("Whisper transcription failed: {}", e);

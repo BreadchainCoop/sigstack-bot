@@ -56,10 +56,6 @@ pub struct SignalConfig {
     /// This bot's Signal phone (ops/registration; identity still learned from inbound).
     #[serde(default)]
     pub phone_number: Option<String>,
-
-    /// Peer product bot phone (E.164). Translation uses this to invite transcription.
-    #[serde(default)]
-    pub peer_phone: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -161,7 +157,6 @@ impl Default for SignalConfig {
             service_url: default_signal_service(),
             poll_interval: default_poll_interval(),
             phone_number: None,
-            peer_phone: None,
         }
     }
 }
@@ -294,19 +289,14 @@ impl Config {
     pub(crate) fn validate(&self) -> Result<()> {
         match self.bot.role {
             BotRole::Transcription => {
-                if !self.whisper.enabled {
-                    bail!("BOT__ROLE=transcription requires WHISPER__ENABLED=true");
-                }
-                let Some(near) = &self.near_ai else {
-                    bail!(
-                        "BOT__ROLE=transcription requires NEAR_AI__API_KEY for remote Whisper STT"
-                    );
-                };
-                if near.api_key.trim().is_empty() {
-                    bail!("BOT__ROLE=transcription requires a non-empty NEAR_AI__API_KEY");
-                }
+                bail!(
+                    "BOT__ROLE=transcription is retired; use BOT__ROLE=translation (unified bot)"
+                );
             }
             BotRole::Translation => {
+                if !self.whisper.enabled {
+                    bail!("BOT__ROLE=translation requires WHISPER__ENABLED=true");
+                }
                 let Some(near) = &self.near_ai else {
                     bail!("BOT__ROLE=translation requires NEAR_AI__API_KEY (and related NEAR_AI__* settings)");
                 };
@@ -348,7 +338,7 @@ mod tests {
         }
     }
 
-    fn translation_config(api_key: Option<&str>) -> Config {
+    fn translation_config(api_key: Option<&str>, whisper_enabled: bool) -> Config {
         Config {
             signal: SignalConfig::default(),
             near_ai: api_key.map(|k| NearAiConfig {
@@ -365,7 +355,7 @@ mod tests {
             },
             dstack: DstackConfig::default(),
             whisper: WhisperConfig {
-                enabled: false,
+                enabled: whisper_enabled,
                 ..WhisperConfig::default()
             },
             translate_all: TranslateAllConfig::default(),
@@ -374,30 +364,29 @@ mod tests {
     }
 
     #[test]
-    fn transcription_requires_whisper_and_near_ai() {
-        assert!(transcription_config(true, Some("sk-test"))
-            .validate()
-            .is_ok());
-        let err = transcription_config(false, Some("sk-test"))
+    fn transcription_role_is_retired() {
+        let err = transcription_config(true, Some("sk-test"))
             .validate()
             .unwrap_err();
-        assert!(err.to_string().contains("WHISPER__ENABLED"));
-        let err = transcription_config(true, None).validate().unwrap_err();
-        assert!(err.to_string().contains("NEAR_AI__API_KEY"));
-        let err = transcription_config(true, Some("   "))
-            .validate()
-            .unwrap_err();
-        assert!(err.to_string().contains("non-empty"));
+        assert!(err.to_string().contains("retired"));
+        assert!(err.to_string().contains("translation"));
     }
 
     #[test]
-    fn translation_requires_near_ai_key() {
-        assert!(translation_config(Some("sk-test")).validate().is_ok());
+    fn translation_requires_whisper_and_near_ai() {
+        assert!(translation_config(Some("sk-test"), true).validate().is_ok());
 
-        let err = translation_config(None).validate().unwrap_err();
+        let err = translation_config(Some("sk-test"), false)
+            .validate()
+            .unwrap_err();
+        assert!(err.to_string().contains("WHISPER__ENABLED"));
+
+        let err = translation_config(None, true).validate().unwrap_err();
         assert!(err.to_string().contains("NEAR_AI__API_KEY"));
 
-        let err = translation_config(Some("   ")).validate().unwrap_err();
+        let err = translation_config(Some("   "), true)
+            .validate()
+            .unwrap_err();
         assert!(err.to_string().contains("non-empty"));
     }
 
@@ -408,7 +397,6 @@ mod tests {
             "http://signal-api:8080"
         );
         assert!(SignalConfig::default().phone_number.is_none());
-        assert!(SignalConfig::default().peer_phone.is_none());
         assert_eq!(WhisperConfig::default().model, "openai/whisper-large-v3");
         assert!(TranslateAllConfig::default().enabled);
         assert!(GroupPreferencesConfig::default().persist);

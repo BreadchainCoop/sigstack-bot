@@ -1,6 +1,6 @@
 # In-chat (group) translation
 
-Status: **MVP implemented** on the translation bot (Bread Bot **hub** — manages menus, in-chat, and Language Threads; the transcription bot is a separate voice worker).
+Status: **MVP implemented** on the unified Bread Bot (hub menus, in-chat, Language Threads, and voice).
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 
@@ -59,7 +59,7 @@ Not dual-post: the original stays as the human message; the bot only quote-repli
 
 Skip when language is undetected or not in the pair. Rate-limited per group (`TRANSLATE_ALL__MAX_MESSAGES_PER_MINUTE`).
 
-Voice notes: the **transcription** bot posts a transcript in-group; with `!translate-all-on` (or personal auto for the speaker), the **translation** bot intercepts that text like any other message — including when the transcript quote-reply still carries voice attachment metadata. The `📝 Transcript:` label is stripped before detect/translate (same as manual quote `!translate`).
+Voice notes: after STT this bot quote-replies `📝 Transcript:` then fans out spoken text in-process (one number does not receive its own posts). With `!translate-all-on` (or personal auto for the speaker), intercept uses the **original speaker**. The `📝 Transcript:` label is stripped before detect/translate (same as manual quote `!translate`). Bot translation replies are not re-translated.
 
 ## Persistence
 

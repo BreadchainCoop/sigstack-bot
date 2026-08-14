@@ -1,7 +1,7 @@
 # DEPRECATED monolith stack.
-# Local: two Compose projects (two phones). Prod: one CVM in docker/phala.translation.yaml.
+# Local and prod: one Signal number via docker/compose.translation.yaml /
+# docker/phala.translation.yaml.
 #
-#   docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 #   docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
 #
 # See docs/two-cvm-architecture.md

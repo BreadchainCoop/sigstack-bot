@@ -31,7 +31,8 @@ impl OperatorAddresses {
 
 pub struct VerifyHandler {
     dstack: Arc<DstackClient>,
-    role: BotRole,
+    /// Kept so callers still pass `BotRole`; challenge prefix is unified.
+    _role: BotRole,
     /// Optional operator addresses to display.
     operator_addresses: Option<OperatorAddresses>,
 }
@@ -40,7 +41,7 @@ impl VerifyHandler {
     pub fn new(dstack: Arc<DstackClient>, role: BotRole) -> Self {
         Self {
             dstack,
-            role,
+            _role: role,
             operator_addresses: None,
         }
     }
@@ -53,17 +54,14 @@ impl VerifyHandler {
     ) -> Self {
         Self {
             dstack,
-            role,
+            _role: role,
             operator_addresses: Some(addresses),
         }
     }
 
     pub(crate) fn prefixed_challenge(&self, raw: Option<String>) -> String {
         let user_part = raw.unwrap_or_else(|| "no-challenge-provided".into());
-        match self.role {
-            BotRole::Translation => format!("Translation: {user_part}"),
-            BotRole::Transcription => format!("Transcription: {user_part}"),
-        }
+        format!("Bread Bot: {user_part}")
     }
 
     /// Parse the challenge nonce from the message text.
@@ -314,20 +312,20 @@ mod tests {
     }
 
     #[test]
-    fn prefixed_challenge_labels_role() {
+    fn prefixed_challenge_uses_bot_label() {
         let tr = create_test_handler(BotRole::Translation);
         assert_eq!(
             tr.prefixed_challenge(Some("hello".into())),
-            "Translation: hello"
+            "Bread Bot: hello"
         );
         assert_eq!(
             tr.prefixed_challenge(None),
-            "Translation: no-challenge-provided"
+            "Bread Bot: no-challenge-provided"
         );
         let tx = create_test_handler(BotRole::Transcription);
         assert_eq!(
             tx.prefixed_challenge(Some("hello".into())),
-            "Transcription: hello"
+            "Bread Bot: hello"
         );
     }
 

@@ -4,7 +4,7 @@ Status: **MVP implemented** on the unified Bread Bot (hub menus, in-chat, Langua
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 
-Distinct from [Language Threads](language-threads.md) (multilingual main + N sidecars). In-chat stays in one Signal group; Language Threads creates sidecar groups. **In-chat auto and Language Threads are mutually exclusive** — enabling one while the other is active refuses with a switch path (`!enable-in-chat` / `!enable-threads`).
+Distinct from [Language Threads](language-threads.md) (multilingual main + N sidecars) and [Bilingual Threads](bilingual-threads.md) (two assigned langs, one sidecar, both-way translate). In-chat stays in one Signal group; the thread products create sidecar groups. **In-chat auto, Language Threads, and Bilingual Threads are mutually exclusive** — enabling one while another is active refuses with a switch path (`!enable-in-chat` / `!enable-threads`).
 
 ## Setup
 
@@ -42,7 +42,7 @@ Stop personal:
 !translate-me-off
 ```
 
-Clear **all** in-chat auto (group-wide + every personal), and apply a pending Language Threads subscribe if one was refused earlier:
+Clear **all** in-chat auto (group-wide + every personal), and apply a pending Language Threads or Bilingual Threads subscribe if one was refused earlier:
 
 ```text
 !enable-threads

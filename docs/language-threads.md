@@ -2,7 +2,7 @@
 
 Status: **implemented and verified locally**; Phala TEE redeploy paused (image `daopunk/signal-bot-tee:latest` already pushed for `linux/amd64`).
 
-The sole **cross-group** bridging product: one **multilingual main** Signal chat plus per-language **Language Thread** sidecar groups. Parallel Translation was retired — use this for N=1 or N sidecars with the same rules (no mode switch). Voice and hub menus live on the same bot — see [two-cvm-architecture.md](two-cvm-architecture.md).
+The sole **cross-group** bridging product with a **multilingual main**: one Signal chat plus per-language **Language Thread** sidecar groups. For a two-language pair where **both** rooms should receive translated text, use [Bilingual Threads](bilingual-threads.md) (`!translate-me-thread es en`) instead — that is a different product, not N=1 Language Threads.
 
 ## Problem
 
@@ -32,7 +32,8 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 
 | Command | Where | Effect |
 |---------|--------|--------|
-| `!translate-me-thread <lang>` | Main only | Create/join sidecar; invite user |
+| `!translate-me-thread <lang>` | Main only | Create/join sidecar; invite user (Language Threads) |
+| `!translate-me-thread <main> <thread>` | Main only | Start [Bilingual Threads](bilingual-threads.md) instead (refused if Language Threads is already locked) |
 | `!leave` | Sidecar only | Leave this Language Thread |
 | `!enable-in-chat` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
@@ -45,7 +46,7 @@ Menus: `!help` → `!translation-threads`. English-only for now (multi-language 
 
 Aliases: `!translation-me-thread es`.
 
-**Also on this bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **Mutually exclusive with Language Threads** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path). Voice (`!transcription` / `!transcribe*`) is registered here too.
+**Also on this bot:** [in-chat translation](in-chat-translation.md) (`!translate-all-on` / `!translate-me-on` / quote `!translate`) — same-group only, not a sidecar bridge. **[Bilingual Threads](bilingual-threads.md)** (`!translate-me-thread es en`) — two assigned langs, one sidecar, both-way translate. **The three products are mutually exclusive** at setup time (refuse + `!enable-threads` / `!enable-in-chat` switch path). Voice (`!transcription` / `!transcribe*`) is registered here too.
 
 Menus: `!help` → `!translation-threads` / `!translation-in-chat`. `!in-chat` opens the in-chat menu; `!translation` redirects to both.
 
@@ -89,6 +90,7 @@ LanguageBridge (keyed by main group internal_id)
   sidecar_internal: lang → internal_id (inbound match)
   members:          user key → lang
   member_addresses: user key → invite address
+  main_lang:        None for Language Threads; Some(code) locks [Bilingual Threads](bilingual-threads.md)
 ```
 
 In-memory reverse index: sidecar `internal_id` → `(main_id, lang)`.
@@ -137,7 +139,7 @@ Whisper / voice run in the same bot process (NEAR AI Whisper) — after STT, spo
 ## Interoperability
 
 - **Voice** composes with Language Threads or in-chat in the same Signal groups. Transcripts fan out in-process (this number does not receive its own posts).
-- **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars.
+- **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars; **[Bilingual Threads](bilingual-threads.md)** assigns a language to main and to one sidecar and translates both ways. The three products are mutually exclusive.
 
 ## Phala / TEE
 

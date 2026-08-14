@@ -2,7 +2,7 @@
 
 Thorough guide for running the dual Compose stacks on your machine, registering Signal phone numbers (including captcha), and tailing logs.
 
-Quick start (env copy + `up -d`) stays in [README.md](../README.md#local-dual-stack). Architecture context: [two-cvm-architecture.md](../two-cvm-architecture.md). TEE / role details: [`.agents/docs/DEVELOPMENT.md`](../../.agents/docs/DEVELOPMENT.md).
+Quick start (env copy + `up -d`) stays in [README.md](../README.md#local-dual-stack). Architecture context: [two-cvm-architecture.md](../two-cvm-architecture.md) (prod is one Phala CVM; local still uses two Compose projects for two phones). TEE / role details: [`.agents/docs/DEVELOPMENT.md`](../../.agents/docs/DEVELOPMENT.md).
 
 Each stack has its own `signal-api`, network, and Signal CLI data volume. Follow **Transcription stack** and/or **Translation stack** end-to-end; use [Using both together](#using-both-together) when you need pairing in one Signal group.
 
@@ -12,7 +12,7 @@ Each stack has its own `signal-api`, network, and Signal CLI data volume. Follow
 
 - Docker with Compose v2
 - Two different Signal-capable phone numbers (E.164), one per stack
-- `NEAR_AI_API_KEY` in `docker/translation.env` for the translation bot
+- `NEAR_AI_API_KEY` in both env files (translation chat + transcription STT)
 - Optional: a local `/var/run/dstack.sock` if you care about attestation paths; local Compose mounts it read-only — registration and day-to-day bot traffic do not require a live Phala socket
 
 ## Captcha token
@@ -88,7 +88,7 @@ Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI stat
 
 Compose file: `docker/compose.transcription.yaml`  
 Env file: `docker/transcription.env`  
-Role: voice transcription (`BOT__ROLE=transcription`). Includes Whisper.
+Role: voice transcription (`BOT__ROLE=transcription`). No local Whisper sidecar — STT is NEAR AI Whisper Large V3 (`NEAR_AI_API_KEY` required).
 
 ### Env + start
 
@@ -114,9 +114,6 @@ docker network ls | grep sigstack-transcription
 `signal-api` `/v1/health` returns **HTTP 204** with an empty body — no printed output and exit code 0 means healthy. Failure exits non-zero (`curl -sf`).
 
 ```bash
-docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env \
-  exec whisper-api curl -sf http://localhost:9000/health
-
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env \
   exec signal-api curl -sf http://localhost:8080/v1/health
 ```
@@ -219,7 +216,7 @@ After code changes, rebuild/recreate — see [Code changes (rebuild the bot)](#c
 
 Compose file: `docker/compose.translation.yaml`  
 Env file: `docker/translation.env`  
-Role: in-chat translation + Language Threads (`BOT__ROLE=translation`). No Whisper; needs `NEAR_AI_API_KEY`.
+Role: in-chat translation + Language Threads (`BOT__ROLE=translation`). Needs `NEAR_AI_API_KEY`.
 
 ### Env + start
 
@@ -351,7 +348,7 @@ docker network ls | grep sigstack
 # Expect: sigstack-transcription-internal and sigstack-translation-internal
 ```
 
-There is **no** Docker network between the two CVMs/stacks — Signal is the bus.
+There is **no** Docker network between the two local stacks — Signal is the bus (prod co-locates both phones on one CVM).
 
 **Hierarchy:** treat the **translation** bot as the Bread Bot hub (menus, translation products, `!transcription` pairing). The **transcription** bot is a voice worker only — see [two-cvm-architecture.md — Bot hierarchy](../two-cvm-architecture.md#bot-hierarchy).
 
@@ -368,4 +365,4 @@ After both numbers are registered:
 | [voice-transcription.md](../voice-transcription.md) | Transcription ops + pairing |
 | [in-chat-translation.md](../in-chat-translation.md) | In-chat translate product |
 | [language-threads.md](../language-threads.md) | Language Threads |
-| [two-cvm-architecture.md](../two-cvm-architecture.md) | Why two stacks / no shared Docker network |
+| [two-cvm-architecture.md](../two-cvm-architecture.md) | One CVM / two phones; local dual compose |

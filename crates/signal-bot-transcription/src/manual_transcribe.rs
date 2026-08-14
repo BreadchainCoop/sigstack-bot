@@ -254,12 +254,22 @@ mod tests {
         Arc::new(TranscribeStore::new(None))
     }
 
+    fn test_whisper(url: &str) -> Arc<WhisperClient> {
+        Arc::new(
+            WhisperClient::new(
+                url,
+                std::time::Duration::from_secs(5),
+                "test-key",
+                "openai/whisper-large-v3",
+            )
+            .unwrap(),
+        )
+    }
+
     #[test]
     fn matches_bare_command_only() {
         let handler = ManualTranscribeHandler::new(
-            Arc::new(
-                WhisperClient::new("http://localhost", std::time::Duration::from_secs(5)).unwrap(),
-            ),
+            test_whisper("http://localhost"),
             Arc::new(SignalClient::new("http://localhost").unwrap()),
             "📝 Transcript:",
             5_000_000,
@@ -302,10 +312,7 @@ mod tests {
             .await;
 
         let handler = ManualTranscribeHandler::new(
-            Arc::new(
-                WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2))
-                    .unwrap(),
-            ),
+            test_whisper("http://127.0.0.1:9"),
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
             "📝 Transcript:",
             5_000_000,
@@ -352,7 +359,7 @@ mod tests {
             .mount(&signal_mock)
             .await;
         Mock::given(method("POST"))
-            .and(path("/inference"))
+            .and(path("/audio/transcriptions"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "text": "quoted transcript",
                 "language": "english"
@@ -361,9 +368,7 @@ mod tests {
             .await;
 
         let handler = ManualTranscribeHandler::new(
-            Arc::new(
-                WhisperClient::new(whisper_mock.uri(), std::time::Duration::from_secs(5)).unwrap(),
-            ),
+            test_whisper(&whisper_mock.uri()),
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
             "📝 Transcript:",
             5_000_000,
@@ -412,10 +417,7 @@ mod tests {
         store.set_enabled("+15550002222", true, false);
 
         let handler = ManualTranscribeHandler::new(
-            Arc::new(
-                WhisperClient::new("http://127.0.0.1:9", std::time::Duration::from_secs(2))
-                    .unwrap(),
-            ),
+            test_whisper("http://127.0.0.1:9"),
             Arc::new(SignalClient::new(signal_mock.uri()).unwrap()),
             "📝 Transcript:",
             5_000_000,

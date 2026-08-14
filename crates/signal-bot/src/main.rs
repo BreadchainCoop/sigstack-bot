@@ -78,6 +78,7 @@ async fn main() -> AppResult<()> {
     )
     .await?;
 
+    let handlers = Arc::new(handlers);
     info!("Registered {} command handlers", handlers.len());
 
     match InvitePolicy::for_role(config.bot.role, config.signal.peer_phone.as_deref()) {
@@ -104,7 +105,18 @@ async fn main() -> AppResult<()> {
     loop {
         tokio::select! {
             Some(message) = stream.next() => {
-                let _ = dispatch_message(&handlers, &signal, &bot_identity, &message).await;
+                let handlers = handlers.clone();
+                let signal = signal.clone();
+                let bot_identity = bot_identity.clone();
+                tokio::spawn(async move {
+                    let _ = dispatch_message(
+                        handlers.as_slice(),
+                        &signal,
+                        &bot_identity,
+                        &message,
+                    )
+                    .await;
+                });
             }
             _ = signal::ctrl_c() => {
                 info!("Shutdown signal received");

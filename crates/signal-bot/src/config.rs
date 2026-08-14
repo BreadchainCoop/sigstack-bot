@@ -111,11 +111,11 @@ pub struct WhisperConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
 
-    /// whisper-server base URL (no trailing path)
+    /// OpenAI-compatible STT base URL (NEAR AI `/v1`)
     #[serde(default = "default_whisper_service")]
     pub service_url: String,
 
-    /// Model name loaded in the sidecar (e.g. `small`)
+    /// STT model (e.g. `openai/whisper-large-v3`)
     #[serde(default = "default_whisper_model")]
     pub model: String,
 
@@ -238,11 +238,11 @@ fn default_true() -> bool {
 }
 
 fn default_whisper_service() -> String {
-    "http://whisper-api:9000".into()
+    "https://cloud-api.near.ai/v1".into()
 }
 
 fn default_whisper_model() -> String {
-    "small".into()
+    "openai/whisper-large-v3".into()
 }
 
 fn default_whisper_timeout() -> Duration {
@@ -297,6 +297,14 @@ impl Config {
                 if !self.whisper.enabled {
                     bail!("BOT__ROLE=transcription requires WHISPER__ENABLED=true");
                 }
+                let Some(near) = &self.near_ai else {
+                    bail!(
+                        "BOT__ROLE=transcription requires NEAR_AI__API_KEY for remote Whisper STT"
+                    );
+                };
+                if near.api_key.trim().is_empty() {
+                    bail!("BOT__ROLE=transcription requires a non-empty NEAR_AI__API_KEY");
+                }
             }
             BotRole::Translation => {
                 let Some(near) = &self.near_ai else {
@@ -315,10 +323,15 @@ impl Config {
 mod tests {
     use super::*;
 
-    fn transcription_config(whisper_enabled: bool) -> Config {
+    fn transcription_config(whisper_enabled: bool, near_key: Option<&str>) -> Config {
         Config {
             signal: SignalConfig::default(),
-            near_ai: None,
+            near_ai: near_key.map(|k| NearAiConfig {
+                api_key: k.into(),
+                base_url: default_near_ai_url(),
+                model: default_model(),
+                timeout: default_timeout(),
+            }),
             bot: BotConfig {
                 role: BotRole::Transcription,
                 signal_username: None,
@@ -361,10 +374,20 @@ mod tests {
     }
 
     #[test]
-    fn transcription_requires_whisper_enabled() {
-        assert!(transcription_config(true).validate().is_ok());
-        let err = transcription_config(false).validate().unwrap_err();
+    fn transcription_requires_whisper_and_near_ai() {
+        assert!(transcription_config(true, Some("sk-test"))
+            .validate()
+            .is_ok());
+        let err = transcription_config(false, Some("sk-test"))
+            .validate()
+            .unwrap_err();
         assert!(err.to_string().contains("WHISPER__ENABLED"));
+        let err = transcription_config(true, None).validate().unwrap_err();
+        assert!(err.to_string().contains("NEAR_AI__API_KEY"));
+        let err = transcription_config(true, Some("   "))
+            .validate()
+            .unwrap_err();
+        assert!(err.to_string().contains("non-empty"));
     }
 
     #[test]
@@ -386,7 +409,7 @@ mod tests {
         );
         assert!(SignalConfig::default().phone_number.is_none());
         assert!(SignalConfig::default().peer_phone.is_none());
-        assert_eq!(WhisperConfig::default().model, "small");
+        assert_eq!(WhisperConfig::default().model, "openai/whisper-large-v3");
         assert!(TranslateAllConfig::default().enabled);
         assert!(GroupPreferencesConfig::default().persist);
     }

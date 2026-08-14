@@ -92,6 +92,46 @@ impl NearAiClient {
             .ok_or(NearAiError::EmptyResponse)
     }
 
+    /// Transcribe audio via `POST /audio/transcriptions` (multipart; metadata-stripped file only).
+    #[instrument(skip(self, audio))]
+    pub async fn transcribe(
+        &self,
+        audio: &[u8],
+        filename: &str,
+        content_type: &str,
+    ) -> Result<String, NearAiError> {
+        let mut part =
+            reqwest::multipart::Part::bytes(audio.to_vec()).file_name(filename.to_string());
+        if !content_type.is_empty() {
+            part = part.mime_str(content_type).map_err(NearAiError::Http)?;
+        }
+
+        let form = reqwest::multipart::Form::new()
+            .part("file", part)
+            .text("model", "openai/whisper-large-v3")
+            .text("response_format", "json");
+
+        let response = self
+            .client
+            .post(format!("{}/audio/transcriptions", self.base_url))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
+            .multipart(form)
+            .send()
+            .await?;
+
+        let body = self
+            .handle_response::<AudioTranscriptionResponse>(response)
+            .await?;
+        let text = body.text.trim().to_string();
+        if text.is_empty() {
+            return Err(NearAiError::EmptyResponse);
+        }
+        Ok(text)
+    }
+
     /// Send a chat completion request with tool support.
     #[instrument(skip(self, messages, tools), fields(message_count = messages.len()))]
     pub async fn chat_with_tools(

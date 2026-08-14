@@ -273,7 +273,7 @@ const HELP_TRANSCRIPTION_GUIDE: &str = r#"Voice transcription — how it works
 
 Use when people send voice notes and you want text in the same Signal chat.
 
-This bot runs Whisper in its own Phala CVM/TEE. The Bread Bot translation bot is a separate CVM — use !privacy on the translation bot for suite privacy and !verify behavior.
+Voice is decrypted in this TEE, then sent (audio only, no Signal metadata) to NEAR AI Whisper Large V3 in their GPU TEE. The translation hub is a second Signal number on the same CVM. Use !privacy on the translation bot for suite privacy and !verify.
 
 How it works:
 - Auto mode (default off): send !transcribe-on so inbound voice notes become quote-reply transcripts.
@@ -319,15 +319,15 @@ const PRIVACY_MENU: &str = r#"Privacy & TEE
 example:
    !verify "write something unique here"
 
-Bread Bot runs in two separate and isolated TEEs/CVMs: 
-- translation bot 
-- transcription bot
+Bread Bot runs two Signal numbers in one Phala TEE/CVM:
+- translation bot (hub)
+- transcription bot (voice worker)
 
-Translation: Signal text is processed in the translation TEE and translated via NEAR AI private inference.
+Translation: Signal text is processed in this TEE and translated via NEAR AI private inference.
 
-Transcription: Voice notes are processed in the transcription TEE and transcribed with Whisper in that CVM.
+Transcription: Voice notes are decrypted in this TEE. Audio bytes (no phone, group id, or filename) are sent to NEAR AI Whisper Large V3 (GPU TEE). Transcripts come back here and are posted in Signal.
 
-Attestation: In a group with both bots, !verify <your text> produces two replies — one TDX quote per CVM. Each quote binds your text as Translation: … or Transcription: … so you can tell which bot attested which string. Message one bot directly for a single quote.
+Attestation: !verify <your text> attests this CVM's compose, not the remote Whisper weights. In a group with both bots you get two replies (one per Signal number). Message one bot directly for a single quote.
 
 !help"#;
 
@@ -411,10 +411,11 @@ mod tests {
         assert!(in_chat.contains("quote"));
         let transcription = help_transcription_guide();
         assert!(transcription.contains("Voice transcription"));
+        assert!(transcription.contains("NEAR AI"));
         assert!(transcription.contains("Whisper"));
         assert!(transcription.contains("!transcribe"));
         assert!(transcription.contains("default off"));
-        assert!(transcription.contains("separate CVM"));
+        assert!(transcription.contains("same CVM"));
         assert!(transcription.contains("!privacy"));
         assert!(!transcription.trim_end().ends_with("!help"));
     }
@@ -488,11 +489,12 @@ mod tests {
     }
 
     #[test]
-    fn privacy_menu_covers_both_cvms() {
+    fn privacy_menu_covers_near_stt() {
         let m = privacy_menu();
-        assert!(m.contains("two separate and isolated TEEs/CVMs"));
+        assert!(m.contains("one Phala TEE/CVM"));
         assert!(m.contains("Translation:"));
         assert!(m.contains("Transcription:"));
+        assert!(m.contains("NEAR AI Whisper"));
         assert!(m.contains("!verify <challenge>"));
         assert!(!m.contains("**"));
     }

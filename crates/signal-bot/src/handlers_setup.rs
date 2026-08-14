@@ -37,19 +37,29 @@ pub async fn build_transcription_handlers(
     signal: Arc<SignalClient>,
     dstack: Arc<DstackClient>,
 ) -> AppResult<Vec<Box<dyn CommandHandler>>> {
+    let near_cfg = config
+        .near_ai
+        .as_ref()
+        .context("NEAR AI config missing after validation")?;
+
     let whisper = Arc::new(
-        WhisperClient::new(&config.whisper.service_url, config.whisper.timeout)
-            .context("Failed to create Whisper client")?,
+        WhisperClient::new(
+            &config.whisper.service_url,
+            config.whisper.timeout,
+            &near_cfg.api_key,
+            &config.whisper.model,
+        )
+        .context("Failed to create Whisper client")?,
     );
 
     if whisper.health_check().await {
         info!(
-            "Whisper healthy at {} (model={})",
+            "NEAR Whisper healthy at {} (model={})",
             config.whisper.service_url, config.whisper.model
         );
     } else {
         warn!(
-            "Whisper health check failed at {} — will retry on requests",
+            "NEAR Whisper health check failed at {} — will retry on requests",
             config.whisper.service_url
         );
     }
@@ -242,13 +252,19 @@ mod tests {
     async fn transcription_registers_expected_handlers() {
         let whisper = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/health"))
+            .and(path("/models"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&whisper)
             .await;
 
         let mut config = base_config(BotRole::Transcription);
         config.whisper.service_url = whisper.uri();
+        config.near_ai = Some(NearAiConfig {
+            api_key: "test-key".into(),
+            base_url: whisper.uri(),
+            model: "openai/whisper-large-v3".into(),
+            timeout: Duration::from_secs(5),
+        });
 
         let signal = Arc::new(SignalClient::new(&config.signal.service_url).unwrap());
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));

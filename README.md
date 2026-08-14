@@ -8,11 +8,11 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 
 | Product | Bot role | Where it runs |
 |---------|----------|---------------|
-| Voice transcription | `BOT__ROLE=transcription` | Own CVM / Compose stack (with Whisper) |
-| In-chat (group) translation | `BOT__ROLE=translation` | Shared translation CVM |
-| Language Threads | `BOT__ROLE=translation` | Shared translation CVM |
+| Voice transcription | `BOT__ROLE=transcription` | Same Phala CVM as translation (NEAR AI Whisper; no local sidecar) |
+| In-chat (group) translation | `BOT__ROLE=translation` | Same CVM (NEAR AI chat) |
+| Language Threads | `BOT__ROLE=translation` | Same CVM |
 
-Pair products by adding **both bots** (two phone numbers) to the same Signal group. Signal is the bus — there is no Docker network between CVMs.
+Pair products by adding **both bots** (two phone numbers) to the same Signal group. Locally, two Compose projects mock two phones.
 
 **Bot hierarchy:** the **translation** bot is the Bread Bot **hub** (`!help`, `!info`, `!privacy`, translation products, transcription pairing). The **transcription** bot is a **specialized worker** (voice → text via `!transcription` / `!transcribe*` only). See [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md#bot-hierarchy).
 
@@ -47,12 +47,14 @@ Language Threads and in-chat auto are mutually exclusive. Details in the product
 
 ```
 Signal group
-   ├── Transcription CVM (4 GB): signal-api + whisper-api + signal-bot
-   └── Translation CVM   (4 GB): signal-api + signal-bot (+ registration proxy)
+   └── One Phala CVM (tdx.medium)
+         ├── signal-api + signal-bot (phone B, translation hub)
+         └── signal-api + signal-bot (phone A, transcription worker)
+               └── audio bytes → NEAR AI Whisper Large V3 (GPU TEE)
 ```
 
-- Signal E2E encryption terminates inside each TEE
-- Whisper stays on the transcription CVM only (local Docker HTTP)
+- Signal E2E encryption terminates inside this TEE
+- No local Whisper sidecar — see [CPU TEE Whisper does not scale](docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md)
 - Translation uses NEAR AI on text (including transcripts posted by the transcription bot)
 
 ## Local dual stack
@@ -60,7 +62,7 @@ Signal group
 ```bash
 cp docker/transcription.env.example docker/transcription.env
 cp docker/translation.env.example docker/translation.env
-# Two different SIGNAL_PHONE values; NEAR_AI_API_KEY in translation.env
+# Two different SIGNAL_PHONE values; NEAR_AI_API_KEY in both env files
 
 docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
@@ -71,34 +73,30 @@ More thorough local setup (Signal captcha registration, verify SMS/voice codes, 
 ## Phala
 
 ```bash
-# First create (empty volumes — register phones on the CVM afterward)
-phala deploy -n sigstack-transcription -c docker/phala.transcription.yaml …
-phala deploy -n sigstack-translation   -c docker/phala.translation.yaml …
-
-# Later image/compose bumps: upgrade the *existing* CVM so volumes stay attached
-phala deploy --cvm-id sigstack-transcription -c docker/phala.transcription.yaml …
-phala deploy --cvm-id sigstack-translation   -c docker/phala.translation.yaml …
+# In-place upgrade of the surviving CVM (phone B stays; do not create a replacement)
+phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
+  -c docker/phala.translation.yaml -e docker/phala.translation.env --wait
 ```
 
-**Do not replace a live CVM or wipe its volumes** for a routine upgrade. Each CVM’s disk holds the bot’s **registered Signal phone** and **encrypted user prefs** (`!translate-me-on`, Language Threads, and so on). TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade, so users should not have to turn features back on. Details: [docs/two-cvm-architecture.md — CVM storage](docs/two-cvm-architecture.md#cvm-storage-keep-intact).
+**Do not replace this CVM or wipe its volumes** for a routine upgrade. Disk holds **registered Signal phones** and **encrypted user prefs**. TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade. After the first one-CVM merge, re-register phone A on proxy `:8082`. Details: [docs/two-cvm-architecture.md — CVM storage](docs/two-cvm-architecture.md#cvm-storage-keep-intact).
 
 ## Project structure
 
 ```
 crates/
   signal-bot/                   # Binary; role via BOT__ROLE
-  whisper-client/               # Whisper HTTP client
-  near-ai-client/               # NEAR AI (translation)
+  whisper-client/               # NEAR Whisper STT client
+  near-ai-client/               # NEAR AI (chat + audio transcriptions)
   signal-client/                # Signal CLI REST client
   dstack-client/                # TEE attestation / key derive
   signal-registration-proxy/    # Ops helper for Signal registration
 docker/
   compose.transcription.yaml
   compose.translation.yaml
-  phala.transcription.yaml
-  phala.translation.yaml
+  phala.translation.yaml        # prod one-CVM suite
+  phala.transcription.yaml      # deprecated stub
 docs/
-  two-cvm-architecture.md       # includes CVM storage / in-place upgrade
+  two-cvm-architecture.md       # one CVM / two phones; CVM storage
   in-chat-translation.md
   language-threads.md
 ```
@@ -125,8 +123,8 @@ Format: `type(scope): subject` — e.g. `feat: add whisper timeout`, `fix(docker
 |----------|-------------|
 | `BOT__ROLE` | `transcription` or `translation` (required) |
 | `SIGNAL__SERVICE_URL` | Signal CLI REST URL (default `http://signal-api:8080`) |
-| `NEAR_AI__API_KEY` | Required for translation role |
-| `WHISPER__ENABLED` / `WHISPER__SERVICE_URL` | Required for transcription role |
+| `NEAR_AI__API_KEY` | Required for both roles (chat + remote Whisper) |
+| `WHISPER__ENABLED` / `WHISPER__SERVICE_URL` | Transcription role; URL is NEAR `/v1` |
 | `TRANSLATE_ALL__ENABLED` | In-chat `!translate-all-on` / `!translate-me-on` (translation role) |
 
 See `.env.example` and the docker `*.env.example` files.

@@ -1,5 +1,7 @@
 # Ops handoff: dual-CVM Phala deploy
 
+> **Superseded (2026-08-13):** the transcription CVM was deleted; both products run on the translation CVM with remote NEAR Whisper. See [CPU TEE Whisper does not scale](../solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md) and [two-cvm-architecture.md](../two-cvm-architecture.md). Keep this file as history.
+
 Finish Signal registration + smoke test yourself. Everything below assumes workspace **Bread Coop** and images under **`daopunk/`**.
 
 Related: [2026-08-05-dual-cvm-phala-deploy.md](./2026-08-05-dual-cvm-phala-deploy.md), [two-cvm-architecture.md](../two-cvm-architecture.md).

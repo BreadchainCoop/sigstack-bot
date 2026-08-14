@@ -1,5 +1,7 @@
 # Plan: Dual-CVM Phala deploy (2× tdx.medium)
 
+> **Superseded (2026-08-13):** CPU-TEE Whisper + a dedicated transcription CVM is not the production path. See [CPU TEE Whisper does not scale](../solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md). Keep this file as history.
+
 **Goal:** Deploy the product suite on two Phala TDX CVMs — **2 vCPU / 4 GB each** (`tdx.medium`) — matching [`docs/two-cvm-architecture.md`](../two-cvm-architecture.md).
 
 | CVM | Instance | Compose | Role | Live |

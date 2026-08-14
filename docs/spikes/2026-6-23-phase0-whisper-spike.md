@@ -1,5 +1,7 @@
 # Phase 0 Spike: Whisper + Signal Attachments
 
+> **Superseded (2026-08-13):** in-CVM whisper.cpp is not the production STT path. See [CPU TEE Whisper does not scale](../solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md). Keep this file as history.
+
 **Date:** 2026-06-23  
 **Status:** Complete (pending live voice-note JSON capture from user)  
 **Plan:** `docs/plans/2026-6-22-whisper-integration.md`

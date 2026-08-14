@@ -1,101 +1,12 @@
-# Phala Cloud TEE — transcription CVM (4 GB / tdx.medium)
+# DEPRECATED — do not deploy.
 #
-# Build & push (linux/amd64):
-#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-bot-tee:latest -f docker/Dockerfile --push .
-#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-whisper-api:latest -f docker/Dockerfile.whisper --push .
-#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
+# Local Whisper on a dedicated transcription CVM is not a production scale path
+# (see docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
+# Both Signal products now run on one CVM:
 #
-# Deploy to a dedicated CVM (separate from translation).
-# First create: `phala deploy -n …`. Later upgrades MUST use `--cvm-id` so volumes stay
-# (Signal phone session + group prefs). Do not rename volumes below. See
-# docs/two-cvm-architecture.md#cvm-storage-keep-intact
-#   phala deploy --cvm-id YOUR_TX_CVM -c docker/phala.transcription.yaml -e docker/phala.transcription.env --wait -t tdx.medium
+#   docker/phala.translation.yaml
+#   docker/phala.translation.env
 #
-# Prefer pinning images by digest in the env file (attestation). Registration proxy on :8081
-# is an ops helper to register phone A against this CVM's signal-api (no SSH required).
+# Upgrade in place: phala deploy --cvm-id <existing translation CVM> …
 
-services:
-  signal-api:
-    image: bbernhard/signal-cli-rest-api@sha256:2399d449123cdad56c4d859277e3b9127e1a00c4d2ab4601c239882609286cf8
-    environment:
-      - MODE=normal
-      - LOG_LEVEL=info
-    volumes:
-      - signal-config-transcription:/home/.local/share/signal-cli
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    restart: unless-stopped
-
-  whisper-api:
-    image: ${WHISPER_IMAGE}
-    platform: linux/amd64
-    environment:
-      - WHISPER_MODEL=${WHISPER_MODEL:-small}
-    volumes:
-      - whisper-models:/models
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 300s
-    restart: unless-stopped
-
-  signal-bot:
-    image: ${SIGNAL_BOT_IMAGE}
-    environment:
-      - BOT__ROLE=transcription
-      - SIGNAL__SERVICE_URL=http://signal-api:8080
-      - SIGNAL__PHONE_NUMBER=${SIGNAL_PHONE}
-      - SIGNAL__PEER_PHONE=${PEER_PHONE:-}
-      - WHISPER__ENABLED=true
-      - WHISPER__SERVICE_URL=http://whisper-api:9000
-      - WHISPER__MODEL=${WHISPER_MODEL:-small}
-      - WHISPER__TIMEOUT=${WHISPER_TIMEOUT:-120s}
-      - BOT__LOG_LEVEL=${LOG_LEVEL:-info}
-      - BOT__GITHUB_REPO=${BOT_GITHUB_REPO:-https://github.com/BreadchainCoop/sigstack-bot}
-      - DSTACK__SOCKET_PATH=/var/run/dstack.sock
-      - GROUP_PREFERENCES__PERSIST=true
-      - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
-    volumes:
-      - /var/run/dstack.sock:/var/run/dstack.sock:ro
-      - group-prefs-transcription:/data
-    depends_on:
-      - signal-api
-      - whisper-api
-    restart: unless-stopped
-
-  signal-registration-proxy:
-    image: ${SIGNAL_PROXY_IMAGE}
-    environment:
-      - SIGNAL__API_URL=http://signal-api:8080
-      - REGISTRY__PATH=/data/registry.enc
-      - SERVER__LISTEN_ADDR=0.0.0.0
-      - SERVER__PORT=8081
-      - DSTACK__SOCKET_PATH=/var/run/dstack.sock
-      - RATE_LIMIT__GLOBAL_PER_MINUTE=${RATE_LIMIT_GLOBAL_PER_MINUTE:-60}
-      - RATE_LIMIT__PER_NUMBER_PER_HOUR=${RATE_LIMIT_PER_NUMBER_PER_HOUR:-10}
-      - LOG__LEVEL=${LOG_LEVEL:-info}
-    volumes:
-      - /var/run/dstack.sock:/var/run/dstack.sock:ro
-      - registry-data-transcription:/data
-    ports:
-      - "8081:8081"
-    depends_on:
-      - signal-api
-    restart: unless-stopped
-
-volumes:
-  # Keep these names: renaming creates empty volumes and drops Signal identity + prefs.
-  signal-config-transcription:
-    driver: local
-  whisper-models:
-    driver: local
-  group-prefs-transcription:
-    driver: local
-  registry-data-transcription:
-    driver: local
+services: {}

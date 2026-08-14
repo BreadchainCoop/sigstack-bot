@@ -1,6 +1,7 @@
-# Local translation stack — mirrors Phala translation CVM.
-# Own Docker network; does not share a network with the transcription stack.
+# Local translation stack — phone B / hub.
+# Own Docker network; does not share a network with the transcription compose.
 # Integration with transcription is via Signal group chat only.
+# Prod co-locates both phones on one CVM (docker/phala.translation.yaml).
 #
 #   docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d
 

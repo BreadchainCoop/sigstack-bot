@@ -134,26 +134,24 @@ Only **signal-bot** on the translation stack needs rebuild for Language Threads 
 4. Bot-attributed posts are not re-relayed (no ping-pong).
 5. From sidecar → `!leave` unsubscribes; from main → `!enable-in-chat` tears down the product.
 
-Whisper / voice live on the **transcription** stack — see [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
+Whisper / voice run as the **transcription** bot process (NEAR AI Whisper, same CVM) — see [voice-transcription.md](voice-transcription.md) and [two-cvm-architecture.md](two-cvm-architecture.md).
 
 ## Interoperability
 
-- **Transcription** (worker CVM) composes with Language Threads or in-chat in the same Signal groups. The **translation hub** invites via `!transcription`; the worker only transcribes voice.
+- **Transcription** (worker process) composes with Language Threads or in-chat in the same Signal groups. The **translation hub** invites via `!transcription`; the worker only transcribes voice.
 - **In-chat** translates inside one group thread; **Language Threads** bridges a multilingual main to N monolingual sidecars.
 
 ## Phala / TEE
 
-- Dual CVMs live on Phala (`tdx.medium` = 2 vCPU / 4 GB RAM each):
-  - **Transcription:** `sigstack-transcription` — Whisper + phone A ([`docker/phala.transcription.yaml`](../docker/phala.transcription.yaml))
-  - **Translation:** `sigstack-translation` — hub + phone B, no Whisper ([`docker/phala.translation.yaml`](../docker/phala.translation.yaml))
-- Deploy uses **Docker images** (digest-pinned in env), not a public git clone.
-- Env templates: [`docker/phala.transcription.env.example`](../docker/phala.transcription.env.example), [`docker/phala.translation.env.example`](../docker/phala.translation.env.example) (secrets; do not commit filled env).
-- Fresh CVM ⇒ register Signal phones against each CVM’s registration proxy (`:8081` via Phala gateway).
+- One CVM on Phala (`tdx.medium` = 2 vCPU / 4 GB RAM): [`docker/phala.translation.yaml`](../docker/phala.translation.yaml) — hub (phone B) + transcription worker (phone A). No Whisper sidecar; STT is NEAR AI. See [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
+- Deploy uses **Docker images** (digest-pinned in env), not a public git clone. Upgrade in place: `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`.
+- Env template: [`docker/phala.translation.env.example`](../docker/phala.translation.env.example) (secrets; do not commit filled env).
+- Registration proxies on this CVM: `:8081` phone B, `:8082` phone A.
 
 ## Trust / privacy notes
 
 - Signal E2E still terminates at Signal CLI inside the TEE (same architecture as before).
-- Translation plaintext goes to **NEAR AI** (their GPU TEE / cloud path as configured).
+- Translation plaintext and voice audio (metadata-stripped) go to **NEAR AI** (chat + Whisper Large V3 GPU TEE).
 - Operator still sees metadata (timing, sizes, which numbers).
 - Sidecar names and bridged posts are visible to members of those Signal groups.
 

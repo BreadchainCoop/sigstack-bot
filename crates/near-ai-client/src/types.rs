@@ -192,6 +192,14 @@ pub struct ModelsResponse {
     pub data: Vec<Model>,
 }
 
+/// OpenAI-compatible audio transcription response.
+#[derive(Debug, Clone, Deserialize)]
+pub struct AudioTranscriptionResponse {
+    pub text: String,
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
 /// Attestation report from NEAR AI.
 #[derive(Debug, Clone, Deserialize)]
 pub struct AttestationReport {

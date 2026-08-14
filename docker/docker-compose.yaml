@@ -1,5 +1,5 @@
 # DEPRECATED monolith stack.
-# Use the two product stacks instead (mirrors two Phala CVMs):
+# Local: two Compose projects (two phones). Prod: one CVM in docker/phala.translation.yaml.
 #
 #   docker compose -f docker/compose.transcription.yaml --env-file docker/transcription.env up -d
 #   docker compose -f docker/compose.translation.yaml --env-file docker/translation.env up -d

@@ -1,9 +1,8 @@
-# DEPRECATED single-CVM compose.
-# Use the two Phala product stacks instead:
+# DEPRECATED single-CVM compose from before the dual-CVM experiment.
+# Prod is again one CVM, but the live file is:
 #
-#   docker/phala.transcription.yaml  — transcription CVM (4 GB)
-#   docker/phala.translation.yaml    — translation CVM (4 GB)
+#   docker/phala.translation.yaml
 #
-# See docs/two-cvm-architecture.md
+# Do not deploy this stub. See docs/two-cvm-architecture.md
 
 services: {}

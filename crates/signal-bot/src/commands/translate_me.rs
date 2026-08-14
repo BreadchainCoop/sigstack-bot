@@ -1,8 +1,9 @@
-//! Language Threads: `!translate-me-thread` / `!leave` / `!enable-in-chat` + relay engine.
+//! Language Threads and Bilingual Threads: `!translate-me-thread` / `!leave` /
+//! `!enable-in-chat` + relay engine.
 //!
-//! Main group stays multilingual. Each subscribed language gets a
-//! `{Language} · {disambiguator}` Signal sidecar. Messages fan out:
-//! main→sidecars (relay/translate), sidecar→main (relay) + other sidecars (translate).
+//! Language Threads: main stays multilingual; N sidecars; sidecar→main is relay-only.
+//! Bilingual Threads (`!translate-me-thread es en`): main=`es`, one sidecar=`en`;
+//! both directions translate into the destination room's assigned language.
 //! Bot never relays itself.
 
 use crate::bot_identity::BotIdentity;
@@ -25,17 +26,112 @@ use tracing::{debug, info, instrument, warn};
 const GROUP_ONLY_MSG: &str =
     "!translate-me-thread is only available in the main mutual-aid group (not DMs).";
 const SIDECAR_ON_MSG: &str =
-    "Subscribe from the main group with !translate-me-thread <lang>. Use !leave here to leave.";
-const USAGE_MSG: &str = "Usage: !translate-me-thread <lang> (e.g. !translate-me-thread es)";
+    "Subscribe from the main group with !translate-me-thread <lang> or !translate-me-thread <main> <thread>. Use !leave here to leave.";
+const USAGE_MSG: &str = "Usage: !translate-me-thread <lang> (Language Threads) or !translate-me-thread <main> <thread> (Bilingual Threads)\nExamples: !translate-me-thread es\n          !translate-me-thread es en";
+const SAME_LANG_MSG: &str = "Choose two different languages. Example: !translate-me-thread es en";
 const NO_ADDRESS_MSG: &str = "Could not invite you: Signal did not include your phone number. \
 Message this bot in a 1:1 chat once, then retry !translate-me-thread <lang>.";
 const LEAVE_SIDECAR_ONLY_MSG: &str =
     "!leave is only available inside a Language Thread. Open that chat and send !leave (or !commands).";
-const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads can't start alongside it.\n\nTo switch, send:\n!enable-threads";
+const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads and Bilingual Threads can't start alongside it.\n\nThe three products — in-chat auto, Language Threads, and Bilingual Threads — cannot run at the same time.\n\nTo switch, send:\n!enable-threads";
+const LANGUAGE_THREADS_TWO_ARG_REFUSE: &str = "Language Threads is already on (multilingual hub). Tear down with !enable-in-chat before starting Bilingual Threads.";
 /// Tear down Language Threads so in-chat can run (`!enable-in-chat`).
 const ENABLE_IN_CHAT_CMDS: &[&str] = &["!enable-in-chat", "!translation-enable-in-chat"];
 const THREADS_DISABLED_SIDECAR_MSG: &str = "Language Threads were disabled in the main group (in-chat translation is on).\n\nReturn to the main chat to continue — this thread will no longer relay messages.";
+const BILINGUAL_DISABLED_SIDECAR_MSG: &str = "Bilingual Threads were disabled in the main group (in-chat translation is on).\n\nReturn to the main chat to continue — this thread will no longer relay messages.";
 const LEAVE_CMDS: &[&str] = &["!leave"];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ThreadCmdArgs {
+    Language { lang: String },
+    Bilingual { main: String, thread: String },
+}
+
+impl ThreadCmdArgs {
+    fn validate_languages(&self) -> Result<(), String> {
+        match self {
+            Self::Language { lang } => {
+                if resolve_language(lang).is_none() {
+                    return Err(unknown_lang_msg(lang));
+                }
+            }
+            Self::Bilingual { main, thread } => {
+                let a = resolve_language(main).ok_or_else(|| unknown_lang_msg(main))?;
+                let b = resolve_language(thread).ok_or_else(|| unknown_lang_msg(thread))?;
+                if a.code == b.code {
+                    return Err(SAME_LANG_MSG.into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn to_pending(&self, message: &BotMessage) -> PendingSwitch {
+        match self {
+            Self::Language { lang } => PendingSwitch::EnableThreads {
+                user: message.source.clone(),
+                lang: resolved_code(lang),
+                address: message.invite_address(),
+            },
+            Self::Bilingual { main, thread } => PendingSwitch::EnableBilingualThreads {
+                user: message.source.clone(),
+                main_lang: resolved_code(main),
+                thread_lang: resolved_code(thread),
+                address: message.invite_address(),
+            },
+        }
+    }
+}
+
+fn unknown_lang_msg(token: &str) -> String {
+    format!("Unknown language `{token}`. Try !list-langs for supported codes.")
+}
+
+fn resolved_code(token: &str) -> String {
+    resolve_language(token)
+        .map(|l| l.code.to_string())
+        .unwrap_or_else(|| token.to_string())
+}
+
+fn lang_display(code: &str) -> String {
+    resolve_language(code)
+        .map(|l| l.name.to_string())
+        .unwrap_or_else(|| code.to_string())
+}
+
+fn bilingual_pair_names(bridge: &LanguageBridge) -> (String, String) {
+    (
+        lang_display(bridge.main_lang.as_deref().unwrap_or("")),
+        lang_display(bridge.bilingual_thread_lang().unwrap_or("")),
+    )
+}
+
+fn bilingual_main_lang_confirm(bridge: &LanguageBridge) -> String {
+    let (main, thread) = bilingual_pair_names(bridge);
+    let thread_code = bridge.bilingual_thread_lang().unwrap_or("");
+    let main_code = bridge.main_lang.as_deref().unwrap_or("");
+    format!(
+        "This group's main chat is {main}. The bridged thread is {thread} — send !translate-me-thread {thread_code} (or !translate-me-thread {main_code} {thread_code}) to join it."
+    )
+}
+
+fn bilingual_third_lang_refuse(bridge: &LanguageBridge) -> String {
+    let (main, thread) = bilingual_pair_names(bridge);
+    let thread_code = bridge.bilingual_thread_lang().unwrap_or("");
+    let main_code = bridge.main_lang.as_deref().unwrap_or("");
+    format!(
+        "Bilingual Threads is locked to {main} ↔ {thread}. A third language isn't supported. Join the {thread} thread with !translate-me-thread {thread_code} (or !translate-me-thread {main_code} {thread_code})."
+    )
+}
+
+fn bilingual_different_pair_refuse(bridge: &LanguageBridge) -> String {
+    let (main, thread) = bilingual_pair_names(bridge);
+    let thread_code = bridge.bilingual_thread_lang().unwrap_or("");
+    let main_code = bridge.main_lang.as_deref().unwrap_or("");
+    format!(
+        "Bilingual Threads is locked to {main} ↔ {thread}. A different pair isn't supported. Tear down with !enable-in-chat, or join with !translate-me-thread {main_code} {thread_code}."
+    )
+}
 
 #[derive(Clone)]
 pub struct TranslateMeHandler {
@@ -78,11 +174,11 @@ impl TranslateMeHandler {
         Self::is_on_command(t) || Self::is_off_command(t) || Self::is_enable_in_chat(t)
     }
 
-    fn on_lang_arg(text: &str) -> Option<&str> {
+    fn thread_tokens(text: &str) -> Option<Vec<&str>> {
         let t = text.trim();
         for prefix in ["!translate-me-thread", "!translation-me-thread"] {
             if let Some(rest) = strip_word_prefix(t, prefix) {
-                return rest.split_whitespace().next();
+                return Some(rest.split_whitespace().collect());
             }
         }
         None
@@ -119,35 +215,101 @@ impl TranslateMeHandler {
                 return Ok(SIDECAR_ON_MSG.into());
             }
 
-            let Some(lang_token) = Self::on_lang_arg(text) else {
+            let Some(tokens) = Self::thread_tokens(text) else {
                 return Ok(USAGE_MSG.into());
             };
+            let args = match tokens.as_slice() {
+                [] => return Ok(USAGE_MSG.into()),
+                [lang] => ThreadCmdArgs::Language {
+                    lang: (*lang).to_string(),
+                },
+                [main, thread] => ThreadCmdArgs::Bilingual {
+                    main: (*main).to_string(),
+                    thread: (*thread).to_string(),
+                },
+                _ => return Ok(USAGE_MSG.into()),
+            };
+
+            if let Err(msg) = args.validate_languages() {
+                return Ok(msg);
+            }
 
             if self.store.in_chat_auto_active(gid) {
-                self.store.set_pending_switch(
-                    gid,
-                    PendingSwitch::EnableThreads {
-                        user: message.source.clone(),
-                        lang: lang_token.to_string(),
-                        address: message.invite_address(),
-                    },
-                );
+                self.store.set_pending_switch(gid, args.to_pending(message));
                 return Ok(IN_CHAT_BLOCK_MSG.into());
             }
 
-            return Self::subscribe_user_to_thread(
-                &self.store,
-                &self.signal,
-                message,
-                gid,
-                lang_token,
-                None,
-                None,
-            )
-            .await;
+            return self.handle_thread_subscribe(message, gid, args).await;
         }
 
         Ok(USAGE_MSG.into())
+    }
+
+    async fn handle_thread_subscribe(
+        &self,
+        message: &BotMessage,
+        main_id: &str,
+        args: ThreadCmdArgs,
+    ) -> AppResult<String> {
+        match args {
+            ThreadCmdArgs::Language { lang } => {
+                self.subscribe_one_arg(message, main_id, &lang).await
+            }
+            ThreadCmdArgs::Bilingual { main, thread } => {
+                Self::subscribe_user_to_bilingual(
+                    &self.store,
+                    &self.signal,
+                    message,
+                    main_id,
+                    &main,
+                    &thread,
+                    None,
+                    None,
+                )
+                .await
+            }
+        }
+    }
+
+    async fn subscribe_one_arg(
+        &self,
+        message: &BotMessage,
+        main_id: &str,
+        lang_token: &str,
+    ) -> AppResult<String> {
+        if let Some(bridge) = self.store.get_bridge(main_id) {
+            if bridge.is_bilingual() {
+                let code = resolved_code(lang_token);
+                if bridge.bilingual_thread_lang() == Some(code.as_str()) {
+                    return Self::subscribe_user_to_thread(
+                        &self.store,
+                        &self.signal,
+                        message,
+                        main_id,
+                        lang_token,
+                        None,
+                        None,
+                        None,
+                    )
+                    .await;
+                }
+                if bridge.main_lang.as_deref() == Some(code.as_str()) {
+                    return Ok(bilingual_main_lang_confirm(&bridge));
+                }
+                return Ok(bilingual_third_lang_refuse(&bridge));
+            }
+        }
+        Self::subscribe_user_to_thread(
+            &self.store,
+            &self.signal,
+            message,
+            main_id,
+            lang_token,
+            None,
+            None,
+            None,
+        )
+        .await
     }
 
     async fn handle_leave(&self, message: &BotMessage) -> AppResult<String> {
@@ -201,15 +363,20 @@ impl TranslateMeHandler {
             let pending = self.store.take_pending_switch(gid);
             if pending.is_none() {
                 return Ok(
-                    "Language Threads was not active in this chat. See !translation-threads."
+                    "Language Threads or Bilingual Threads was not active in this chat. See !translation-threads."
                         .into(),
                 );
             }
             return Ok(self
-                .apply_pending_in_chat(gid, pending, "Language Threads was not active.")
+                .apply_pending_in_chat(
+                    gid,
+                    pending,
+                    "Language Threads or Bilingual Threads was not active.",
+                )
                 .await);
         };
 
+        let bilingual = bridge.is_bilingual();
         let bot = message.receiving_account.as_str();
         self.notify_sidecars_threads_disabled(bot, &bridge).await;
 
@@ -231,32 +398,33 @@ impl TranslateMeHandler {
         }
 
         let pending = self.store.take_pending_switch(gid);
-        Ok(self
-            .apply_pending_in_chat(gid, pending, "Language Threads disabled.")
-            .await)
+        let prefix = if bilingual {
+            "Bilingual Threads disabled."
+        } else {
+            "Language Threads disabled."
+        };
+        Ok(self.apply_pending_in_chat(gid, pending, prefix).await)
     }
 
     async fn notify_sidecars_threads_disabled(&self, bot: &str, bridge: &LanguageBridge) {
+        let msg = if bridge.is_bilingual() {
+            BILINGUAL_DISABLED_SIDECAR_MSG
+        } else {
+            THREADS_DISABLED_SIDECAR_MSG
+        };
         let mut notified = std::collections::HashSet::new();
         for send_id in bridge.sidecars.values() {
             if !notified.insert(send_id.as_str()) {
                 continue;
             }
-            if let Err(e) = self
-                .signal
-                .send(bot, send_id, THREADS_DISABLED_SIDECAR_MSG)
-                .await
-            {
+            if let Err(e) = self.signal.send(bot, send_id, msg).await {
                 warn!(
                     error = %e,
                     send_id,
-                    "Failed to notify sidecar that Language Threads were disabled"
+                    "Failed to notify sidecar that threads were disabled"
                 );
             } else {
-                info!(
-                    send_id,
-                    "Notified sidecar that Language Threads were disabled"
-                );
+                info!(send_id, "Notified sidecar that threads were disabled");
             }
         }
     }
@@ -384,7 +552,55 @@ impl TranslateMeHandler {
         }
     }
 
+    /// Subscribe to Bilingual Threads (main lang + one sidecar).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn subscribe_user_to_bilingual(
+        store: &Arc<GroupPreferencesStore>,
+        signal: &Arc<SignalClient>,
+        message: &BotMessage,
+        main_id: &str,
+        main_lang_token: &str,
+        thread_lang_token: &str,
+        user_override: Option<&str>,
+        address_override: Option<&str>,
+    ) -> AppResult<String> {
+        let Some(main_lang) = resolve_language(main_lang_token) else {
+            return Ok(unknown_lang_msg(main_lang_token));
+        };
+        let Some(thread_lang) = resolve_language(thread_lang_token) else {
+            return Ok(unknown_lang_msg(thread_lang_token));
+        };
+        if main_lang.code == thread_lang.code {
+            return Ok(SAME_LANG_MSG.into());
+        }
+
+        if let Some(bridge) = store.get_bridge(main_id) {
+            if bridge.is_bilingual() {
+                let same_pair = bridge.main_lang.as_deref() == Some(main_lang.code)
+                    && bridge.bilingual_thread_lang() == Some(thread_lang.code);
+                if !same_pair {
+                    return Ok(bilingual_different_pair_refuse(&bridge));
+                }
+            } else {
+                return Ok(LANGUAGE_THREADS_TWO_ARG_REFUSE.into());
+            }
+        }
+
+        Self::subscribe_user_to_thread(
+            store,
+            signal,
+            message,
+            main_id,
+            thread_lang_token,
+            user_override,
+            address_override,
+            Some(main_lang.code),
+        )
+        .await
+    }
+
     /// Subscribe `user` (defaults to message.source) to a language sidecar on `main_id`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) async fn subscribe_user_to_thread(
         store: &Arc<GroupPreferencesStore>,
         signal: &Arc<SignalClient>,
@@ -393,11 +609,10 @@ impl TranslateMeHandler {
         lang_token: &str,
         user_override: Option<&str>,
         address_override: Option<&str>,
+        bilingual_main: Option<&str>,
     ) -> AppResult<String> {
         let Some(lang) = resolve_language(lang_token) else {
-            return Ok(format!(
-                "Unknown language `{lang_token}`. Try !list-langs for supported codes."
-            ));
+            return Ok(unknown_lang_msg(lang_token));
         };
 
         let address = match address_override
@@ -413,8 +628,23 @@ impl TranslateMeHandler {
             .unwrap_or_else(|| message.source.clone());
         let bot = &message.receiving_account;
 
+        if let Some(bridge) = store.get_bridge(main_id) {
+            if bridge.is_bilingual() {
+                if let Some(thread) = bridge.bilingual_thread_lang() {
+                    if lang.code != thread {
+                        return Ok(bilingual_third_lang_refuse(&bridge));
+                    }
+                }
+            } else if bilingual_main.is_some() {
+                return Ok(LANGUAGE_THREADS_TWO_ARG_REFUSE.into());
+            }
+        }
+
         if let Some(existing) = store.member_lang(main_id, &user_key) {
             if existing == lang.code {
+                if let Some(main) = bilingual_main {
+                    store.set_bilingual_main_lang(main_id, main);
+                }
                 return Ok(format!(
                 "You are already in the {} sidecar. Accept the Signal invite if it is still pending.",
                 lang.name
@@ -453,6 +683,9 @@ impl TranslateMeHandler {
                     lang.name
                 ));
             }
+            if let Some(main) = bilingual_main {
+                store.set_bilingual_main_lang(main_id, main);
+            }
         } else {
             let (name, description, welcome) =
                 sidecar_copy(lang, message.group_name.as_deref(), main_id);
@@ -461,12 +694,22 @@ impl TranslateMeHandler {
                 .await
             {
                 Ok(group) => {
-                    store.set_sidecar(
-                        main_id,
-                        lang.code,
-                        group.id.clone(),
-                        group.internal_id.clone(),
-                    );
+                    if let Some(main) = bilingual_main {
+                        store.set_bilingual_sidecar(
+                            main_id,
+                            main,
+                            lang.code,
+                            group.id.clone(),
+                            group.internal_id.clone(),
+                        );
+                    } else {
+                        store.set_sidecar(
+                            main_id,
+                            lang.code,
+                            group.id.clone(),
+                            group.internal_id.clone(),
+                        );
+                    }
                     if let Err(e) = signal.send(bot, &group.id, &welcome).await {
                         warn!(error = %e, "Failed to send sidecar welcome");
                     }
@@ -550,7 +793,27 @@ impl TranslateMeHandler {
         let spoken = strip_transcript_prefix(&message.text, DEFAULT_TRANSCRIPT_PREFIX);
         let display = message.display_name();
         let bot = &message.receiving_account;
-        let to_main = format_attribution(&display, &spoken);
+
+        let main_body = if let Some(main_lang_code) = bridge.main_lang.as_deref() {
+            let detected = detect_text_language(&spoken);
+            if detected.as_deref() == Some(main_lang_code) {
+                spoken.clone()
+            } else if let Some(target) = resolve_language(main_lang_code) {
+                match near_ai_translate(&self.near_ai, &spoken, target).await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        warn!(error = %e, target = %main_lang_code, "Sidecar→main bilingual translate failed");
+                        return Ok(());
+                    }
+                }
+            } else {
+                warn!(lang = main_lang_code, "Unknown bilingual main language");
+                return Ok(());
+            }
+        } else {
+            spoken.clone()
+        };
+        let to_main = format_attribution(&display, &main_body);
 
         // Resolve main send id (incoming group_id is internal).
         let main_recipient = match self
@@ -567,6 +830,10 @@ impl TranslateMeHandler {
 
         if let Err(e) = self.signal.send(bot, &main_recipient, &to_main).await {
             warn!(error = %e, "Failed to relay sidecar→main");
+        }
+
+        if bridge.is_bilingual() {
+            return Ok(());
         }
 
         let mut translation_cache: HashMap<String, String> = HashMap::new();
@@ -787,21 +1054,52 @@ mod tests {
     #[test]
     fn parses_lang_arg() {
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me-thread es"),
-            Some("es")
+            TranslateMeHandler::thread_tokens("!translate-me-thread es"),
+            Some(vec!["es"])
         );
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me-thread en"),
-            Some("en")
+            TranslateMeHandler::thread_tokens("!translate-me-thread es en"),
+            Some(vec!["es", "en"])
         );
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me-thread es"),
-            Some("es")
+            TranslateMeHandler::thread_tokens("!translation-me-thread es en"),
+            Some(vec!["es", "en"])
         );
         assert_eq!(
-            TranslateMeHandler::on_lang_arg("!translate-me-thread"),
-            None
+            TranslateMeHandler::thread_tokens("!translate-me-thread"),
+            Some(vec![])
         );
+        assert_eq!(
+            TranslateMeHandler::thread_tokens("!translate-me-thread es en fr"),
+            Some(vec!["es", "en", "fr"])
+        );
+        assert!(ThreadCmdArgs::Bilingual {
+            main: "es".into(),
+            thread: "es".into(),
+        }
+        .validate_languages()
+        .unwrap_err()
+        .contains("two different languages"));
+        assert!(ThreadCmdArgs::Language { lang: "zz".into() }
+            .validate_languages()
+            .unwrap_err()
+            .contains("!list-langs"));
+        assert!(ThreadCmdArgs::Bilingual {
+            main: "es".into(),
+            thread: "zz".into(),
+        }
+        .validate_languages()
+        .unwrap_err()
+        .contains("!list-langs"));
+        assert!(ThreadCmdArgs::Language { lang: "es".into() }
+            .validate_languages()
+            .is_ok());
+        assert!(ThreadCmdArgs::Bilingual {
+            main: "es".into(),
+            thread: "en".into(),
+        }
+        .validate_languages()
+        .is_ok());
     }
 
     #[test]
@@ -1331,6 +1629,11 @@ mod tests {
                     "name": "HI",
                     "id": "group.hi",
                     "internal_id": "hi-internal"
+                },
+                {
+                    "name": "EN",
+                    "id": "group.en",
+                    "internal_id": "en-internal"
                 }
             ])))
             .mount(signal)
@@ -1375,6 +1678,44 @@ mod tests {
             }
         }
         out
+    }
+
+    async fn send_pairs(signal: &wiremock::MockServer) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        let Some(requests) = signal.received_requests().await else {
+            return out;
+        };
+        for req in requests {
+            if req.url.path() != "/v2/send" {
+                continue;
+            }
+            let body: serde_json::Value =
+                serde_json::from_slice(&req.body).unwrap_or(serde_json::json!({}));
+            let msg = body["message"].as_str().unwrap_or("").to_string();
+            if let Some(arr) = body["recipients"].as_array() {
+                for r in arr {
+                    if let Some(s) = r.as_str() {
+                        out.push((s.to_string(), msg.clone()));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    async fn create_group_posts(signal: &wiremock::MockServer) -> usize {
+        let Some(requests) = signal.received_requests().await else {
+            return 0;
+        };
+        requests
+            .iter()
+            .filter(|req| {
+                let path = req.url.path();
+                path.starts_with("/v1/groups/")
+                    && !path.contains("/members")
+                    && req.method.to_string() == "POST"
+            })
+            .count()
     }
 
     async fn send_messages(signal: &wiremock::MockServer) -> Vec<String> {
@@ -1552,5 +1893,489 @@ mod tests {
             messages.iter().any(|m| m.starts_with("Maria:\n")),
             "sidecar attribution should use the original speaker display name: {messages:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn bilingual_subscribe_lock_join_and_refuse() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        mount_near(&near).await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "group.en"})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Main",
+                    "id": "group.main",
+                    "internal_id": "main-internal"
+                },
+                {
+                    "name": "English · Stacked",
+                    "id": "group.en",
+                    "internal_id": "en-internal"
+                }
+            ])))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"^/v1/groups/%2B15550001111/.+/members$"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store.clone(), signal.uri(), near.uri());
+
+        let mut msg = group_msg("+15550002222", "!translate-me-thread es en");
+        msg.group_id = Some("main-internal".into());
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(store.is_bilingual("main-internal"));
+        assert_eq!(
+            store
+                .get_bridge("main-internal")
+                .unwrap()
+                .main_lang
+                .as_deref(),
+            Some("es")
+        );
+        assert_eq!(
+            store.lookup_sidecar("en-internal"),
+            Some(("main-internal".into(), "en".into()))
+        );
+        assert_eq!(create_group_posts(&signal).await, 1);
+
+        let created = create_group_posts(&signal).await;
+
+        // Same pair again invites; no second group.
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert_eq!(create_group_posts(&signal).await, created);
+
+        // Thread-lang join helper.
+        msg.text = "!translate-me-thread en".into();
+        let mut other = group_msg("+15550003333", "!translate-me-thread en");
+        other.group_id = Some("main-internal".into());
+        assert!(handler.execute(&other).await.unwrap().is_empty());
+        assert_eq!(
+            store
+                .member_lang("main-internal", "+15550003333")
+                .as_deref(),
+            Some("en")
+        );
+        assert_eq!(create_group_posts(&signal).await, created);
+
+        // Main-lang one-arg does not create a sidecar.
+        msg.text = "!translate-me-thread es".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        let bodies = send_messages(&signal).await;
+        assert!(
+            bodies.iter().any(|m| m.contains("main chat is Spanish")),
+            "{bodies:?}"
+        );
+        assert_eq!(create_group_posts(&signal).await, created);
+
+        // Third lang / swapped pair refused.
+        msg.text = "!translate-me-thread fr".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        msg.text = "!translate-me-thread en es".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        let bodies = send_messages(&signal).await;
+        assert!(
+            bodies
+                .iter()
+                .any(|m| m.contains("third language isn't supported")),
+            "{bodies:?}"
+        );
+        assert!(
+            bodies
+                .iter()
+                .any(|m| m.contains("different pair isn't supported")),
+            "{bodies:?}"
+        );
+        assert_eq!(create_group_posts(&signal).await, created);
+        assert_eq!(store.get_bridge("main-internal").unwrap().sidecars.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn language_threads_refuses_two_arg_after_lock() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "group.es"})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Main",
+                    "id": "group.main",
+                    "internal_id": "main-internal"
+                },
+                {
+                    "name": "Spanish",
+                    "id": "group.es",
+                    "internal_id": "es-internal"
+                }
+            ])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+        let mut msg = group_msg("+15550002222", "!translate-me-thread es");
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        assert!(store.is_language_threads("main-internal"));
+        assert!(!store.is_bilingual("main-internal"));
+
+        msg.text = "!translate-me-thread es en".into();
+        assert!(handler.execute(&msg).await.unwrap().is_empty());
+        let bodies = send_messages(&signal).await;
+        assert!(
+            bodies
+                .iter()
+                .any(|m| m.contains("Language Threads is already on")),
+            "{bodies:?}"
+        );
+        assert!(!store.is_bilingual("main-internal"));
+    }
+
+    #[tokio::test]
+    async fn in_chat_blocks_both_thread_forms_and_stashes_pending() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "name": "Main",
+                "id": "group.main",
+                "internal_id": "main-internal"
+            }])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set("main-internal".into(), mode);
+        let handler = handler_pair(store.clone(), signal.uri(), "http://127.0.0.1:9".into());
+
+        let mut one = group_msg("+15550002222", "!translate-me-thread es");
+        one.group_id = Some("main-internal".into());
+        assert!(handler.execute(&one).await.unwrap().is_empty());
+        assert!(matches!(
+            store.get_pending_switch("main-internal"),
+            Some(PendingSwitch::EnableThreads { .. })
+        ));
+
+        let mut two = group_msg("+15550002222", "!translate-me-thread es en");
+        two.group_id = Some("main-internal".into());
+        assert!(handler.execute(&two).await.unwrap().is_empty());
+        assert!(matches!(
+            store.get_pending_switch("main-internal"),
+            Some(PendingSwitch::EnableBilingualThreads { .. })
+        ));
+        let bodies = send_messages(&signal).await;
+        assert!(
+            bodies
+                .iter()
+                .any(|m| m.contains("Language Threads and Bilingual Threads")),
+            "{bodies:?}"
+        );
+        assert!(!store.threads_active("main-internal"));
+    }
+
+    #[tokio::test]
+    async fn enable_threads_applies_bilingual_pending() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        let near = MockServer::start().await;
+        mount_near(&near).await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "group.en"})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {
+                    "name": "Main",
+                    "id": "group.main",
+                    "internal_id": "main-internal"
+                },
+                {
+                    "name": "English",
+                    "id": "group.en",
+                    "internal_id": "en-internal"
+                }
+            ])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let mode = GroupTranslateMode::new(
+            resolve_language("es").unwrap(),
+            resolve_language("en").unwrap(),
+        );
+        store.set_member_translate("main-internal", "+15550002222", mode);
+
+        let translate_me = handler_pair(store.clone(), signal.uri(), near.uri());
+        let translate_all = TranslateAllHandler::new(
+            store.clone(),
+            Arc::new(
+                NearAiClient::new("key", near.uri(), "m", std::time::Duration::from_secs(5))
+                    .unwrap(),
+            ),
+            Arc::new(SignalClient::new(signal.uri()).unwrap()),
+        );
+
+        let mut blocked = group_msg("+15550002222", "!translate-me-thread es en");
+        blocked.group_id = Some("main-internal".into());
+        assert!(translate_me.execute(&blocked).await.unwrap().is_empty());
+        assert!(matches!(
+            store.get_pending_switch("main-internal"),
+            Some(PendingSwitch::EnableBilingualThreads { .. })
+        ));
+
+        let mut enable = group_msg("+15550002222", "!enable-threads");
+        enable.group_id = Some("main-internal".into());
+        assert!(translate_all.execute(&enable).await.unwrap().is_empty());
+        assert!(store.is_bilingual("main-internal"));
+        assert_eq!(
+            store
+                .get_bridge("main-internal")
+                .unwrap()
+                .main_lang
+                .as_deref(),
+            Some("es")
+        );
+        assert_eq!(
+            store.lookup_sidecar("en-internal"),
+            Some(("main-internal".into(), "en".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn bilingual_relay_both_directions() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_bilingual_sidecar(
+            "main-internal",
+            "es",
+            "en",
+            "group.en".into(),
+            "en-internal".into(),
+        );
+        let handler = handler_pair(store, signal.uri(), near.uri());
+
+        // Main English → thread English: relay (already thread lang).
+        let main_en = group_msg(
+            "+15550002222",
+            "Hello friends from the mutual aid group tonight",
+        );
+        assert!(handler.execute(&main_en).await.unwrap().is_empty());
+        let pairs = send_pairs(&signal).await;
+        let to_en: Vec<_> = pairs
+            .iter()
+            .filter(|(r, _)| r == "group.en")
+            .map(|(_, m)| m.as_str())
+            .collect();
+        assert!(
+            to_en.iter().any(|m| m.contains("Hello friends")),
+            "{to_en:?}"
+        );
+
+        // Main Spanish → thread: translate.
+        let main_es = group_msg(
+            "+15550002222",
+            "Hola amigos del grupo de ayuda mutua esta noche",
+        );
+        assert!(handler.execute(&main_es).await.unwrap().is_empty());
+        let pairs = send_pairs(&signal).await;
+        assert!(
+            pairs
+                .iter()
+                .any(|(r, m)| r == "group.en" && m.contains("Translated")),
+            "{pairs:?}"
+        );
+
+        // Thread English → main Spanish: translate.
+        let mut side_en = group_msg(
+            "+15550002222",
+            "Hello everyone in the sidecar mutual aid chat",
+        );
+        side_en.group_id = Some("en-internal".into());
+        assert!(handler.execute(&side_en).await.unwrap().is_empty());
+        let pairs = send_pairs(&signal).await;
+        assert!(
+            pairs
+                .iter()
+                .any(|(r, m)| r == "group.main" && m.contains("Translated")),
+            "{pairs:?}"
+        );
+        assert!(
+            !pairs
+                .iter()
+                .any(|(r, _)| r == "group.es" || r == "group.fr"),
+            "bilingual must not fan out to extra sidecars: {pairs:?}"
+        );
+
+        // Thread already-Spanish → main: relay original.
+        let mut side_es = group_msg(
+            "+15550002222",
+            "Hola, ¿cómo estás ustedes? Hoy es miércoles y tengo tres bananas.",
+        );
+        side_es.group_id = Some("en-internal".into());
+        assert!(handler.execute(&side_es).await.unwrap().is_empty());
+        let pairs = send_pairs(&signal).await;
+        assert!(
+            pairs.iter().any(|(r, m)| r == "group.main"
+                && m.contains("tres bananas")
+                && !m.contains("Translated")),
+            "{pairs:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn language_threads_n1_sidecar_to_main_stays_untranslated() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+        let handler = handler_pair(store, signal.uri(), near.uri());
+        let mut side = group_msg("+15550002222", "Hola desde el thread de ayuda mutua");
+        side.group_id = Some("es-internal".into());
+        assert!(handler.execute(&side).await.unwrap().is_empty());
+        let pairs = send_pairs(&signal).await;
+        assert!(
+            pairs.iter().any(|(r, m)| r == "group.main"
+                && m.contains("Hola desde")
+                && !m.contains("Translated")),
+            "{pairs:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn fan_out_transcript_uses_bilingual_sidecar_to_main() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_bilingual_sidecar(
+            "main-internal",
+            "es",
+            "en",
+            "group.en".into(),
+            "en-internal".into(),
+        );
+        let handler = handler_pair(store, signal.uri(), near.uri());
+        let mut original = group_msg("+alice", "");
+        original.group_id = Some("en-internal".into());
+        handler
+            .fan_out_transcript(&original, "Hello friends from the mutual aid group tonight")
+            .await;
+
+        let pairs = send_pairs(&signal).await;
+        assert!(
+            pairs.iter().any(|(r, m)| r == "group.main"
+                && m.starts_with("Maria:\n")
+                && m.contains("Translated")),
+            "{pairs:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn same_lang_pair_and_extra_tokens_refused() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let signal = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&signal)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/groups/%2B15550001111"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "name": "Main",
+                "id": "group.main",
+                "internal_id": "main-internal"
+            }])))
+            .mount(&signal)
+            .await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let handler = handler_pair(store, signal.uri(), "http://127.0.0.1:9".into());
+
+        let mut same = group_msg("+15550002222", "!translate-me-thread es es");
+        same.group_id = Some("main-internal".into());
+        assert!(handler.execute(&same).await.unwrap().is_empty());
+
+        let mut extra = group_msg("+15550002222", "!translate-me-thread es en fr");
+        extra.group_id = Some("main-internal".into());
+        assert!(handler.execute(&extra).await.unwrap().is_empty());
+
+        let bodies = send_messages(&signal).await;
+        assert!(
+            bodies.iter().any(|m| m.contains("two different languages")),
+            "{bodies:?}"
+        );
+        assert!(bodies.iter().any(|m| m.contains("Usage:")), "{bodies:?}");
     }
 }

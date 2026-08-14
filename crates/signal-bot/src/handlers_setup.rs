@@ -130,7 +130,7 @@ pub async fn build_translation_handlers(
 
     handlers.push(Box::new(translate_me));
     info!(
-        "Language Threads enabled: !translate-me-thread / !leave / !enable-in-chat (max {}/min)",
+        "Language Threads / Bilingual Threads enabled: !translate-me-thread / !leave / !enable-in-chat (max {}/min)",
         config.translate_all.max_messages_per_minute
     );
 

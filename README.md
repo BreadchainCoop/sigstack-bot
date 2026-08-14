@@ -11,10 +11,11 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 | Voice transcription | `BOT__ROLE=translation` | Same Phala CVM / same bot (NEAR AI Whisper; no local sidecar) |
 | In-chat (group) translation | `BOT__ROLE=translation` | Same CVM (NEAR AI chat) |
 | Language Threads | `BOT__ROLE=translation` | Same CVM |
+| Bilingual Threads | `BOT__ROLE=translation` | Same CVM |
 
 Add **one** bot to a Signal group. `BOT__ROLE=transcription` is retired.
 
-Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md)
+Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md) · [docs/bilingual-threads.md](docs/bilingual-threads.md)
 
 ## Commands
 
@@ -30,6 +31,7 @@ Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/v
 | Voice | `!transcription` | Voice product menu |
 | Voice | `!transcribe` / `!transcribe-on` / `!transcribe-off` | Manual or auto transcription (default off) |
 | Language Threads | `!translate-me-thread <lang>` | Create/join sidecar (main only) |
+| Bilingual Threads | `!translate-me-thread <main> <thread>` | Two langs, one sidecar, both-way translate (main only) |
 | Language Threads | `!leave` | Leave this Language Thread (sidecar only) |
 | Language Threads | `!commands` | Compact Language Thread command list (sidecar only) |
 | Language Threads | `!enable-in-chat` | Tear down Language Threads (switch path to in-chat) |
@@ -40,7 +42,7 @@ Details: [docs/two-cvm-architecture.md](docs/two-cvm-architecture.md) · [docs/v
 | In-chat | `!enable-threads` | Clear all in-chat auto (switch path to Language Threads) |
 | In-chat manual | `!translate <lang>` | Quote-reply translate one message |
 
-Language Threads and in-chat auto are mutually exclusive. Details in the product docs above.
+Language Threads, Bilingual Threads, and in-chat auto are mutually exclusive. Details in the product docs above.
 
 ## Architecture
 

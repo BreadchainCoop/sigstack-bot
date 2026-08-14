@@ -80,6 +80,9 @@ pub struct LanguageBridge {
     /// user key → invite address used for Signal members[]
     #[serde(default)]
     pub member_addresses: HashMap<String, String>,
+    /// Some = Bilingual Threads locked. None + non-empty sidecars = Language Threads.
+    #[serde(default)]
+    pub main_lang: Option<String>,
 }
 
 impl LanguageBridge {
@@ -88,6 +91,19 @@ impl LanguageBridge {
             && self.sidecar_internal.is_empty()
             && self.members.is_empty()
             && self.member_addresses.is_empty()
+            && self.main_lang.is_none()
+    }
+
+    pub fn is_bilingual(&self) -> bool {
+        self.main_lang.is_some()
+    }
+
+    /// Sidecar language when bilingual is locked (exactly one sidecar).
+    pub fn bilingual_thread_lang(&self) -> Option<&str> {
+        if !self.is_bilingual() {
+            return None;
+        }
+        self.sidecars.keys().next().map(String::as_str)
     }
 
     pub fn sidecar_send_id(&self, lang: &str) -> Option<&str> {
@@ -107,6 +123,14 @@ pub enum PendingSwitch {
     EnableThreads {
         user: String,
         lang: String,
+        #[serde(default)]
+        address: Option<String>,
+    },
+    /// Apply `!translate-me-thread <main> <thread>` after `!enable-threads`.
+    EnableBilingualThreads {
+        user: String,
+        main_lang: String,
+        thread_lang: String,
         #[serde(default)]
         address: Option<String>,
     },
@@ -329,9 +353,19 @@ impl GroupPreferencesStore {
             .is_some_and(|p| p.translate.is_some() || !p.translate_members.is_empty())
     }
 
-    /// Language Threads bridge exists for this main group.
+    /// Language Threads or Bilingual Threads bridge exists for this main group.
     pub fn threads_active(&self, main_group_id: &str) -> bool {
         self.get_bridge(main_group_id).is_some()
+    }
+
+    pub fn is_bilingual(&self, main_group_id: &str) -> bool {
+        self.get_bridge(main_group_id)
+            .is_some_and(|b| b.is_bilingual())
+    }
+
+    pub fn is_language_threads(&self, main_group_id: &str) -> bool {
+        self.get_bridge(main_group_id)
+            .is_some_and(|b| !b.is_bilingual())
     }
 
     pub fn get(&self, group_id: &str) -> Option<GroupTranslateMode> {
@@ -610,6 +644,35 @@ impl GroupPreferencesStore {
         send_id: String,
         internal_id: String,
     ) {
+        self.insert_sidecar(main_group_id, lang, send_id, internal_id, None);
+    }
+
+    /// Register the one bilingual sidecar and lock `main_lang` in the same write.
+    pub fn set_bilingual_sidecar(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        main_lang: &str,
+        thread_lang: &str,
+        send_id: String,
+        internal_id: String,
+    ) {
+        self.insert_sidecar(
+            main_group_id,
+            thread_lang,
+            send_id,
+            internal_id,
+            Some(main_lang),
+        );
+    }
+
+    fn insert_sidecar(
+        self: &Arc<Self>,
+        main_group_id: &str,
+        lang: &str,
+        send_id: String,
+        internal_id: String,
+        bilingual_main: Option<&str>,
+    ) {
         {
             let mut groups = self.groups.write().unwrap();
             let entry = groups.entry(main_group_id.to_string()).or_default();
@@ -620,8 +683,24 @@ impl GroupPreferencesStore {
             bridge
                 .sidecar_internal
                 .insert(lang.to_string(), internal_id);
+            if let Some(main_lang) = bilingual_main {
+                bridge.main_lang = Some(main_lang.to_string());
+            }
         }
         self.rebuild_sidecar_index();
+        self.schedule_persist();
+    }
+
+    /// Lock Bilingual Threads on an existing sidecar (join path).
+    pub fn set_bilingual_main_lang(self: &Arc<Self>, main_group_id: &str, lang: &str) {
+        {
+            let mut groups = self.groups.write().unwrap();
+            let entry = groups.entry(main_group_id.to_string()).or_default();
+            let bridge = entry
+                .language_bridge
+                .get_or_insert_with(LanguageBridge::default);
+            bridge.main_lang = Some(lang.to_string());
+        }
         self.schedule_persist();
     }
 
@@ -1116,5 +1195,84 @@ mod tests {
             store2.lookup_sidecar("es-int"),
             Some(("main-1".into(), "es".into()))
         );
+        assert!(bridge.main_lang.is_none());
+        assert!(!store2.is_bilingual("main-1"));
+        assert!(store2.is_language_threads("main-1"));
+    }
+
+    #[test]
+    fn language_bridge_main_lang_defaults_none_on_legacy_json() {
+        let json = r#"{"sidecars":{"es":"group.es"},"sidecar_internal":{"es":"es-int"},"members":{},"member_addresses":{}}"#;
+        let bridge: LanguageBridge = serde_json::from_str(json).unwrap();
+        assert!(bridge.main_lang.is_none());
+        assert!(!bridge.is_bilingual());
+        assert!(!bridge.is_empty());
+        assert_eq!(bridge.bilingual_thread_lang(), None);
+    }
+
+    #[test]
+    fn bilingual_lock_is_not_empty_with_only_main_lang() {
+        let bridge = LanguageBridge {
+            main_lang: Some("es".into()),
+            ..Default::default()
+        };
+        assert!(!bridge.is_empty());
+        assert!(bridge.is_bilingual());
+        assert_eq!(bridge.bilingual_thread_lang(), None);
+    }
+
+    #[test]
+    fn bilingual_sidecar_locks_and_threads_active() {
+        let store = GroupPreferencesStore::new_in_memory(0);
+        let gid = "main-bi";
+        store.set_bilingual_sidecar(gid, "es", "en", "group.en".into(), "en-internal".into());
+        assert!(store.threads_active(gid));
+        assert!(store.is_bilingual(gid));
+        assert!(!store.is_language_threads(gid));
+        let bridge = store.get_bridge(gid).unwrap();
+        assert_eq!(bridge.main_lang.as_deref(), Some("es"));
+        assert_eq!(bridge.bilingual_thread_lang(), Some("en"));
+    }
+
+    #[test]
+    fn pending_enable_bilingual_threads_round_trip() {
+        let pending = PendingSwitch::EnableBilingualThreads {
+            user: "+1555".into(),
+            main_lang: "es".into(),
+            thread_lang: "en".into(),
+            address: Some("+1555".into()),
+        };
+        let json = serde_json::to_string(&pending).unwrap();
+        assert!(json.contains("enable_bilingual_threads"));
+        let back: PendingSwitch = serde_json::from_str(&json).unwrap();
+        assert_eq!(pending, back);
+
+        let legacy: PendingSwitch =
+            serde_json::from_str(r#"{"kind":"enable_threads","user":"+1","lang":"es"}"#).unwrap();
+        assert!(matches!(
+            legacy,
+            PendingSwitch::EnableThreads { lang, .. } if lang == "es"
+        ));
+    }
+
+    #[tokio::test]
+    async fn bilingual_bridge_encrypted_round_trip() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("bilingual.enc");
+        let key = [11u8; 32];
+        let dstack = DstackClient::new("/nonexistent/dstack.sock");
+
+        let store = GroupPreferencesStore::with_test_key(dstack, path.clone(), key, 30).await;
+        store.set_bilingual_sidecar("main-1", "es", "en", "group.en".into(), "en-int".into());
+        store.set_bridge_member("main-1", "uuid-1", "en", Some("+1555".into()));
+        store.persist_now().await.unwrap();
+
+        let store2 =
+            GroupPreferencesStore::with_test_key(DstackClient::new("/x"), path, key, 30).await;
+        let bridge = store2.get_bridge("main-1").unwrap();
+        assert_eq!(bridge.main_lang.as_deref(), Some("es"));
+        assert_eq!(bridge.sidecar_send_id("en"), Some("group.en"));
+        assert!(store2.is_bilingual("main-1"));
+        assert!(!store2.is_language_threads("main-1"));
     }
 }

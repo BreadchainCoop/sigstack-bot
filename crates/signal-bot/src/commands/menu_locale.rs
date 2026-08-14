@@ -169,12 +169,15 @@ const TRANSLATION_THREADS_MENU: &str = r#"Join/Create Language Thread
 
 !list-langs
 !translate-me-thread <lang>
+!translate-me-thread <main> <thread>
 !help-threads
 
-example:
+examples:
    !translate-me-thread es
+   !translate-me-thread es en
 
-Unlimited threads are supported. Main chat stays multilingual and threads relay messages between them. Once you join a thread, just read/write in from that thread.
+Language Threads: unlimited sidecars; main stays multilingual.
+Bilingual Threads: exactly two languages, one sidecar; each room is assigned a language and the bot translates both ways.
 
 !enable-in-chat (disable threads)
 !help"#;
@@ -207,23 +210,29 @@ Auto-translate is disabled on this bot (!translate-all-on).
 !help-in-chat
 !help"#;
 
-const HELP_THREADS_GUIDE: &str = r#"Language Threads — how it works
+const HELP_THREADS_GUIDE: &str = r#"Language Threads and Bilingual Threads — how they work
 
-Use when people need monolingual lanes, but organizers still want one shared main chat.
+Language Threads: people need monolingual lanes, but organizers still want one shared multilingual main chat.
+Bilingual Threads: the group is exactly two languages and both rooms should receive translated text.
 
-How it works:
+How Language Threads works:
 - Main group stays multilingual (everyone can post in any language).
 - Each language gets a sidecar Signal group ("Language Thread").
-- Messages bridge: main ↔ threads (relay same language, translate otherwise).
+- Sidecar → main is relay-only (original language). Main → sidecars translate.
+
+How Bilingual Threads works:
+- !translate-me-thread es en assigns Spanish to main and English to the one sidecar.
+- Both directions translate into the destination room's language (relay if already that language).
+- No third sidecar. Not the same as one Language Thread.
 
 Typical use:
-1. In main, send !list-langs then !translate-me-thread es
+1. In main, send !list-langs then !translate-me-thread es (Language Threads) or !translate-me-thread es en (Bilingual Threads)
 2. Accept the sidecar invite
-3. Read/write in that thread; the bot bridges with main and other threads
+3. Read/write in that thread; the bot bridges with main
 4. !leave from a thread to leave it
 5. From main, !enable-in-chat tears down threads if you want in-chat auto instead
 
-Language Threads and in-chat auto cannot run at the same time.
+In-chat auto, Language Threads, and Bilingual Threads cannot run at the same time.
 
 Commands: !translation-threads
 !help"#;
@@ -243,9 +252,9 @@ Typical use:
 2. !translate-all-on es en (or !translate-me-on for just you)
 3. Chat normally; the bot quote-replies translations
 4. !translate-all-off / !translate-me-off to stop
-5. From this group, !enable-threads clears in-chat auto if you want Language Threads instead
+5. From this group, !enable-threads clears in-chat auto if you want Language Threads or Bilingual Threads instead
 
-In-chat auto and Language Threads cannot run at the same time.
+In-chat auto, Language Threads, and Bilingual Threads cannot run at the same time.
 
 Commands: !translation-in-chat
 !help"#;
@@ -342,6 +351,8 @@ mod tests {
     fn threads_menu_lists_thread_commands() {
         let h = translation_threads_menu();
         assert!(h.contains("!translate-me-thread <lang>"));
+        assert!(h.contains("!translate-me-thread <main> <thread>"));
+        assert!(h.contains("!translate-me-thread es en"));
         assert!(h.contains("!enable-in-chat"));
         assert!(h.contains("!help-threads"));
         assert!(h.contains("!list-langs"));
@@ -365,7 +376,9 @@ mod tests {
     fn feature_guides_cover_use_cases() {
         let threads = help_threads_guide();
         assert!(threads.contains("Language Threads"));
-        assert!(threads.contains("!translate-me-thread"));
+        assert!(threads.contains("Bilingual Threads"));
+        assert!(threads.contains("!translate-me-thread es"));
+        assert!(threads.contains("!translate-me-thread es en"));
         assert!(threads.contains("sidecar"));
         let in_chat = help_in_chat_guide();
         assert!(in_chat.contains("In-chat translation"));

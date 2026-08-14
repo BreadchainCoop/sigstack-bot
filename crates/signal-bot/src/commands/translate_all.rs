@@ -38,7 +38,7 @@ const BARE_ME_MSG: &str = "Please specify two languages. Example: !translate-me-
 const GROUP_ONLY_MSG: &str = "In-chat auto-translate is only available in group chats";
 const SIDECAR_REJECT_MSG: &str =
     "In-chat auto-translate is only available in the main group (not a Language Thread).";
-const THREADS_BLOCK_MSG: &str = "Language Threads is already on in this group, so in-chat auto-translate can't run alongside it.\n\nTo switch, send:\n!enable-in-chat";
+const THREADS_BLOCK_MSG: &str = "Language Threads or Bilingual Threads is already on in this group, so in-chat auto-translate can't run alongside it.\n\nThe three products — in-chat auto, Language Threads, and Bilingual Threads — cannot run at the same time.\n\nTo switch, send:\n!enable-in-chat";
 
 fn group_blocks_personal_msg(mode: &GroupTranslateMode) -> String {
     format!(
@@ -393,33 +393,60 @@ impl TranslateAllHandler {
             parts.push("In-chat auto-translate was not active in this chat.".to_string());
         }
 
-        if let Some(PendingSwitch::EnableThreads {
-            user,
-            lang,
-            address,
-        }) = pending
-        {
-            let applied = TranslateMeHandler::subscribe_user_to_thread(
-                &self.store,
-                &self.signal,
-                message,
-                group_id,
-                &lang,
-                Some(user.as_str()),
-                address.as_deref(),
-            )
-            .await?;
-            parts.push(applied);
-        } else if let Some(other) = pending {
-            // Restore unexpected pending rather than drop silently.
-            self.store.set_pending_switch(group_id, other);
-            parts.push(
-                "Pending switch was not a Language Threads subscribe; left unchanged. \
-                 Use !translation-threads for Language Threads."
-                    .into(),
-            );
-        } else if had {
-            parts.push("You can enable Language Threads with !translate-me-thread <lang>.".into());
+        match pending {
+            Some(PendingSwitch::EnableThreads {
+                user,
+                lang,
+                address,
+            }) => {
+                let applied = TranslateMeHandler::subscribe_user_to_thread(
+                    &self.store,
+                    &self.signal,
+                    message,
+                    group_id,
+                    &lang,
+                    Some(user.as_str()),
+                    address.as_deref(),
+                    None,
+                )
+                .await?;
+                parts.push(applied);
+            }
+            Some(PendingSwitch::EnableBilingualThreads {
+                user,
+                main_lang,
+                thread_lang,
+                address,
+            }) => {
+                let applied = TranslateMeHandler::subscribe_user_to_bilingual(
+                    &self.store,
+                    &self.signal,
+                    message,
+                    group_id,
+                    &main_lang,
+                    &thread_lang,
+                    Some(user.as_str()),
+                    address.as_deref(),
+                )
+                .await?;
+                parts.push(applied);
+            }
+            Some(other) => {
+                // Restore unexpected pending rather than drop silently.
+                self.store.set_pending_switch(group_id, other);
+                parts.push(
+                    "Pending switch was not a Language Threads or Bilingual Threads subscribe; left unchanged. \
+                     Use !translation-threads for thread products."
+                        .into(),
+                );
+            }
+            None if had => {
+                parts.push(
+                    "You can enable Language Threads with !translate-me-thread <lang> or Bilingual Threads with !translate-me-thread <main> <thread>."
+                        .into(),
+                );
+            }
+            None => {}
         }
 
         Ok(parts.join(" "))

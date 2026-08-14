@@ -30,7 +30,7 @@ flowchart LR
 - **One phone number**, one bot in the group. Auto-accepts invites (`AcceptAll`).
 - No local Whisper sidecar. Voice audio is decrypted in this TEE, stripped of Signal metadata, and sent to **NEAR AI Whisper Large V3** (GPU TEE). Translation text uses the same vendor.
 - Per-message `tokio::spawn` so an STT wait cannot stall other handlers in the same process.
-- After STT, fan out spoken text in-process so in-chat auto and Language Threads still see transcripts.
+- After STT, fan out spoken text in-process so in-chat auto, Language Threads, and Bilingual Threads still see transcripts.
 - Same `signal-bot` image; live role is `BOT__ROLE=translation` (Whisper + NEAR required).
 - Do not reintroduce `whisper-api` or put Whisper on a larger CPU TEE as the scale path.
 
@@ -95,12 +95,14 @@ Do not change volume names in [`docker/phala.translation.yaml`](../docker/phala.
 | Voice transcription | Same `signal-bot` | [voice-transcription.md](voice-transcription.md) |
 | In-chat (group) translation | Same `signal-bot` | [in-chat-translation.md](in-chat-translation.md) |
 | Language Threads | Same `signal-bot` | [language-threads.md](language-threads.md) |
+| Bilingual Threads | Same `signal-bot` | [bilingual-threads.md](bilingual-threads.md) |
 
 ### Interoperability
 
-- **Voice** quote-replies `📝 Transcript:` then fans out spoken text to in-chat / Language Threads as the **original speaker** (not the bot).
+- **Voice** quote-replies `📝 Transcript:` then fans out spoken text to in-chat / Language Threads / Bilingual Threads as the **original speaker** (not the bot).
 - **In-chat** translates inside one group thread (quote-reply). Bot translation replies are not re-translated.
-- **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-thread`).
+- **Language Threads** bridges a multilingual main to N monolingual sidecars (`!translate-me-thread <lang>`).
+- **Bilingual Threads** assigns a language to main and to one sidecar and translates both ways (`!translate-me-thread es en`). Mutually exclusive with Language Threads and in-chat auto.
 
 ## Why one process (not two phones)
 

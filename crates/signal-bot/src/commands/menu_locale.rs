@@ -4,21 +4,18 @@
 //! Command-list layout follows the Signal mobile menu standard:
 //! [`docs/solutions/signal-mobile-menus.md`](../../../../docs/solutions/signal-mobile-menus.md).
 
-use crate::config::BotRole;
-
-pub fn help_menu(role: BotRole) -> &'static str {
-    match role {
-        BotRole::Transcription => HELP_TRANSCRIPTION,
-        BotRole::Translation => HELP_HUB,
-    }
+pub fn help_menu() -> &'static str {
+    HELP_HUB
 }
 
-/// Hub descriptive menu (translation bot only; transcription uses `!transcription`).
-pub fn info_menu(role: BotRole) -> &'static str {
-    match role {
-        BotRole::Translation => INFO_HUB,
-        BotRole::Transcription => unreachable!("transcription bot does not register !info"),
-    }
+/// Voice product menu (`!transcription`).
+pub fn transcription_menu() -> &'static str {
+    HELP_TRANSCRIPTION
+}
+
+/// Hub descriptive menu (`!info`).
+pub fn info_menu() -> &'static str {
+    INFO_HUB
 }
 
 pub fn thread_help_menu() -> &'static str {
@@ -302,7 +299,7 @@ mod tests {
 
     #[test]
     fn help_translation_is_hub() {
-        let h = help_menu(BotRole::Translation);
+        let h = help_menu();
         assert!(h.contains("!translation-threads"));
         assert!(h.contains("!translation-in-chat"));
         assert!(h.contains("!transcription"));
@@ -317,7 +314,7 @@ mod tests {
 
     #[test]
     fn info_hub_has_breaks_and_descriptions() {
-        let h = info_menu(BotRole::Translation);
+        let h = info_menu();
         assert!(h.contains("!translation-threads\n  "));
         assert!(h.contains("!translation-in-chat\n  "));
         assert!(h.contains("!transcription\n  "));
@@ -439,7 +436,7 @@ mod tests {
 
     #[test]
     fn help_transcription_covers_voice() {
-        let h = help_menu(BotRole::Transcription);
+        let h = transcription_menu();
         assert!(h.contains("!transcribe"));
         assert!(h.contains("!transcribe-on"));
         assert!(h.contains("!transcribe-off"));
@@ -472,7 +469,7 @@ mod tests {
         assert!(!translation_threads_menu().contains("!verify"));
         assert!(!translation_in_chat_menu(true).contains("!verify"));
         assert!(!translation_in_chat_menu(false).contains("!verify"));
-        assert!(!help_menu(BotRole::Translation).contains("!verify"));
+        assert!(!help_menu().contains("!verify"));
         assert!(!thread_help_menu().contains("!verify"));
     }
 

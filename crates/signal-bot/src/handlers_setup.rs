@@ -177,15 +177,9 @@ pub async fn build_translation_handlers(
         signal.clone(),
     )));
     handlers.push(Box::new(CommandsHandler::new(group_prefs.clone())));
-    handlers.push(Box::new(VerifyHandler::new(
-        dstack.clone(),
-        BotRole::Translation,
-    )));
-    handlers.push(Box::new(HelpHandler::new(BotRole::Translation)));
-    handlers.push(Box::new(InfoHandler::new(
-        group_prefs,
-        BotRole::Translation,
-    )));
+    handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
+    handlers.push(Box::new(HelpHandler::new()));
+    handlers.push(Box::new(InfoHandler::new(group_prefs)));
     handlers.push(Box::new(PrivacyHandler::new()));
 
     info!("Unified bot: hub menus + voice + in-chat + Language Threads");

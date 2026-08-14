@@ -6,7 +6,7 @@ Each solved problem becomes searchable markdown so the next `/ce-brainstorm` / `
 
 ## Architecture
 
-- [CPU TEE Whisper does not scale](architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md) — remote NEAR Whisper Large V3; one CVM; two bot processes; never re-home Whisper in a CPU TEE.
+- [CPU TEE Whisper does not scale](architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md) — remote NEAR Whisper Large V3; one CVM; one bot process; never re-home Whisper in a CPU TEE.
 
 ## Product / UX
 

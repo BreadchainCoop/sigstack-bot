@@ -1,4 +1,4 @@
-//! Signal product bots — transcription or translation (see `BOT__ROLE`).
+//! Signal product bot — `BOT__ROLE=translation` (transcription is retired).
 
 use anyhow::Context;
 use dstack_client::DstackClient;
@@ -65,7 +65,7 @@ async fn main() -> AppResult<()> {
     info!("Registered {} command handlers", handlers.len());
 
     {
-        let policy = InvitePolicy::for_role(config.bot.role);
+        let policy = InvitePolicy::AcceptAll;
         let signal_invites = signal.clone();
         let phone = config.signal.phone_number.clone();
         tokio::spawn(async move {

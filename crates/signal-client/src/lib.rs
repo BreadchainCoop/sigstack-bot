@@ -183,6 +183,7 @@ mod tests {
                     attachments: vec![],
                     quote: None,
                 }),
+                edit_message: None,
             },
             account: "+15555555555".into(),
         };
@@ -217,6 +218,7 @@ mod tests {
                     attachments: vec![],
                     quote: None,
                 }),
+                edit_message: None,
             },
             account: "+15555555555".into(),
         };
@@ -243,6 +245,7 @@ mod tests {
                 source_name: None,
                 timestamp: 1677652288000,
                 data_message: None,
+                edit_message: None,
             },
             account: "+15555555555".into(),
         };
@@ -662,6 +665,7 @@ mod tests {
                     attachments: vec![],
                     quote: None,
                 }),
+                edit_message: None,
             },
             account: "+15555555555".into(),
         };

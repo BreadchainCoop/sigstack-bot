@@ -5,7 +5,9 @@ use crate::transcribe_store::TranscribeStore;
 use crate::voice::VoiceHandler;
 use crate::voice_attachment_cache::VoiceAttachmentCache;
 use async_trait::async_trait;
-use signal_bot_core::{AppResult, CommandHandler};
+use signal_bot_core::{is_exact_command_any, AppResult, CommandHandler};
+
+pub const TRANSCRIBE_COMMANDS: &[&str] = &["!transcribe"];
 use signal_client::{Attachment, BotMessage, QuotedMessage, SignalClient};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
@@ -143,7 +145,7 @@ fn speaker_msg_for_fanout(command: &BotMessage, quote: &QuotedMessage) -> BotMes
 #[async_trait]
 impl CommandHandler for ManualTranscribeHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        message.text.trim() == "!transcribe"
+        is_exact_command_any(&message.text, TRANSCRIBE_COMMANDS)
     }
 
     fn handles_own_reply(&self) -> bool {
@@ -321,9 +323,13 @@ mod tests {
             quote: None,
         };
         assert!(handler.matches(&msg));
+        msg.text = "!Transcribe".into();
+        assert!(handler.matches(&msg));
         msg.text = "!transcribe-on".into();
         assert!(!handler.matches(&msg));
         msg.text = "!transcribe-off".into();
+        assert!(!handler.matches(&msg));
+        msg.text = "!transcript".into();
         assert!(!handler.matches(&msg));
     }
 

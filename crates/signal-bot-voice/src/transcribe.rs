@@ -2,9 +2,12 @@
 
 use crate::transcribe_store::TranscribeStore;
 use async_trait::async_trait;
-use signal_bot_core::{AppResult, CommandHandler};
+use signal_bot_core::{is_exact_command_any, AppResult, CommandHandler};
 use signal_client::BotMessage;
 use std::sync::Arc;
+
+pub const TRANSCRIBE_ON_COMMANDS: &[&str] = &["!transcribe-on", "!transcript-on"];
+pub const TRANSCRIBE_OFF_COMMANDS: &[&str] = &["!transcribe-off", "!transcript-off"];
 
 pub struct TranscribeHandler {
     store: Arc<TranscribeStore>,
@@ -23,8 +26,8 @@ impl TranscribeHandler {
 #[async_trait]
 impl CommandHandler for TranscribeHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        let text = message.text.trim();
-        text == "!transcribe-on" || text == "!transcribe-off"
+        is_exact_command_any(&message.text, TRANSCRIBE_ON_COMMANDS)
+            || is_exact_command_any(&message.text, TRANSCRIBE_OFF_COMMANDS)
     }
 
     fn label(&self) -> &'static str {
@@ -37,7 +40,7 @@ impl CommandHandler for TranscribeHandler {
         }
 
         let context_id = message.reply_target();
-        let enable = message.text.trim() == "!transcribe-on";
+        let enable = is_exact_command_any(&message.text, TRANSCRIBE_ON_COMMANDS);
         self.store.set_enabled(context_id, enable, message.is_group);
 
         if message.is_group {
@@ -105,8 +108,13 @@ mod tests {
         let store = Arc::new(TranscribeStore::new(None));
         let handler = TranscribeHandler::new(store, true);
         assert!(handler.matches(&msg("!transcribe-on", false)));
+        assert!(handler.matches(&msg("!transcript-on", false)));
+        assert!(handler.matches(&msg("!Transcribe-On", false)));
         assert!(handler.matches(&msg("!transcribe-off", true)));
+        assert!(handler.matches(&msg("!transcript-off", true)));
         assert!(!handler.matches(&msg("!transcribe", false)));
+        assert!(!handler.matches(&msg("!transcript", false)));
+        assert!(!handler.matches(&msg("!transcribe-on extra", false)));
         assert!(!handler.matches(&msg("!help", false)));
     }
 
@@ -128,14 +136,14 @@ mod tests {
         assert!(store.is_enabled("+15550002222", false));
 
         assert_eq!(
-            handler.execute(&msg("!transcribe-on", true)).await.unwrap(),
+            handler.execute(&msg("!transcript-on", true)).await.unwrap(),
             "Voice transcription enabled for this group."
         );
         assert!(store.is_enabled("group-1", true));
 
         assert_eq!(
             handler
-                .execute(&msg("!transcribe-off", true))
+                .execute(&msg("!transcript-off", true))
                 .await
                 .unwrap(),
             "Voice transcription disabled for this group."

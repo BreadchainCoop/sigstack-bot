@@ -33,6 +33,18 @@ pub struct Envelope {
     pub timestamp: i64,
     #[serde(rename = "dataMessage")]
     pub data_message: Option<DataMessage>,
+    /// In-place edit. signal-cli delivers this instead of top-level `dataMessage`.
+    #[serde(rename = "editMessage", default)]
+    pub edit_message: Option<EditMessage>,
+}
+
+/// Signal edit envelope (`envelope.editMessage`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct EditMessage {
+    #[serde(rename = "targetSentTimestamp")]
+    pub target_sent_timestamp: i64,
+    #[serde(rename = "dataMessage")]
+    pub data_message: DataMessage,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -267,8 +279,25 @@ impl BotMessage {
     /// Extract bot message from incoming envelope.
     ///
     /// Returns `Some` for text messages and voice notes (audio attachments).
+    /// Edits (`editMessage`) are accepted only when the new body is a `!` command.
     pub fn from_incoming(msg: &IncomingMessage) -> Option<Self> {
-        let data = msg.envelope.data_message.as_ref()?;
+        let from_edit = msg.envelope.data_message.is_none();
+        let data = msg.envelope.data_message.as_ref().or_else(|| {
+            msg.envelope
+                .edit_message
+                .as_ref()
+                .map(|edit| &edit.data_message)
+        })?;
+        if from_edit
+            && !data
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .starts_with('!')
+        {
+            return None;
+        }
         let has_text = data.message.as_ref().is_some_and(|text| !text.is_empty());
         let has_audio = data.attachments.iter().any(Attachment::is_audio);
 
@@ -440,5 +469,151 @@ mod tests {
         assert!(identities_match("+15551234567", "15551234567"));
         assert!(identities_match("uuid-abc", "uuid-abc"));
         assert!(!identities_match("uuid-abc", "uuid-xyz"));
+    }
+
+    fn incoming(
+        data_message: Option<DataMessage>,
+        edit_message: Option<EditMessage>,
+    ) -> IncomingMessage {
+        IncomingMessage {
+            envelope: Envelope {
+                source: "+14155551234".into(),
+                source_number: Some("+14155551234".into()),
+                source_uuid: None,
+                source_name: Some("Test User".into()),
+                timestamp: 1677652288000,
+                data_message,
+                edit_message,
+            },
+            account: "+15555555555".into(),
+        }
+    }
+
+    fn text_data(message: &str, timestamp: i64) -> DataMessage {
+        DataMessage {
+            message: Some(message.into()),
+            timestamp,
+            group_info: None,
+            attachments: vec![],
+            quote: None,
+        }
+    }
+
+    #[test]
+    fn edit_command_becomes_bot_message() {
+        let incoming = incoming(
+            None,
+            Some(EditMessage {
+                target_sent_timestamp: 1000,
+                data_message: text_data("!help-threads", 1001),
+            }),
+        );
+        let msg = BotMessage::from_incoming(&incoming).expect("edit command");
+        assert_eq!(msg.text, "!help-threads");
+        assert_eq!(msg.message_timestamp, 1001);
+        assert_eq!(msg.receiving_account, "+15555555555");
+    }
+
+    #[test]
+    fn edit_chat_without_command_is_dropped() {
+        let incoming = incoming(
+            None,
+            Some(EditMessage {
+                target_sent_timestamp: 1000,
+                data_message: text_data("hola", 1001),
+            }),
+        );
+        assert!(BotMessage::from_incoming(&incoming).is_none());
+    }
+
+    #[test]
+    fn data_message_preferred_over_edit_without_command_gate() {
+        let incoming = incoming(
+            Some(text_data("hello", 1000)),
+            Some(EditMessage {
+                target_sent_timestamp: 1000,
+                data_message: text_data("!help-threads", 1001),
+            }),
+        );
+        let msg = BotMessage::from_incoming(&incoming).expect("new send");
+        assert_eq!(msg.text, "hello");
+        assert_eq!(msg.message_timestamp, 1000);
+    }
+
+    #[test]
+    fn empty_edit_is_dropped() {
+        let incoming = incoming(
+            None,
+            Some(EditMessage {
+                target_sent_timestamp: 1000,
+                data_message: text_data("", 1001),
+            }),
+        );
+        assert!(BotMessage::from_incoming(&incoming).is_none());
+    }
+
+    #[test]
+    fn edit_command_keeps_group_and_quote() {
+        let incoming = incoming(
+            None,
+            Some(EditMessage {
+                target_sent_timestamp: 1000,
+                data_message: DataMessage {
+                    message: Some("!help-threads".into()),
+                    timestamp: 1001,
+                    group_info: Some(GroupInfo {
+                        group_id: "test-group-id".into(),
+                        group_name: Some("Main".into()),
+                    }),
+                    attachments: vec![],
+                    quote: Some(Quote {
+                        id: 42,
+                        author: None,
+                        author_number: Some("+14155550000".into()),
+                        author_uuid: None,
+                        text: Some("prior".into()),
+                        attachments: vec![],
+                    }),
+                },
+            }),
+        );
+        let msg = BotMessage::from_incoming(&incoming).expect("group edit command");
+        assert!(msg.is_group);
+        assert_eq!(msg.group_id.as_deref(), Some("test-group-id"));
+        assert_eq!(msg.group_name.as_deref(), Some("Main"));
+        let quote = msg.quote.expect("quote");
+        assert_eq!(quote.id, 42);
+        assert_eq!(quote.author_number.as_deref(), Some("+14155550000"));
+        assert_eq!(quote.text.as_deref(), Some("prior"));
+    }
+
+    #[test]
+    fn edit_message_deserializes_signal_cli_shape() {
+        let incoming: IncomingMessage = serde_json::from_value(serde_json::json!({
+            "envelope": {
+                "source": "+14155551234",
+                "timestamp": 1000,
+                "editMessage": {
+                    "targetSentTimestamp": 1000,
+                    "dataMessage": {
+                        "message": "!privacy",
+                        "timestamp": 1001,
+                        "attachments": []
+                    }
+                }
+            },
+            "account": "+15555555555"
+        }))
+        .unwrap();
+        let msg = BotMessage::from_incoming(&incoming).expect("json edit command");
+        assert_eq!(msg.text, "!privacy");
+        assert_eq!(
+            incoming
+                .envelope
+                .edit_message
+                .as_ref()
+                .map(|e| e.target_sent_timestamp),
+            Some(1000)
+        );
     }
 }

@@ -138,6 +138,12 @@ pub struct GroupPreferencesConfig {
     /// Encrypted preferences file path (Docker volume in production)
     #[serde(default = "default_group_preferences_path")]
     pub storage_path: String,
+
+    /// Previous dstack `compose_hash` values (comma-separated). Used only when
+    /// DeriveKey is missing so AppInfo-encrypted `group_prefs.enc` still decrypts
+    /// after a compose/image bump; the bot then re-saves with an app-id-only key.
+    #[serde(default)]
+    pub legacy_compose_hash: String,
 }
 
 // Default implementations
@@ -196,7 +202,19 @@ impl Default for GroupPreferencesConfig {
         Self {
             persist: default_true(),
             storage_path: default_group_preferences_path(),
+            legacy_compose_hash: String::new(),
         }
+    }
+}
+
+impl GroupPreferencesConfig {
+    pub fn legacy_compose_hashes(&self) -> Vec<String> {
+        self.legacy_compose_hash
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect()
     }
 }
 
@@ -352,5 +370,24 @@ mod tests {
         assert_eq!(WhisperConfig::default().model, "openai/whisper-large-v3");
         assert!(TranslateAllConfig::default().enabled);
         assert!(GroupPreferencesConfig::default().persist);
+        assert!(GroupPreferencesConfig::default()
+            .legacy_compose_hash
+            .is_empty());
+    }
+
+    #[test]
+    fn legacy_compose_hashes_split_and_trim() {
+        let cfg = GroupPreferencesConfig {
+            persist: true,
+            storage_path: "/data/group_prefs.enc".into(),
+            legacy_compose_hash: " abc ,def, ".into(),
+        };
+        assert_eq!(
+            cfg.legacy_compose_hashes(),
+            vec!["abc".to_string(), "def".to_string()]
+        );
+        assert!(GroupPreferencesConfig::default()
+            .legacy_compose_hashes()
+            .is_empty());
     }
 }

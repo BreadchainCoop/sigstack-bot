@@ -4,6 +4,7 @@ use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use async_trait::async_trait;
+use signal_bot_core::{starts_with_word, strip_word_prefix};
 use signal_client::{BotMessage, SignalClient};
 use std::sync::Arc;
 use tracing::warn;
@@ -25,20 +26,14 @@ impl RenameHandler {
     }
 
     fn parse_name(text: &str) -> Option<&str> {
-        let t = text.trim();
-        let rest = t.strip_prefix("!rename")?;
-        if !rest.is_empty() && !rest.starts_with(' ') && !rest.starts_with('\t') {
-            return None;
-        }
-        Some(rest.trim())
+        Some(strip_word_prefix(text, "!rename")?.trim())
     }
 }
 
 #[async_trait]
 impl CommandHandler for RenameHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        let t = message.text.trim();
-        t == "!rename" || t.starts_with("!rename ")
+        starts_with_word(&message.text, "!rename")
     }
 
     fn label(&self) -> &'static str {

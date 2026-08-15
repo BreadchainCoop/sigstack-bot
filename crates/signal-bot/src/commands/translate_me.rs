@@ -36,10 +36,21 @@ const LEAVE_SIDECAR_ONLY_MSG: &str =
 const IN_CHAT_BLOCK_MSG: &str = "In-chat auto-translate is already on in this group, so Language Threads and Bilingual Threads can't start alongside it.\n\nThe three products — in-chat auto, Language Threads, and Bilingual Threads — cannot run at the same time.\n\nTo switch, send:\n!enable-threads";
 const LANGUAGE_THREADS_TWO_ARG_REFUSE: &str = "Language Threads is already on (multilingual hub). Tear down with !enable-in-chat before starting Bilingual Threads.";
 /// Tear down Language Threads so in-chat can run (`!enable-in-chat`).
-const ENABLE_IN_CHAT_CMDS: &[&str] = &["!enable-in-chat", "!translation-enable-in-chat"];
+pub(crate) const ENABLE_IN_CHAT_CMDS: &[&str] = &[
+    "!enable-in-chat",
+    "!translation-enable-in-chat",
+    "!enable-inchat",
+    "!enable in-chat",
+];
 const THREADS_DISABLED_SIDECAR_MSG: &str = "Language Threads were disabled in the main group (in-chat translation is on).\n\nReturn to the main chat to continue — this thread will no longer relay messages.";
 const BILINGUAL_DISABLED_SIDECAR_MSG: &str = "Bilingual Threads were disabled in the main group (in-chat translation is on).\n\nReturn to the main chat to continue — this thread will no longer relay messages.";
-const LEAVE_CMDS: &[&str] = &["!leave"];
+pub(crate) const LEAVE_CMDS: &[&str] = &["!leave"];
+pub(crate) const THREAD_ON_PREFIXES: &[&str] = &[
+    "!translate-me-thread",
+    "!translation-me-thread",
+    "!translate-me-threads",
+    "!translation-me-threads",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ThreadCmdArgs {
@@ -156,17 +167,16 @@ impl TranslateMeHandler {
         }
     }
 
-    fn is_on_command(text: &str) -> bool {
-        let t = text.trim();
-        starts_with_word(t, "!translate-me-thread") || starts_with_word(t, "!translation-me-thread")
+    pub(crate) fn is_on_command(text: &str) -> bool {
+        signal_bot_core::starts_with_word_any(text, THREAD_ON_PREFIXES)
     }
 
     fn is_off_command(text: &str) -> bool {
-        LEAVE_CMDS.contains(&text.trim())
+        signal_bot_core::is_exact_command_any(text, LEAVE_CMDS)
     }
 
     fn is_enable_in_chat(text: &str) -> bool {
-        ENABLE_IN_CHAT_CMDS.contains(&text.trim())
+        signal_bot_core::is_exact_command_any(text, ENABLE_IN_CHAT_CMDS)
     }
 
     fn is_command(text: &str) -> bool {
@@ -175,13 +185,8 @@ impl TranslateMeHandler {
     }
 
     fn thread_tokens(text: &str) -> Option<Vec<&str>> {
-        let t = text.trim();
-        for prefix in ["!translate-me-thread", "!translation-me-thread"] {
-            if let Some(rest) = strip_word_prefix(t, prefix) {
-                return Some(rest.split_whitespace().collect());
-            }
-        }
-        None
+        let rest = signal_bot_core::strip_prefix_list(text, THREAD_ON_PREFIXES)?;
+        Some(rest.split_whitespace().collect())
     }
 
     fn is_relay_candidate(&self, message: &BotMessage) -> bool {
@@ -932,22 +937,6 @@ fn short_main_id_hash(main_id: &str) -> String {
     format!("{:04x}", hash & 0xffff)
 }
 
-fn starts_with_word(text: &str, prefix: &str) -> bool {
-    text == prefix
-        || text
-            .strip_prefix(prefix)
-            .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '))
-}
-
-fn strip_word_prefix<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
-    if text == prefix {
-        return Some("");
-    }
-    text.strip_prefix(prefix)
-        .filter(|rest| rest.is_empty() || rest.starts_with(' '))
-        .map(str::trim)
-}
-
 #[async_trait]
 impl CommandHandler for TranslateMeHandler {
     fn matches(&self, message: &BotMessage) -> bool {
@@ -1043,9 +1032,16 @@ mod tests {
     #[test]
     fn matches_on_off_commands() {
         assert!(TranslateMeHandler::is_on_command("!translate-me-thread es"));
-        assert!(TranslateMeHandler::is_on_command("!translate-me-thread es"));
+        assert!(TranslateMeHandler::is_on_command(
+            "!translate-me-threads es"
+        ));
+        assert!(TranslateMeHandler::is_on_command(
+            "!translation-me-threads es en"
+        ));
         assert!(TranslateMeHandler::is_off_command("!leave"));
-        assert!(TranslateMeHandler::is_off_command("!leave"));
+        assert!(TranslateMeHandler::is_off_command("!LEAVE"));
+        assert!(TranslateMeHandler::is_enable_in_chat("!enable-inchat"));
+        assert!(TranslateMeHandler::is_enable_in_chat("!enable in-chat"));
         assert!(!TranslateMeHandler::is_command("!translate-on es en"));
         assert!(!TranslateMeHandler::is_command("!translate-me-on es en"));
         assert!(!TranslateMeHandler::is_command("!translate es"));
@@ -1063,6 +1059,14 @@ mod tests {
         );
         assert_eq!(
             TranslateMeHandler::thread_tokens("!translation-me-thread es en"),
+            Some(vec!["es", "en"])
+        );
+        assert_eq!(
+            TranslateMeHandler::thread_tokens("!translate-me-threads es"),
+            Some(vec!["es"])
+        );
+        assert_eq!(
+            TranslateMeHandler::thread_tokens("!translation-me-threads es en"),
             Some(vec!["es", "en"])
         );
         assert_eq!(

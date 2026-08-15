@@ -62,15 +62,15 @@ impl VerifyHandler {
     /// Expected format: "!verify <nonce>" or just "!verify"
     fn parse_challenge(&self, text: &str) -> Option<String> {
         let trimmed = text.trim();
-        if trimmed.starts_with("!verify") {
-            let rest = trimmed.strip_prefix("!verify").unwrap().trim();
-            if rest.is_empty() {
-                None
-            } else {
-                Some(rest.to_string())
-            }
-        } else {
+        const PREFIX: &str = "!verify";
+        if trimmed.len() < PREFIX.len() || !trimmed[..PREFIX.len()].eq_ignore_ascii_case(PREFIX) {
+            return None;
+        }
+        let rest = trimmed[PREFIX.len()..].trim();
+        if rest.is_empty() {
             None
+        } else {
+            Some(rest.to_string())
         }
     }
 
@@ -282,6 +282,12 @@ impl CommandHandler for VerifyHandler {
         Some("!verify")
     }
 
+    fn matches(&self, message: &BotMessage) -> bool {
+        let t = message.text.trim();
+        const PREFIX: &str = "!verify";
+        t.len() >= PREFIX.len() && t[..PREFIX.len()].eq_ignore_ascii_case(PREFIX)
+    }
+
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
         let raw = self.parse_challenge(&message.text);
         let prefixed = self.prefixed_challenge(raw);
@@ -324,6 +330,10 @@ mod tests {
 
         assert_eq!(
             handler.parse_challenge("!verify abc123"),
+            Some("abc123".into())
+        );
+        assert_eq!(
+            handler.parse_challenge("!VERIFY abc123"),
             Some("abc123".into())
         );
         assert_eq!(

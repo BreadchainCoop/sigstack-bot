@@ -117,11 +117,11 @@ Legacy encrypted prefs that still contain a `parallel_bridge` key are ignored on
 ## Local testing
 
 ```bash
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # Set SIGNAL_PHONE (phone B) and NEAR_AI_API_KEY
 
-docker compose -f docker/compose.yaml --env-file docker/env build signal-bot
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env build signal-bot
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 Only **signal-bot** on the translation stack needs rebuild for Language Threads changes.
@@ -145,7 +145,7 @@ Whisper / voice run in the same bot process (NEAR AI Whisper) — after STT, spo
 
 - One CVM on Phala (`tdx.medium` = 2 vCPU / 4 GB RAM): [`docker/phala.yaml`](../docker/phala.yaml) — one Signal number (phone B). No Whisper sidecar; STT is NEAR AI. See [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 - Deploy uses **Docker images** (digest-pinned in env), not a public git clone. Upgrade in place: `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`.
-- Env template: [`docker/phala.env.example`](../docker/phala.env.example) (secrets; do not commit filled env).
+- Env template: [`docker/.phala.env.example`](../docker/.phala.env.example) (secrets; do not commit filled env).
 - Registration proxy on this CVM: `:8081` phone B.
 
 ## Trust / privacy notes

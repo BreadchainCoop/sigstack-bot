@@ -22,6 +22,61 @@ const DATA_VERSION: u32 = 1;
 const KEY_DERIVATION_PATH: &str = "signal-bot/group-preferences";
 const NONCE_SIZE: usize = 12;
 
+/// AppInfo fallback when dstack `DeriveKey` is missing.
+///
+/// `compose_hash = Some` is the legacy mix (broke on every compose/image bump).
+/// `None` is app-id-only and stays valid across in-place upgrades.
+fn appinfo_fallback_key(app_id: &str, compose_hash: Option<&str>) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    if let Some(compose_hash) = compose_hash {
+        hasher.update(compose_hash.as_bytes());
+    }
+    hasher.update(app_id.as_bytes());
+    hasher.update(KEY_DERIVATION_PATH.as_bytes());
+    let hash = hasher.finalize();
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&hash);
+    key
+}
+
+fn decrypt_prefs_blob(data: &[u8], key: &[u8; 32]) -> Result<GroupPreferencesSnapshot, String> {
+    if data.len() < NONCE_SIZE {
+        return Err("group preferences file too short".into());
+    }
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = Nonce::from_slice(&data[..NONCE_SIZE]);
+    let ciphertext = &data[NONCE_SIZE..];
+    let plaintext = cipher.decrypt(nonce, ciphertext).map_err(|_| {
+        "Failed to decrypt group preferences (TEE deployment may have changed)".to_string()
+    })?;
+    serde_json::from_slice(&plaintext).map_err(|e| format!("parse group preferences: {e}"))
+}
+
+fn encrypt_prefs_blob(
+    snapshot: &GroupPreferencesSnapshot,
+    key: &[u8; 32],
+) -> Result<Vec<u8>, String> {
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let mut nonce_bytes = [0u8; NONCE_SIZE];
+    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let plaintext =
+        serde_json::to_vec(snapshot).map_err(|e| format!("serialize group preferences: {e}"))?;
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext.as_ref())
+        .map_err(|e| format!("encrypt group preferences: {e}"))?;
+    let mut data = nonce_bytes.to_vec();
+    data.extend(ciphertext);
+    Ok(data)
+}
+
+fn push_unique_key(out: &mut Vec<(String, [u8; 32])>, label: String, key: [u8; 32]) {
+    if out.iter().any(|(_, existing)| existing == &key) {
+        return;
+    }
+    out.push((label, key));
+}
+
 /// Active bidirectional translation pair for a Signal group.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupTranslateMode {
@@ -210,6 +265,8 @@ pub struct GroupPreferencesStore {
     storage_path: Option<PathBuf>,
     cached_key: RwLock<Option<[u8; 32]>>,
     persist_lock: Mutex<()>,
+    /// Previous dstack compose hashes (AppInfo fallback used to mix these into the key).
+    legacy_compose_hashes: Vec<String>,
 }
 
 impl GroupPreferencesStore {
@@ -224,6 +281,7 @@ impl GroupPreferencesStore {
             storage_path: None,
             cached_key: RwLock::new(None),
             persist_lock: Mutex::new(()),
+            legacy_compose_hashes: Vec::new(),
         })
     }
 
@@ -233,6 +291,7 @@ impl GroupPreferencesStore {
         storage_path: PathBuf,
         persist: bool,
         max_per_minute: u32,
+        legacy_compose_hashes: Vec<String>,
     ) -> Arc<Self> {
         let store = Arc::new(Self {
             groups: RwLock::new(HashMap::new()),
@@ -243,6 +302,7 @@ impl GroupPreferencesStore {
             storage_path: if persist { Some(storage_path) } else { None },
             cached_key: RwLock::new(None),
             persist_lock: Mutex::new(()),
+            legacy_compose_hashes,
         });
 
         if persist {
@@ -271,6 +331,7 @@ impl GroupPreferencesStore {
             storage_path: Some(storage_path),
             cached_key: RwLock::new(Some(key)),
             persist_lock: Mutex::new(()),
+            legacy_compose_hashes: Vec::new(),
         });
         let _ = store.load().await;
         store
@@ -788,12 +849,20 @@ impl GroupPreferencesStore {
         if let Some(key) = *self.cached_key.read().unwrap() {
             return Ok(key);
         }
+        let (preferred, _) = self.encryption_keys().await?;
+        *self.cached_key.write().unwrap() = Some(preferred);
+        Ok(preferred)
+    }
 
+    /// Preferred persist key plus decrypt candidates (legacy compose-hash mixes last).
+    async fn encryption_keys(&self) -> Result<([u8; 32], Vec<(String, [u8; 32])>), String> {
         let dstack = self
             .dstack
             .as_ref()
             .ok_or_else(|| "persistence not configured".to_string())?;
 
+        let mut candidates = Vec::new();
+        let mut derive_key = None;
         match dstack.derive_key(KEY_DERIVATION_PATH, None).await {
             Ok(key_bytes) => {
                 if key_bytes.len() < 32 {
@@ -804,9 +873,9 @@ impl GroupPreferencesStore {
                 }
                 let mut key = [0u8; 32];
                 key.copy_from_slice(&key_bytes[..32]);
-                *self.cached_key.write().unwrap() = Some(key);
                 info!("Using DeriveKey endpoint for group preferences encryption");
-                return Ok(key);
+                derive_key = Some(key);
+                push_unique_key(&mut candidates, "DeriveKey".into(), key);
             }
             Err(e) => {
                 warn!("DeriveKey not available for group preferences, using AppInfo fallback: {e}");
@@ -817,24 +886,29 @@ impl GroupPreferencesStore {
             .get_app_info()
             .await
             .map_err(|e| format!("Failed to get AppInfo for key derivation: {e}"))?;
-
-        let compose_hash = app_info.compose_hash.as_deref().unwrap_or("unknown");
         let app_id = app_info.app_id.as_deref().unwrap_or("unknown");
+        let compose_hash = app_info.compose_hash.as_deref().unwrap_or("unknown");
 
-        let mut hasher = Sha256::new();
-        hasher.update(compose_hash.as_bytes());
-        hasher.update(app_id.as_bytes());
-        hasher.update(KEY_DERIVATION_PATH.as_bytes());
-        let hash = hasher.finalize();
-
-        let mut key = [0u8; 32];
-        key.copy_from_slice(&hash);
-        *self.cached_key.write().unwrap() = Some(key);
-
+        let stable = appinfo_fallback_key(app_id, None);
         info!(
-            "Using AppInfo-derived key for group preferences (compose_hash: {compose_hash}, app_id: {app_id})"
+            "Using AppInfo-derived key for group preferences (app_id: {app_id}, no compose_hash)"
         );
-        Ok(key)
+        push_unique_key(&mut candidates, "AppInfo app_id".into(), stable);
+        push_unique_key(
+            &mut candidates,
+            format!("AppInfo compose_hash {compose_hash}"),
+            appinfo_fallback_key(app_id, Some(compose_hash)),
+        );
+        for hash in &self.legacy_compose_hashes {
+            push_unique_key(
+                &mut candidates,
+                format!("legacy compose_hash {hash}"),
+                appinfo_fallback_key(app_id, Some(hash)),
+            );
+        }
+
+        let preferred = derive_key.unwrap_or(stable);
+        Ok((preferred, candidates))
     }
 
     fn snapshot(&self) -> GroupPreferencesSnapshot {
@@ -853,20 +927,7 @@ impl GroupPreferencesStore {
             .ok_or_else(|| "persistence not configured".to_string())?;
 
         let key = self.derive_key().await?;
-        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
-
-        let mut nonce_bytes = [0u8; NONCE_SIZE];
-        rand::thread_rng().fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
-
-        let plaintext = serde_json::to_vec(&self.snapshot())
-            .map_err(|e| format!("serialize group preferences: {e}"))?;
-        let ciphertext = cipher
-            .encrypt(nonce, plaintext.as_ref())
-            .map_err(|e| format!("encrypt group preferences: {e}"))?;
-
-        let mut data = nonce_bytes.to_vec();
-        data.extend(ciphertext);
+        let data = encrypt_prefs_blob(&self.snapshot(), &key)?;
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
@@ -900,24 +961,11 @@ impl GroupPreferencesStore {
             return Ok(0);
         }
 
-        let key = self.derive_key().await?;
-        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
         let data = fs::read(path)
             .await
             .map_err(|e| format!("read group preferences: {e}"))?;
 
-        if data.len() < NONCE_SIZE {
-            return Err("group preferences file too short".into());
-        }
-
-        let nonce = Nonce::from_slice(&data[..NONCE_SIZE]);
-        let ciphertext = &data[NONCE_SIZE..];
-        let plaintext = cipher.decrypt(nonce, ciphertext).map_err(|_| {
-            "Failed to decrypt group preferences (TEE deployment may have changed)".to_string()
-        })?;
-
-        let snapshot: GroupPreferencesSnapshot = serde_json::from_slice(&plaintext)
-            .map_err(|e| format!("parse group preferences: {e}"))?;
+        let (snapshot, used_key, preferred_key) = self.decrypt_with_candidates(&data).await?;
 
         if snapshot.version != DATA_VERSION {
             warn!(
@@ -929,7 +977,35 @@ impl GroupPreferencesStore {
         let count = snapshot.groups.len();
         *self.groups.write().unwrap() = snapshot.groups;
         self.rebuild_sidecar_index();
+        *self.cached_key.write().unwrap() = Some(preferred_key);
+        if used_key != preferred_key {
+            info!("Re-encrypting group preferences with the stable persist key");
+            self.persist().await?;
+        }
         Ok(count)
+    }
+
+    async fn decrypt_with_candidates(
+        &self,
+        data: &[u8],
+    ) -> Result<(GroupPreferencesSnapshot, [u8; 32], [u8; 32]), String> {
+        if let Some(key) = *self.cached_key.read().unwrap() {
+            let snapshot = decrypt_prefs_blob(data, &key)?;
+            return Ok((snapshot, key, key));
+        }
+
+        let (preferred, candidates) = self.encryption_keys().await?;
+        let mut last_err = "no candidate keys".to_string();
+        for (label, key) in candidates {
+            match decrypt_prefs_blob(data, &key) {
+                Ok(snapshot) => {
+                    info!("Decrypted group preferences with {label}");
+                    return Ok((snapshot, key, preferred));
+                }
+                Err(e) => last_err = e,
+            }
+        }
+        Err(last_err)
     }
 
     #[cfg(test)]
@@ -1274,5 +1350,46 @@ mod tests {
         assert_eq!(bridge.sidecar_send_id("en"), Some("group.en"));
         assert!(store2.is_bilingual("main-1"));
         assert!(!store2.is_language_threads("main-1"));
+    }
+
+    #[test]
+    fn appinfo_key_without_compose_hash_differs_from_legacy_mix() {
+        let stable = appinfo_fallback_key("app-1", None);
+        let legacy = appinfo_fallback_key("app-1", Some("old-compose"));
+        assert_ne!(stable, legacy);
+        assert_eq!(stable, appinfo_fallback_key("app-1", None));
+    }
+
+    #[test]
+    fn decrypts_blob_encrypted_with_legacy_compose_hash_key() {
+        let mut groups = HashMap::new();
+        groups.insert(
+            "group.one".into(),
+            GroupPreference {
+                transcribe_enabled: true,
+                ..Default::default()
+            },
+        );
+        let snapshot = GroupPreferencesSnapshot {
+            version: DATA_VERSION,
+            groups,
+        };
+        let legacy = appinfo_fallback_key("app-1", Some("old-compose"));
+        let stable = appinfo_fallback_key("app-1", None);
+        let blob = encrypt_prefs_blob(&snapshot, &legacy).unwrap();
+
+        assert!(decrypt_prefs_blob(&blob, &stable).is_err());
+        let loaded = decrypt_prefs_blob(&blob, &legacy).unwrap();
+        assert!(loaded.groups["group.one"].transcribe_enabled);
+    }
+
+    #[test]
+    fn push_unique_key_skips_duplicates() {
+        let mut keys = Vec::new();
+        let key = [3u8; 32];
+        push_unique_key(&mut keys, "a".into(), key);
+        push_unique_key(&mut keys, "b".into(), key);
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].0, "a");
     }
 }

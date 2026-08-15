@@ -50,10 +50,10 @@ npm run ci               # all GitHub Actions gates (fmt + clippy + coverage + c
 pnpm run ci              # same as above if you use pnpm (NOT `pnpm ci` — that only installs)
 npm run prepush          # alias of npm run ci (also run by husky pre-push)
 
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # SIGNAL_PHONE + NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 ## Read next

@@ -1,7 +1,8 @@
 //! Help / info / thread-commands menus.
 
 use crate::commands::menu_locale::{
-    help_menu, info_menu, is_exact_command, thread_help_menu, thread_info_menu,
+    help_menu, info_menu, is_exact_command_any, thread_help_menu, thread_info_menu,
+    COMMANDS_COMMANDS, HELP_COMMANDS, INFO_COMMANDS,
 };
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -30,7 +31,7 @@ impl Default for HelpHandler {
 impl CommandHandler for HelpHandler {
     fn matches(&self, message: &BotMessage) -> bool {
         // Exact match so !help-threads / !help-in-chat are not swallowed.
-        is_exact_command(&message.text, "!help")
+        is_exact_command_any(&message.text, HELP_COMMANDS)
     }
 
     fn label(&self) -> &'static str {
@@ -57,7 +58,7 @@ impl CommandsHandler {
 #[async_trait]
 impl CommandHandler for CommandsHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!commands")
+        is_exact_command_any(&message.text, COMMANDS_COMMANDS)
     }
 
     fn label(&self) -> &'static str {
@@ -89,7 +90,7 @@ impl InfoHandler {
 #[async_trait]
 impl CommandHandler for InfoHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!info")
+        is_exact_command_any(&message.text, INFO_COMMANDS)
     }
 
     fn label(&self) -> &'static str {
@@ -139,8 +140,11 @@ mod tests {
         let handler = HelpHandler::new();
 
         assert!(handler.matches(&dm("!help")));
+        assert!(handler.matches(&dm("!HELP")));
         assert!(!handler.matches(&dm("!help-threads")));
+        assert!(!handler.matches(&dm("!help-thread")));
         assert!(!handler.matches(&dm("!help-in-chat")));
+        assert!(!handler.matches(&dm("!help thread")));
         let t = handler.execute(&dm("!help")).await.unwrap();
         assert!(t.contains("!translation-threads"));
         assert!(t.contains("!translation-in-chat"));
@@ -187,6 +191,7 @@ mod tests {
         store.set_sidecar("main-1", "it", "group.it".into(), "it-internal".into());
         let handler = CommandsHandler::new(store);
         assert!(handler.matches(&group("!commands", "it-internal")));
+        assert!(handler.matches(&group("!command", "it-internal")));
         assert!(!handler.matches(&group("!help", "it-internal")));
         let out = handler
             .execute(&group("!commands", "it-internal"))

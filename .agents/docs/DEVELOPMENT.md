@@ -59,7 +59,7 @@ crates/
 docker/
   compose.yaml                # local one-number stack
   phala.yaml                  # prod one-CVM suite
-  env.example / phala.env.example
+  .env.example / .phala.env.example
   Dockerfile / Dockerfile.proxy
 docs/
   one-cvm-architecture.md
@@ -70,10 +70,10 @@ docs/
 ## Local Compose
 
 ```bash
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 Network: `sigstack-translation-internal`.
@@ -87,10 +87,10 @@ docker buildx build --platform linux/amd64 -t YOUR/signal-bot-tee:latest -f dock
 docker buildx build --platform linux/amd64 -t YOUR/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
 
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.yaml -e docker/phala.env --wait
+  -c docker/phala.yaml -e docker/.phala.env --wait
 ```
 
-Do **not** `phala deploy -n` against the live CVM. Env template: `docker/phala.env.example`.
+Do **not** `phala deploy -n` against the live CVM. Env template: `docker/.phala.env.example`.
 
 Encrypted secrets: `SIGNAL_PHONE` (phone B), `NEAR_AI_API_KEY`.
 
@@ -109,7 +109,7 @@ Do not re-register phone A. Proxy **:8081** only.
 
 Use `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`. Do **not** `phala cvms delete` this CVM, create a replacement, rename those volumes, or `down -v` for an image bump. [`scripts/deploy_phala.sh`](../../scripts/deploy_phala.sh) defaults to that `--cvm-id`.
 
-After upgrade, logs should show `Loaded group preferences for N groups` (not `starting fresh` / `TEE deployment may have changed`), and `signal-api` should still list its account.
+After upgrade, logs should show `Loaded group preferences for N groups` (not `starting fresh` / `TEE deployment may have changed`), and `signal-api` should still list its account. If DeriveKey is missing, set `GROUP_PREFERENCES_LEGACY_COMPOSE_HASH` to the previous compose hash so AppInfo-encrypted prefs still decrypt; the bot then re-saves with an app-id-only key.
 
 Canonical table: [`docs/one-cvm-architecture.md` — CVM storage](../../docs/one-cvm-architecture.md#cvm-storage-keep-intact). Agent rule: [`AGENTS.md` — CVM storage](../../AGENTS.md#cvm-storage-do-not-wipe).
 

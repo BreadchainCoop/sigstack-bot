@@ -10,7 +10,7 @@ Quick start (env copy + `up -d`) stays in [README.md](../README.md#local). Archi
 
 - Docker with Compose v2
 - One Signal-capable phone number (E.164)
-- `NEAR_AI_API_KEY` in `docker/env` (chat + Whisper STT)
+- `NEAR_AI_API_KEY` in `docker/.env` (chat + Whisper STT)
 - Optional: a local `/var/run/dstack.sock` if you care about attestation paths; local Compose mounts it read-only — registration and day-to-day bot traffic do not require a live Phala socket
 
 ## Captcha token
@@ -42,30 +42,30 @@ That means:
 After you pull or edit bot code, rebuild and recreate the bot container (Signal registration volumes are untouched):
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   up -d --build --force-recreate signal-bot
 ```
 
 Confirm the container is new (Created time should be “seconds/minutes ago”):
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   ps signal-bot
 ```
 
 Then tail logs and look for a fresh `Starting sigstack Signal bot` / `Listening for messages...` line:
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   logs -f --tail=50 signal-bot
 ```
 
 Still on old behavior after that? Force a no-cache image rebuild, then recreate:
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   build --no-cache signal-bot
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   up -d --force-recreate signal-bot
 ```
 
@@ -76,17 +76,17 @@ Do **not** use `down -v` to “force a refresh” — that wipes Signal CLI stat
 ## Stack
 
 Compose file: `docker/compose.yaml`  
-Env file: `docker/env`  
+Env file: `docker/.env`  
 Unified bot — hub + voice + in-chat + Language Threads. Needs `NEAR_AI_API_KEY` and Whisper enabled.
 
 ### Env + start
 
 ```bash
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # Edit: SIGNAL_PHONE
 #       NEAR_AI_API_KEY = required (chat + Whisper STT)
 
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 First `up -d` builds `signal-bot` if needed. After later code changes, use [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot) — plain `up -d` keeps the old binary.
@@ -103,7 +103,7 @@ docker network ls | grep sigstack-translation
 `signal-api` `/v1/health` returns **HTTP 204** with an empty body — no printed output and exit code 0 means healthy. Failure exits non-zero (`curl -sf`).
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   exec signal-api curl -sf http://localhost:8080/v1/health
 ```
 
@@ -115,12 +115,12 @@ curl -sf http://localhost:8081/health
 
 ### Register the phone
 
-The number must match `SIGNAL_PHONE` in `docker/env`.
+The number must match `SIGNAL_PHONE` in `docker/.env`.
 
 Check whether the number is already registered with Signal CLI (skip captcha/register if it appears):
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   exec signal-api curl -sS 'http://localhost:8080/v1/accounts'
 # Expect JSON array, e.g. ["+1YYYYYYYYYY"]. Empty [] means not registered yet.
 ```
@@ -150,7 +150,7 @@ curl -sS -X POST "http://localhost:8081/v1/register/+1YYYYYYYYYY/verify/123456" 
 Confirm again with `/v1/accounts` (or `v1/debug/signal-accounts`), then restart the bot so it picks up the registered session:
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   restart signal-bot
 ```
 
@@ -161,7 +161,7 @@ Add this one bot to a Signal group (it auto-accepts invites). Quote a voice note
 Idle bots are quiet at `info` — empty polls do not print. Incoming receive lines are mostly `debug`; successful command/handler work logs at `info`.
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   logs -f signal-bot
 ```
 
@@ -169,21 +169,21 @@ Useful variants:
 
 ```bash
 # All services on this stack
-docker compose -f docker/compose.yaml --env-file docker/env logs -f
+docker compose -f docker/compose.yaml --env-file docker/.env logs -f
 
 # Last 100 lines, then follow
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   logs -f --tail=100 signal-bot
 
 # signal-api (registration / receive issues)
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   logs -f signal-api
 ```
 
-Raise verbosity: set `LOG_LEVEL=debug` in `docker/env`, then recreate the bot:
+Raise verbosity: set `LOG_LEVEL=debug` in `docker/.env`, then recreate the bot:
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env \
+docker compose -f docker/compose.yaml --env-file docker/.env \
   up -d signal-bot
 ```
 
@@ -192,7 +192,7 @@ docker compose -f docker/compose.yaml --env-file docker/env \
 Stop the stack (keeps Signal CLI volumes):
 
 ```bash
-docker compose -f docker/compose.yaml --env-file docker/env down
+docker compose -f docker/compose.yaml --env-file docker/.env down
 ```
 
 After code changes, rebuild/recreate — see [Code changes (rebuild the bot)](#code-changes-rebuild-the-bot). Do **not** use `down -v` unless you intend to wipe Signal CLI state (you will need to re-register the phone).

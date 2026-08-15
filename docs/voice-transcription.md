@@ -45,10 +45,10 @@ Auto path: inbound voice notes are transcribed only after `!transcribe-on` (defa
 ### Local
 
 ```bash
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 Register the number against this stack’s `signal-api` or proxy `:8081`. Health:
@@ -63,10 +63,10 @@ In-place upgrade of the **surviving** CVM (do not re-register a second number):
 
 ```bash
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.yaml -e docker/phala.env --wait
+  -c docker/phala.yaml -e docker/.phala.env --wait
 ```
 
-Env template: [`docker/phala.env.example`](../docker/phala.env.example). SKU stays **tdx.medium** (2 vCPU / 4 GB) — remote GPU is the STT speed lever, not a larger TDX. Attestation: `!verify <challenge>` inside Signal.
+Env template: [`docker/.phala.env.example`](../docker/.phala.env.example). SKU stays **tdx.medium** (2 vCPU / 4 GB) — remote GPU is the STT speed lever, not a larger TDX. Attestation: `!verify <challenge>` inside Signal.
 
 ## Key code
 

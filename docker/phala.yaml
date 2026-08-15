@@ -12,7 +12,7 @@
 # Later upgrades MUST use `--cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` (or the live app id)
 # so volumes stay (Signal phone session + group prefs). Do not rename volumes below.
 # See docs/one-cvm-architecture.md#cvm-storage-keep-intact
-#   phala deploy --cvm-id YOUR_CVM -c docker/phala.yaml -e docker/phala.env --wait
+#   phala deploy --cvm-id YOUR_CVM -c docker/phala.yaml -e docker/.phala.env --wait
 #
 # Registration proxy :8081 (phone B). Do not re-register phone A.
 
@@ -53,6 +53,7 @@ services:
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
       - GROUP_PREFERENCES__PERSIST=true
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
+      - GROUP_PREFERENCES__LEGACY_COMPOSE_HASH=${GROUP_PREFERENCES_LEGACY_COMPOSE_HASH:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-translation:/data

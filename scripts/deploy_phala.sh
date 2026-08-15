@@ -11,7 +11,7 @@
 # First create (empty volumes) only when no CVM exists:
 #   FIRST_CREATE=1 ./scripts/deploy_phala.sh
 #
-# Requires: phala CLI logged in; filled docker/phala.env (never commit).
+# Requires: phala CLI logged in; filled docker/.phala.env (never commit).
 # Images must already be pushed (linux/amd64).
 set -euo pipefail
 
@@ -22,7 +22,7 @@ fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE="${COMPOSE:-$ROOT/docker/phala.yaml}"
-ENV_FILE="${ENV_FILE:-$ROOT/docker/phala.env}"
+ENV_FILE="${ENV_FILE:-$ROOT/docker/.phala.env}"
 NAME="${NAME:-sigstack-translation}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-tdx.medium}"
 DISK_SIZE="${DISK_SIZE:-40G}"
@@ -35,7 +35,7 @@ if [[ ! -f "$COMPOSE" ]]; then
   exit 1
 fi
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Error: missing $ENV_FILE (copy docker/phala.env.example)"
+  echo "Error: missing $ENV_FILE (copy docker/.phala.env.example)"
   exit 1
 fi
 

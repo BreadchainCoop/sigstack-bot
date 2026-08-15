@@ -61,10 +61,10 @@ Signal group
 ## Local
 
 ```bash
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 More thorough local setup (Signal captcha registration, verify SMS/voice codes, and `docker compose logs -f` monitoring): [docs/local-dev/](docs/local-dev/).
@@ -74,7 +74,7 @@ More thorough local setup (Signal captcha registration, verify SMS/voice codes, 
 ```bash
 # In-place upgrade of the surviving CVM (phone B stays; do not create a replacement)
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.yaml -e docker/phala.env --wait
+  -c docker/phala.yaml -e docker/.phala.env --wait
 ```
 
 **Do not replace this CVM or wipe its volumes** for a routine upgrade. Disk holds the **registered Signal phone** and **encrypted user prefs**. TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade. Details: [docs/one-cvm-architecture.md — CVM storage](docs/one-cvm-architecture.md#cvm-storage-keep-intact).
@@ -93,7 +93,7 @@ crates/
 docker/
   compose.yaml                  # local one-number stack
   phala.yaml                    # prod one-CVM suite
-  env.example / phala.env.example
+  .env.example / .phala.env.example
 docs/
   one-cvm-architecture.md       # one CVM / one phone; CVM storage
   in-chat-translation.md

@@ -35,10 +35,10 @@ flowchart LR
 ## Local stack
 
 ```bash
-cp docker/env.example docker/env
+cp docker/.env.example docker/.env
 # Set SIGNAL_PHONE; NEAR_AI_API_KEY (chat + Whisper STT)
 
-docker compose -f docker/compose.yaml --env-file docker/env up -d
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
 Register the number against this stack’s `signal-api` (or the registration proxy on host port `8081`).
@@ -55,7 +55,7 @@ Upgrade **in place** only:
 
 ```bash
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
-  -c docker/phala.yaml -e docker/phala.env --wait
+  -c docker/phala.yaml -e docker/.phala.env --wait
 ```
 
 [`scripts/deploy_phala.sh`](../scripts/deploy_phala.sh) defaults to that `--cvm-id`. Do not `phala deploy -n` against the live CVM.
@@ -81,7 +81,7 @@ Do **not** rename `signal-config-translation` / `group-prefs-translation` / `reg
 | New CVM / `phala cvms delete` / volume rename | Empty | Yes | Yes |
 | Prefs decrypt fail (key mismatch) | File present, unreadable | Yes (bot starts empty) | No (Signal volume is separate) |
 
-Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback includes `compose_hash` — a compose change then fails decrypt. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on `signal-api`.
+Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback is **app-id-only** (stable across compose bumps). Blobs encrypted with the old `compose_hash` mix still decrypt when `GROUP_PREFERENCES_LEGACY_COMPOSE_HASH` is set; the bot then re-saves with the stable key. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on `signal-api`.
 
 Do not change volume names in [`docker/phala.yaml`](../docker/phala.yaml) without a deliberate migration.
 

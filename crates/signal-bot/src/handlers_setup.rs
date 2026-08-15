@@ -72,6 +72,7 @@ pub async fn build_handlers(
         PathBuf::from(&config.group_preferences.storage_path),
         config.group_preferences.persist,
         config.translate_all.max_messages_per_minute,
+        config.group_preferences.legacy_compose_hashes(),
     )
     .await;
 
@@ -199,6 +200,7 @@ mod tests {
             group_preferences: GroupPreferencesConfig {
                 persist: false,
                 storage_path: "/tmp/sigstack-bot-test-prefs.enc".into(),
+                ..Default::default()
             },
         }
     }

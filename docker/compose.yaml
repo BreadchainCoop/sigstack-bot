@@ -2,7 +2,7 @@
 # Hub, translation, and voice in one signal-api + signal-bot.
 # STT is NEAR AI Whisper Large V3 (no Whisper sidecar).
 #
-#   docker compose -f docker/compose.yaml --env-file docker/env up -d
+#   docker compose -f docker/compose.yaml --env-file docker/.env up -d
 
 name: sigstack-translation
 

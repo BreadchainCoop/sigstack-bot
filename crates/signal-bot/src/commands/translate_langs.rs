@@ -4,7 +4,19 @@ use crate::commands::translate_lang::{format_language_list, ALL_LANGUAGES};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
+use signal_bot_core::starts_with_word_any;
 use signal_client::BotMessage;
+
+pub(crate) const LIST_LANGS_COMMANDS: &[&str] = &[
+    "!list-langs",
+    "!list-lang",
+    "!list-languages",
+    "!list-language",
+];
+
+pub(crate) fn is_list_langs_command(text: &str) -> bool {
+    starts_with_word_any(text, LIST_LANGS_COMMANDS)
+}
 
 pub struct TranslateLangsHandler;
 
@@ -27,11 +39,7 @@ impl CommandHandler for TranslateLangsHandler {
     }
 
     fn matches(&self, message: &BotMessage) -> bool {
-        let text = message.text.trim();
-        text == "!list-langs"
-            || text
-                .strip_prefix("!list-langs")
-                .is_some_and(|rest| rest.starts_with(' ') || rest.starts_with('\n'))
+        is_list_langs_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -67,6 +75,14 @@ mod tests {
             attachments: vec![],
             quote: None,
         };
+        assert!(h.matches(&msg));
+        msg.text = "!list-lang".into();
+        assert!(h.matches(&msg));
+        msg.text = "!list-languages".into();
+        assert!(h.matches(&msg));
+        msg.text = "!list-language".into();
+        assert!(h.matches(&msg));
+        msg.text = "!List-Langs".into();
         assert!(h.matches(&msg));
         msg.text = "!list-langs-common".into();
         assert!(!h.matches(&msg));

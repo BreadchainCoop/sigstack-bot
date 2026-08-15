@@ -1,8 +1,10 @@
 //! Product menus: `!translation-threads`, `!translation-in-chat`, `!transcription`, redirects.
 
 use crate::commands::menu_locale::{
-    help_in_chat_guide, help_threads_guide, help_transcription_guide, is_exact_command,
-    is_translation_in_chat_menu_command, is_translation_threads_menu_command, transcription_menu,
+    help_in_chat_guide, help_threads_guide, help_transcription_guide, is_help_in_chat_command,
+    is_help_threads_command, is_help_transcription_command, is_in_chat_menu_command,
+    is_transcription_menu_command, is_translation_in_chat_menu_command,
+    is_translation_redirect_command, is_translation_threads_menu_command, transcription_menu,
     translation_in_chat_menu, translation_split_redirect, translation_threads_menu,
 };
 use crate::commands::CommandHandler;
@@ -22,7 +24,7 @@ impl TranslationMenuHandler {
 #[async_trait]
 impl CommandHandler for TranslationMenuHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!translation")
+        is_translation_redirect_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -108,7 +110,7 @@ impl Default for TranscriptionMenuHandler {
 #[async_trait]
 impl CommandHandler for TranscriptionMenuHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!transcription")
+        is_transcription_menu_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -135,7 +137,7 @@ impl InChatMenuHandler {
 #[async_trait]
 impl CommandHandler for InChatMenuHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!in-chat")
+        is_in_chat_menu_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -165,7 +167,7 @@ impl Default for HelpThreadsHandler {
 #[async_trait]
 impl CommandHandler for HelpThreadsHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!help-threads")
+        is_help_threads_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -195,7 +197,7 @@ impl Default for HelpInChatHandler {
 #[async_trait]
 impl CommandHandler for HelpInChatHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!help-in-chat")
+        is_help_in_chat_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -225,7 +227,7 @@ impl Default for HelpTranscriptionHandler {
 #[async_trait]
 impl CommandHandler for HelpTranscriptionHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!help-transcription")
+        is_help_transcription_command(&message.text)
     }
 
     fn label(&self) -> &'static str {
@@ -262,6 +264,7 @@ mod tests {
     fn menus_match_exact_only() {
         let t = TranslationMenuHandler::new(true);
         assert!(t.matches(&msg("!translation")));
+        assert!(t.matches(&msg("!translations")));
         assert!(!t.matches(&msg("!translation-on es en")));
 
         let threads = TranslationThreadsMenuHandler::new();
@@ -269,31 +272,44 @@ mod tests {
         assert!(threads.matches(&msg("!translate-threads")));
         assert!(threads.matches(&msg("!translate-thread")));
         assert!(threads.matches(&msg("!translation-thread")));
+        assert!(threads.matches(&msg("!translate thread")));
         assert!(!threads.matches(&msg("!translation-on es en")));
 
         let in_chat_prod = TranslationInChatMenuHandler::new(true);
         assert!(in_chat_prod.matches(&msg("!translation-in-chat")));
         assert!(in_chat_prod.matches(&msg("!translate-in-chat")));
+        assert!(!in_chat_prod.matches(&msg("!inchat")));
         assert!(!in_chat_prod.matches(&msg("!translation-on es en")));
 
         let i = InChatMenuHandler::new(true);
         assert!(i.matches(&msg("!in-chat")));
+        assert!(i.matches(&msg("!inchat")));
 
         let ht = HelpThreadsHandler::new();
         assert!(ht.matches(&msg("!help-threads")));
+        assert!(ht.matches(&msg("!help-thread")));
+        assert!(ht.matches(&msg("!help thread")));
+        assert!(ht.matches(&msg("!Help-Threads")));
+        assert!(ht.matches(&msg("!help_threads")));
         assert!(!ht.matches(&msg("!help")));
+        assert!(!ht.matches(&msg("!help extra")));
 
         let hi = HelpInChatHandler::new();
         assert!(hi.matches(&msg("!help-in-chat")));
+        assert!(hi.matches(&msg("!help-inchat")));
         assert!(!hi.matches(&msg("!help")));
 
         let htr = HelpTranscriptionHandler::new();
         assert!(htr.matches(&msg("!help-transcription")));
+        assert!(htr.matches(&msg("!help-transcribe")));
+        assert!(htr.matches(&msg("!help transcript")));
         assert!(!htr.matches(&msg("!help")));
         assert!(!htr.matches(&msg("!transcription")));
 
         let m = TranscriptionMenuHandler::new();
         assert!(m.matches(&msg("!transcription")));
+        assert!(m.matches(&msg("!transcriptions")));
+        assert!(!m.matches(&msg("!transcript")));
     }
 
     #[tokio::test]
@@ -303,7 +319,11 @@ mod tests {
             .execute(&msg("!translation-in-chat"))
             .await
             .unwrap();
-        for typo in ["!translate-in-chat"] {
+        for typo in [
+            "!translate-in-chat",
+            "!translate-inchat",
+            "!translate in-chat",
+        ] {
             let got = canonical.execute(&msg(typo)).await.unwrap();
             assert_eq!(got, expected);
         }
@@ -317,6 +337,8 @@ mod tests {
             "!translate-threads",
             "!translate-thread",
             "!translation-thread",
+            "!translate thread",
+            "!translation threads",
         ] {
             let got = handler.execute(&msg(typo)).await.unwrap();
             assert_eq!(got, expected);
@@ -346,11 +368,16 @@ mod tests {
     #[tokio::test]
     async fn feature_guides_return_use_case_copy() {
         let threads = HelpThreadsHandler::new()
-            .execute(&msg("!help-threads"))
+            .execute(&msg("!help-thread"))
             .await
             .unwrap();
         assert!(threads.contains("sidecar"));
         assert!(threads.contains("!translate-me-thread"));
+        let via_canonical = HelpThreadsHandler::new()
+            .execute(&msg("!help-threads"))
+            .await
+            .unwrap();
+        assert_eq!(threads, via_canonical);
 
         let in_chat = HelpInChatHandler::new()
             .execute(&msg("!help-in-chat"))

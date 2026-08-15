@@ -62,24 +62,60 @@ pub fn privacy_menu() -> &'static str {
     PRIVACY_MENU
 }
 
-/// Exact command match (avoids `!translation` matching `!translation-on`).
-pub fn is_exact_command(text: &str, command: &str) -> bool {
-    text.trim() == command
-}
+pub use signal_bot_core::is_exact_command_any;
 
-pub fn is_exact_command_any(text: &str, commands: &[&str]) -> bool {
-    let t = text.trim();
-    commands.contains(&t)
-}
+pub(crate) const HELP_COMMANDS: &[&str] = &["!help"];
+pub(crate) const INFO_COMMANDS: &[&str] = &["!info"];
+pub(crate) const PRIVACY_COMMANDS: &[&str] = &["!privacy"];
+pub(crate) const COMMANDS_COMMANDS: &[&str] = &["!commands", "!command"];
+pub(crate) const TRANSLATION_REDIRECT_COMMANDS: &[&str] = &["!translation", "!translations"];
 
-const TRANSLATION_THREADS_MENU_COMMANDS: &[&str] = &[
+pub(crate) const TRANSLATION_THREADS_MENU_COMMANDS: &[&str] = &[
     "!translation-threads",
     "!translate-threads",
     "!translate-thread",
     "!translation-thread",
+    "!translation threads",
+    "!translate threads",
+    "!translation thread",
+    "!translate thread",
 ];
 
-const TRANSLATION_IN_CHAT_MENU_COMMANDS: &[&str] = &["!translation-in-chat", "!translate-in-chat"];
+pub(crate) const TRANSLATION_IN_CHAT_MENU_COMMANDS: &[&str] = &[
+    "!translation-in-chat",
+    "!translate-in-chat",
+    "!translation-inchat",
+    "!translate-inchat",
+    "!translation in-chat",
+    "!translate in-chat",
+];
+
+pub(crate) const IN_CHAT_MENU_COMMANDS: &[&str] = &["!in-chat", "!inchat"];
+
+pub(crate) const TRANSCRIPTION_MENU_COMMANDS: &[&str] = &["!transcription", "!transcriptions"];
+
+pub(crate) const HELP_THREADS_COMMANDS: &[&str] = &[
+    "!help-threads",
+    "!help-thread",
+    "!help thread",
+    "!help threads",
+];
+
+pub(crate) const HELP_IN_CHAT_COMMANDS: &[&str] = &[
+    "!help-in-chat",
+    "!help-inchat",
+    "!help in-chat",
+    "!help in chat",
+];
+
+pub(crate) const HELP_TRANSCRIPTION_COMMANDS: &[&str] = &[
+    "!help-transcription",
+    "!help-transcribe",
+    "!help-transcript",
+    "!help transcription",
+    "!help transcribe",
+    "!help transcript",
+];
 
 /// Product hub menu for Language Threads (canonical + common typos).
 pub fn is_translation_threads_menu_command(text: &str) -> bool {
@@ -89,6 +125,30 @@ pub fn is_translation_threads_menu_command(text: &str) -> bool {
 /// Product hub menu for in-chat translation (canonical + common typos).
 pub fn is_translation_in_chat_menu_command(text: &str) -> bool {
     is_exact_command_any(text, TRANSLATION_IN_CHAT_MENU_COMMANDS)
+}
+
+pub fn is_in_chat_menu_command(text: &str) -> bool {
+    is_exact_command_any(text, IN_CHAT_MENU_COMMANDS)
+}
+
+pub fn is_transcription_menu_command(text: &str) -> bool {
+    is_exact_command_any(text, TRANSCRIPTION_MENU_COMMANDS)
+}
+
+pub fn is_translation_redirect_command(text: &str) -> bool {
+    is_exact_command_any(text, TRANSLATION_REDIRECT_COMMANDS)
+}
+
+pub fn is_help_threads_command(text: &str) -> bool {
+    is_exact_command_any(text, HELP_THREADS_COMMANDS)
+}
+
+pub fn is_help_in_chat_command(text: &str) -> bool {
+    is_exact_command_any(text, HELP_IN_CHAT_COMMANDS)
+}
+
+pub fn is_help_transcription_command(text: &str) -> bool {
+    is_exact_command_any(text, HELP_TRANSCRIPTION_COMMANDS)
 }
 
 const HELP_TRANSCRIPTION: &str = r#"Voice Transcription
@@ -305,6 +365,7 @@ Attestation: !verify <your text> attests this CVM's compose, not the remote Whis
 #[cfg(test)]
 mod tests {
     use super::*;
+    use signal_bot_core::is_exact_command;
 
     #[test]
     fn help_translation_is_hub() {
@@ -421,6 +482,8 @@ mod tests {
         assert!(is_translation_threads_menu_command("!translate-threads"));
         assert!(is_translation_threads_menu_command("!translate-thread"));
         assert!(is_translation_threads_menu_command("!translation-thread"));
+        assert!(is_translation_threads_menu_command("!translate thread"));
+        assert!(is_translation_threads_menu_command("!translation threads"));
         assert!(is_translation_threads_menu_command(
             "  !translation-threads  "
         ));
@@ -436,6 +499,8 @@ mod tests {
     fn translation_in_chat_menu_command_aliases() {
         assert!(is_translation_in_chat_menu_command("!translation-in-chat"));
         assert!(is_translation_in_chat_menu_command("!translate-in-chat"));
+        assert!(is_translation_in_chat_menu_command("!translate-inchat"));
+        assert!(is_translation_in_chat_menu_command("!translate in-chat"));
         assert!(is_translation_in_chat_menu_command(
             "  !translate-in-chat  "
         ));
@@ -445,6 +510,24 @@ mod tests {
         assert!(!is_translation_in_chat_menu_command(
             "!translation-in-chat-extra"
         ));
+    }
+
+    #[test]
+    fn help_guide_aliases() {
+        assert!(is_help_threads_command("!help-thread"));
+        assert!(is_help_threads_command("!help thread"));
+        assert!(is_help_threads_command("!Help-Threads"));
+        assert!(is_help_in_chat_command("!help-inchat"));
+        assert!(is_help_in_chat_command("!help in chat"));
+        assert!(is_help_transcription_command("!help-transcribe"));
+        assert!(is_help_transcription_command("!help transcript"));
+        assert!(!is_help_threads_command("!help"));
+        assert!(!is_help_threads_command("!help extra"));
+        assert!(!is_help_transcription_command("!transcription"));
+        assert!(!is_transcription_menu_command("!transcript"));
+        assert!(is_transcription_menu_command("!transcriptions"));
+        assert!(is_in_chat_menu_command("!inchat"));
+        assert!(is_translation_redirect_command("!translations"));
     }
 
     #[test]

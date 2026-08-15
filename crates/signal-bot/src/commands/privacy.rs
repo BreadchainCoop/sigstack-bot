@@ -1,6 +1,6 @@
 //! Privacy / TEE explanation menu (translation hub only).
 
-use crate::commands::menu_locale::{is_exact_command, privacy_menu};
+use crate::commands::menu_locale::{is_exact_command_any, privacy_menu, PRIVACY_COMMANDS};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
@@ -23,7 +23,7 @@ impl Default for PrivacyHandler {
 #[async_trait]
 impl CommandHandler for PrivacyHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        is_exact_command(&message.text, "!privacy")
+        is_exact_command_any(&message.text, PRIVACY_COMMANDS)
     }
 
     fn label(&self) -> &'static str {
@@ -60,6 +60,7 @@ mod tests {
     async fn privacy_returns_unified_menu() {
         let handler = PrivacyHandler::new();
         assert!(handler.matches(&dm("!privacy")));
+        assert!(handler.matches(&dm("!Privacy")));
         assert!(!handler.matches(&dm("!privacy-translation")));
         assert!(!handler.matches(&dm("!privacy-transcription")));
         let out = handler.execute(&dm("!privacy")).await.unwrap();

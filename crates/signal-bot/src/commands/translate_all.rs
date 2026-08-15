@@ -12,26 +12,34 @@ use crate::error::AppResult;
 use crate::group_preferences_store::{GroupPreferencesStore, GroupTranslateMode, PendingSwitch};
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
+use signal_bot_core::{is_exact_command_any, starts_with_word_any, strip_prefix_list};
 use signal_client::{BotMessage, SignalClient};
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
-const ALL_ON_PREFIXES: &[&str] = &[
+pub(crate) const ALL_ON_PREFIXES: &[&str] = &[
     "!translate-all-on",
     "!translation-all-on",
     "!translate-on",
     "!translation-on",
 ];
-const ALL_OFF_COMMANDS: &[&str] = &[
+pub(crate) const ALL_OFF_COMMANDS: &[&str] = &[
     "!translate-all-off",
     "!translation-all-off",
     "!translate-off",
     "!translation-off",
 ];
-const ME_ON_PREFIXES: &[&str] = &["!translate-me-on", "!translation-me-on"];
-const ME_OFF_COMMANDS: &[&str] = &["!translate-me-off", "!translation-me-off"];
+pub(crate) const ME_ON_PREFIXES: &[&str] = &["!translate-me-on", "!translation-me-on"];
+pub(crate) const ME_OFF_COMMANDS: &[&str] = &["!translate-me-off", "!translation-me-off"];
 /// Tear down in-chat auto so Language Threads can run (`!enable-threads`).
-const ENABLE_THREADS: &[&str] = &["!enable-threads", "!translation-enable-threads"];
+pub(crate) const ENABLE_THREADS: &[&str] = &[
+    "!enable-threads",
+    "!translation-enable-threads",
+    "!enable-thread",
+    "!translation-enable-thread",
+    "!enable thread",
+    "!enable threads",
+];
 
 const BARE_ALL_MSG: &str = "Please specify two languages. Example: !translate-all-on es en";
 const BARE_ME_MSG: &str = "Please specify two languages. Example: !translate-me-on es en";
@@ -49,47 +57,27 @@ fn group_blocks_personal_msg(mode: &GroupTranslateMode) -> String {
 
 /// Whether the message is any in-chat auto on/off/disable command (excludes quote `!translate`).
 pub(crate) fn is_translate_on_or_off_command(text: &str) -> bool {
-    let text = text.trim();
     is_all_on_command(text)
-        || ALL_OFF_COMMANDS.contains(&text)
+        || is_exact_command_any(text, ALL_OFF_COMMANDS)
         || is_me_on_command(text)
-        || ME_OFF_COMMANDS.contains(&text)
-        || ENABLE_THREADS.contains(&text)
-}
-
-fn starts_with_word(text: &str, prefix: &str) -> bool {
-    text == prefix
-        || text
-            .strip_prefix(prefix)
-            .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '))
+        || is_exact_command_any(text, ME_OFF_COMMANDS)
+        || is_exact_command_any(text, ENABLE_THREADS)
 }
 
 fn is_all_on_command(text: &str) -> bool {
-    ALL_ON_PREFIXES.iter().any(|p| starts_with_word(text, p))
+    starts_with_word_any(text, ALL_ON_PREFIXES)
 }
 
 fn is_me_on_command(text: &str) -> bool {
-    ME_ON_PREFIXES.iter().any(|p| starts_with_word(text, p))
-}
-
-fn strip_prefix_list<'a>(text: &'a str, prefixes: &[&str]) -> Option<&'a str> {
-    prefixes.iter().find_map(|prefix| {
-        if text == *prefix {
-            Some("")
-        } else {
-            text.strip_prefix(prefix)
-                .filter(|rest| rest.is_empty() || rest.starts_with(' '))
-                .map(str::trim)
-        }
-    })
+    starts_with_word_any(text, ME_ON_PREFIXES)
 }
 
 fn is_bare_all_on(text: &str) -> bool {
-    ALL_ON_PREFIXES.contains(&text.trim())
+    is_exact_command_any(text, ALL_ON_PREFIXES)
 }
 
 fn is_bare_me_on(text: &str) -> bool {
-    ME_ON_PREFIXES.contains(&text.trim())
+    is_exact_command_any(text, ME_ON_PREFIXES)
 }
 
 #[derive(Clone)]
@@ -519,11 +507,11 @@ impl TranslateAllHandler {
     #[instrument(skip(self, message), fields(source = %message.source, is_group = message.is_group))]
     async fn handle_command(&self, message: &BotMessage) -> AppResult<String> {
         let text = message.text.trim();
-        if ENABLE_THREADS.contains(&text) {
+        if is_exact_command_any(text, ENABLE_THREADS) {
             self.handle_enable_threads(message).await
-        } else if ME_OFF_COMMANDS.contains(&text) {
+        } else if is_exact_command_any(text, ME_OFF_COMMANDS) {
             self.handle_me_off(message).await
-        } else if ALL_OFF_COMMANDS.contains(&text) {
+        } else if is_exact_command_any(text, ALL_OFF_COMMANDS) {
             self.handle_all_off(message).await
         } else if is_me_on_command(text) {
             self.handle_me_on(message).await
@@ -629,9 +617,13 @@ mod tests {
         assert!(is_translate_on_or_off_command("!translate-me-on es en"));
         assert!(is_translate_on_or_off_command("!translate-me-off"));
         assert!(is_translate_on_or_off_command("!enable-threads"));
+        assert!(is_translate_on_or_off_command("!enable-thread"));
+        assert!(is_translate_on_or_off_command("!enable thread"));
         assert!(is_translate_on_or_off_command("!translation-off"));
+        assert!(is_translate_on_or_off_command("!Translate-On es en"));
         assert!(!is_translate_on_or_off_command("!translate es"));
         assert!(!is_translate_on_or_off_command("!translate-me-thread es"));
+        assert!(!is_translate_on_or_off_command("!enable-in-chat"));
     }
 
     #[test]

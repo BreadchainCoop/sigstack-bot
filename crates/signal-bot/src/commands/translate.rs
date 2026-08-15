@@ -1,15 +1,19 @@
 //! `!translate` — quote-reply translation via NEAR AI.
 
 use crate::commands::menu_locale::{
-    is_translation_in_chat_menu_command, is_translation_threads_menu_command,
+    is_in_chat_menu_command, is_transcription_menu_command, is_translation_in_chat_menu_command,
+    is_translation_redirect_command, is_translation_threads_menu_command,
 };
 use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
+use crate::commands::translate_langs::is_list_langs_command;
+use crate::commands::translate_me::{TranslateMeHandler, ENABLE_IN_CHAT_CMDS};
 use crate::commands::translate_service::strip_transcript_prefix;
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
 use near_ai_client::{Message, NearAiClient, Role};
+use signal_bot_core::{is_exact_command_any, normalize_command_head, strip_word_prefix};
 use signal_client::{BotMessage, QuotedMessage, SignalClient};
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
@@ -34,7 +38,7 @@ impl TranslateHandler {
     }
 
     fn parse_lang_token(text: &str) -> Option<&str> {
-        let rest = text.trim().strip_prefix("!translate")?.trim();
+        let rest = strip_word_prefix(text, "!translate")?;
         if rest.is_empty() {
             return None;
         }
@@ -113,6 +117,19 @@ impl TranslateHandler {
     }
 }
 
+/// True when another `!translate*` / `!translation*` command already owns this text.
+pub(crate) fn is_non_quote_translate_command(text: &str) -> bool {
+    is_translate_on_or_off_command(text)
+        || is_translation_threads_menu_command(text)
+        || is_translation_in_chat_menu_command(text)
+        || is_translation_redirect_command(text)
+        || is_in_chat_menu_command(text)
+        || TranslateMeHandler::is_on_command(text)
+        || is_exact_command_any(text, ENABLE_IN_CHAT_CMDS)
+        || is_list_langs_command(text)
+        || is_transcription_menu_command(text)
+}
+
 fn truncate_snippet(text: &str, max_len: usize) -> String {
     if text.chars().count() <= max_len {
         text.to_string()
@@ -125,16 +142,8 @@ fn truncate_snippet(text: &str, max_len: usize) -> String {
 #[async_trait]
 impl CommandHandler for TranslateHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        let text = message.text.trim();
-        text.starts_with("!translate")
-            && !is_translate_on_or_off_command(text)
-            && !is_translation_threads_menu_command(text)
-            && !is_translation_in_chat_menu_command(text)
-            && !text.starts_with("!translate-me")
-            && !text.starts_with("!translation")
-            && !text.starts_with("!transcription")
-            && text != "!in-chat"
-            && !text.starts_with("!list-langs")
+        let head = normalize_command_head(&message.text);
+        head.starts_with("!translate") && !is_non_quote_translate_command(&message.text)
     }
 
     fn handles_own_reply(&self) -> bool {
@@ -217,6 +226,10 @@ mod tests {
             Some("es")
         );
         assert_eq!(
+            TranslateHandler::parse_lang_token("!Translate ES"),
+            Some("ES")
+        );
+        assert_eq!(
             TranslateHandler::parse_lang_token("!translate Spanish"),
             Some("Spanish")
         );
@@ -293,13 +306,21 @@ mod tests {
         msg.text = "!translate es".into();
         assert!(handler.matches(&msg));
 
+        msg.text = "!Translate ES".into();
+        assert!(handler.matches(&msg));
+
         for typo in [
             "!translate-in-chat",
             "!translate-threads",
             "!translate-thread",
+            "!translate thread",
+            "!translate-me-threads es",
+            "!translation-me-threads es en",
+            "!enable-thread",
+            "!list-lang",
         ] {
             msg.text = typo.into();
-            assert!(!handler.matches(&msg));
+            assert!(!handler.matches(&msg), "{typo} must not be quote-translate");
         }
     }
 

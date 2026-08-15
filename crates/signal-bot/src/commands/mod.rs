@@ -1,5 +1,7 @@
 //! Bot command handlers.
 
+#[cfg(test)]
+mod command_aliases;
 mod help;
 mod menu_locale;
 mod privacy;

@@ -15,6 +15,8 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 
 Add **one** bot to a Signal group.
 
+**Organizer website:** [`site/`](site/) (SvelteKit → GitHub Pages) — https://breadchaincoop.github.io/sigstack-bot/ after Pages is enabled. See [site/README.md](site/README.md) and issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23). Legacy [`web/`](web/) is not the product storefront.
+
 Details: [docs/one-cvm-architecture.md](docs/one-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md) · [docs/bilingual-threads.md](docs/bilingual-threads.md)
 
 ## Commands
@@ -99,6 +101,8 @@ docs/
   in-chat-translation.md
   language-threads.md
   bilingual-threads.md
+site/                           # educational storefront (GitHub Pages)
+web/                            # legacy Private AI UI (not the storefront)
 ```
 
 ## Build & test

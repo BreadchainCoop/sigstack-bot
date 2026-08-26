@@ -12,7 +12,10 @@ test.describe('smoke', () => {
 	test('product pages and diagrams', async ({ page }) => {
 		for (const path of ['./language-threads/', './in-chat/', './transcription/']) {
 			await page.goto(path);
-			await expect(page.locator('.diagram-frame img')).toBeVisible();
+			const img = page.locator('.diagram-frame img');
+			await expect(img).toBeVisible();
+			await expect(img).toHaveJSProperty('complete', true);
+			expect(await img.evaluate((el) => (el as HTMLImageElement).clientHeight)).toBeGreaterThan(50);
 		}
 	});
 

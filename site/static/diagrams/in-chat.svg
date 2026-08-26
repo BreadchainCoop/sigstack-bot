@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" role="img" aria-labelledby="icTitle icDesc">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="320" viewBox="0 0 720 320" role="img" aria-labelledby="icTitle icDesc">
 	<title id="icTitle">In-chat translation flow</title>
 	<desc id="icDesc">Single Signal group where a human message stays and the bot quote-replies with a translation</desc>
 	<rect width="720" height="320" fill="#FDFCF9" />

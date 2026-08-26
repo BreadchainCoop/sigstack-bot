@@ -1,12 +1,16 @@
 <script lang="ts">
-	import languageThreadsUrl from '$lib/assets/diagrams/language-threads.svg?url';
-	import inChatUrl from '$lib/assets/diagrams/in-chat.svg?url';
-	import transcriptionUrl from '$lib/assets/diagrams/transcription.svg?url';
+	import { asset } from '$app/paths';
 
 	const urls = {
-		'language-threads': languageThreadsUrl,
-		'in-chat': inChatUrl,
-		transcription: transcriptionUrl
+		'language-threads': asset('/diagrams/language-threads.svg'),
+		'in-chat': asset('/diagrams/in-chat.svg'),
+		transcription: asset('/diagrams/transcription.svg')
+	} as const;
+
+	const dimensions = {
+		'language-threads': { width: 720, height: 420 },
+		'in-chat': { width: 720, height: 320 },
+		transcription: { width: 720, height: 280 }
 	} as const;
 
 	let {
@@ -19,6 +23,12 @@
 </script>
 
 <figure class="diagram-frame">
-	<img src={urls[kind]} alt="" width="720" height="420" />
+	<img
+		src={urls[kind]}
+		alt={caption}
+		width={dimensions[kind].width}
+		height={dimensions[kind].height}
+		style="--diagram-aspect-w: {dimensions[kind].width}; --diagram-aspect-h: {dimensions[kind].height}"
+	/>
 	<figcaption>{caption}</figcaption>
 </figure>

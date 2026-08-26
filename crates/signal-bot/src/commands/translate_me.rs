@@ -9,7 +9,8 @@
 use crate::bot_identity::BotIdentity;
 use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::translate_service::{
-    detect_text_language, near_ai_translate, strip_transcript_prefix, DEFAULT_TRANSCRIPT_PREFIX,
+    detect_text_language, near_ai_translate, strip_transcript_prefix, truncate_snippet,
+    DEFAULT_TRANSCRIPT_PREFIX,
 };
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
@@ -18,7 +19,7 @@ use crate::group_preferences_store::{
 };
 use async_trait::async_trait;
 use near_ai_client::NearAiClient;
-use signal_client::{BotMessage, SignalClient};
+use signal_client::{BotMessage, QuotedMessage, SignalClient};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
@@ -777,7 +778,7 @@ impl TranslateMeHandler {
                     }
                 }
             };
-            let formatted = format_attribution(&display, &body);
+            let formatted = format_relayed_message(&display, message.quote.as_ref(), &body);
             if let Err(e) = self.signal.send(bot, send_id, &formatted).await {
                 warn!(error = %e, send_id, "Failed to send main→sidecar");
             }
@@ -818,7 +819,7 @@ impl TranslateMeHandler {
         } else {
             spoken.clone()
         };
-        let to_main = format_attribution(&display, &main_body);
+        let to_main = format_relayed_message(&display, message.quote.as_ref(), &main_body);
 
         // Resolve main send id (incoming group_id is internal).
         let main_recipient = match self
@@ -864,7 +865,7 @@ impl TranslateMeHandler {
                     }
                 }
             };
-            let formatted = format_attribution(&display, &body);
+            let formatted = format_relayed_message(&display, message.quote.as_ref(), &body);
             if let Err(e) = self.signal.send(bot, send_id, &formatted).await {
                 warn!(error = %e, send_id, "Failed to send sidecar→sidecar");
             }
@@ -873,8 +874,36 @@ impl TranslateMeHandler {
     }
 }
 
-fn format_attribution(display_name: &str, body: &str) -> String {
-    format!("{display_name}:\n{body}")
+fn format_relayed_message(display_name: &str, quote: Option<&QuotedMessage>, body: &str) -> String {
+    match quote_context_snippet(quote) {
+        Some(snippet) => format!("{display_name}:\n↪ {snippet}\n{body}"),
+        None => format!("{display_name}:\n{body}"),
+    }
+}
+
+const QUOTE_SNIPPET_MAX: usize = 120;
+const VOICE_NOTE_SNIPPET: &str = "[voice note]";
+
+/// One-line preview of the quoted message for bridged relay context.
+fn quote_context_snippet(quote: Option<&QuotedMessage>) -> Option<String> {
+    let quote = quote?;
+    let text = quote
+        .text
+        .as_deref()
+        .map(|t| strip_transcript_prefix(t, DEFAULT_TRANSCRIPT_PREFIX))
+        .map(|t| collapse_whitespace(&t))
+        .filter(|t| !t.is_empty());
+    if let Some(t) = text {
+        return Some(truncate_snippet(&t, QUOTE_SNIPPET_MAX));
+    }
+    if quote.audio_attachment.is_some() {
+        return Some(VOICE_NOTE_SNIPPET.into());
+    }
+    None
+}
+
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 const DISAMBIGUATOR_MAX: usize = 24;
@@ -1108,7 +1137,93 @@ mod tests {
 
     #[test]
     fn attribution_format() {
-        assert_eq!(format_attribution("Maria", "Hola"), "Maria:\nHola");
+        assert_eq!(
+            format_relayed_message("Maria", None, "Hola"),
+            "Maria:\nHola"
+        );
+    }
+
+    #[test]
+    fn attribution_includes_quote_snippet() {
+        let quote = QuotedMessage {
+            id: 1,
+            author_number: Some("+15550009999".into()),
+            text: Some("Supported languages (use code with !translate-me-thread)".into()),
+            audio_attachment: None,
+        };
+        let out = format_relayed_message(
+            "mettodo",
+            Some(&quote),
+            "Cómo podemos añadir idiomas a esta lista?",
+        );
+        assert_eq!(
+            out,
+            "mettodo:\n↪ Supported languages (use code with !translate-me-thread)\nCómo podemos añadir idiomas a esta lista?"
+        );
+    }
+
+    #[test]
+    fn attribution_truncates_long_quote() {
+        let long = "A".repeat(200);
+        let quote = QuotedMessage {
+            id: 1,
+            author_number: None,
+            text: Some(long),
+            audio_attachment: None,
+        };
+        let out = format_relayed_message("Maria", Some(&quote), "reply");
+        let snippet_line = out.lines().nth(1).unwrap();
+        assert!(snippet_line.starts_with('↪'));
+        let snippet = snippet_line.trim_start_matches("↪ ").trim_end_matches('…');
+        assert_eq!(snippet.chars().count(), QUOTE_SNIPPET_MAX);
+        assert!(snippet_line.ends_with('…'));
+        assert!(out.ends_with("\nreply"));
+    }
+
+    #[test]
+    fn attribution_strips_transcript_prefix_from_quote() {
+        let quote = QuotedMessage {
+            id: 1,
+            author_number: None,
+            text: Some(format!("{DEFAULT_TRANSCRIPT_PREFIX}\nHola a todos")),
+            audio_attachment: None,
+        };
+        let out = format_relayed_message("Maria", Some(&quote), "reply");
+        assert!(out.contains("↪ Hola a todos\n"));
+        assert!(!out.contains("Transcript"));
+    }
+
+    #[test]
+    fn attribution_voice_only_quote() {
+        use signal_client::Attachment;
+        let quote = QuotedMessage {
+            id: 1,
+            author_number: None,
+            text: Some("   ".into()),
+            audio_attachment: Some(Attachment {
+                content_type: "audio/aac".into(),
+                filename: Some("voice.aac".into()),
+                id: "att-1".into(),
+                size: Some(100),
+                upload_timestamp: None,
+            }),
+        };
+        let out = format_relayed_message("Maria", Some(&quote), "reply");
+        assert_eq!(out, "Maria:\n↪ [voice note]\nreply");
+    }
+
+    #[test]
+    fn attribution_empty_quote_without_voice_is_plain() {
+        let quote = QuotedMessage {
+            id: 1,
+            author_number: None,
+            text: Some("  \n  ".into()),
+            audio_attachment: None,
+        };
+        assert_eq!(
+            format_relayed_message("Maria", Some(&quote), "Hola"),
+            "Maria:\nHola"
+        );
     }
 
     #[test]
@@ -1352,6 +1467,50 @@ mod tests {
         side.group_id = Some("fr-internal".into());
         assert!(handler.matches(&side));
         assert!(handler.execute(&side).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn relay_main_includes_inline_quote_context() {
+        let signal = wiremock::MockServer::start().await;
+        let near = wiremock::MockServer::start().await;
+        mount_relay_signal(&signal).await;
+        mount_near(&near).await;
+
+        let store = GroupPreferencesStore::new_in_memory(0);
+        store.set_sidecar(
+            "main-internal",
+            "es",
+            "group.es".into(),
+            "es-internal".into(),
+        );
+
+        let handler = handler_pair(store, signal.uri(), near.uri());
+        let mut main_msg = group_msg("+15550002222", "Cómo podemos añadir idiomas a esta lista?");
+        main_msg.quote = Some(QuotedMessage {
+            id: 42,
+            author_number: Some("+15550001111".into()),
+            text: Some(
+                "Supported languages (use code with !translate-me-thread or !translate-me-on)"
+                    .into(),
+            ),
+            audio_attachment: None,
+        });
+        assert!(handler.execute(&main_msg).await.unwrap().is_empty());
+
+        let pairs = send_pairs(&signal).await;
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].0, "group.es");
+        let body = &pairs[0].1;
+        assert!(
+            body.contains(
+                "↪ Supported languages (use code with !translate-me-thread or !translate-me-on)"
+            ),
+            "expected inline quote context, got: {body}"
+        );
+        assert!(
+            body.contains("Cómo podemos añadir idiomas a esta lista?"),
+            "expected reply body, got: {body}"
+        );
     }
 
     #[tokio::test]

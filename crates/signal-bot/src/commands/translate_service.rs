@@ -28,6 +28,16 @@ pub fn strip_transcript_prefix(text: &str, prefix: &str) -> String {
     }
 }
 
+/// Truncate to `max_len` Unicode chars, appending `…` when truncated.
+pub(crate) fn truncate_snippet(text: &str, max_len: usize) -> String {
+    if text.chars().count() <= max_len {
+        text.to_string()
+    } else {
+        let truncated: String = text.chars().take(max_len).collect();
+        format!("{truncated}…")
+    }
+}
+
 /// Map a detected code into one side of the active pair when possible.
 fn normalize_for_translate_all_pair(mode: &GroupTranslateMode, code: &str) -> Option<String> {
     let code = code.to_lowercase();

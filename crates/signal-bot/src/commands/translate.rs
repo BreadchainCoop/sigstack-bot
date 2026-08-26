@@ -8,7 +8,7 @@ use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
 use crate::commands::translate_langs::is_list_langs_command;
 use crate::commands::translate_me::{TranslateMeHandler, ENABLE_IN_CHAT_CMDS};
-use crate::commands::translate_service::strip_transcript_prefix;
+use crate::commands::translate_service::{strip_transcript_prefix, truncate_snippet};
 use crate::commands::CommandHandler;
 use crate::error::AppResult;
 use async_trait::async_trait;
@@ -128,15 +128,6 @@ pub(crate) fn is_non_quote_translate_command(text: &str) -> bool {
         || is_exact_command_any(text, ENABLE_IN_CHAT_CMDS)
         || is_list_langs_command(text)
         || is_transcription_menu_command(text)
-}
-
-fn truncate_snippet(text: &str, max_len: usize) -> String {
-    if text.chars().count() <= max_len {
-        text.to_string()
-    } else {
-        let truncated: String = text.chars().take(max_len).collect();
-        format!("{truncated}…")
-    }
 }
 
 #[async_trait]

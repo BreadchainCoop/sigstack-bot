@@ -59,7 +59,7 @@ Loop safety is **one-shot fan-out** from each human inbound (do not rely on main
 | Main → sidecars | Same detected language → **relay**; else **translate** via NEAR AI |
 | Sidecar → main | **Relay only** (main stays multilingual; originals kept) |
 | Sidecar → other sidecars | **Translate** to each other language (skip source lane; no-op when N=1) |
-| Attribution | `{display_name}:\n{body}` (`sourceName` when present) |
+| Attribution | `{display_name}:\n{body}` (`sourceName` when present); quote-replies prepend `↪ {snippet}` before `{body}` (snippet not translated) |
 
 Same-language relay skips NEAR. Cross-language calls `near_ai_translate` (configured NEAR model).
 

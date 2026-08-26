@@ -1,0 +1,21 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"nav_suite": "Suite",
+	"nav_how": "How it works",
+	"nav_threads": "Language Threads",
+	"nav_in_chat": "In-chat",
+	"nav_transcription": "Transcription",
+	"nav_privacy": "Privacy",
+	"nav_faq": "FAQ",
+	"nav_start": "Get started",
+	"nav_plans": "Plans",
+	"cta_start": "Get started",
+	"cta_how": "How it works",
+	"cta_github": "GitHub",
+	"footer_tagline": "TEE-hosted Signal translation and transcription.",
+	"footer_legal": "Legal",
+	"footer_privacy_policy": "Privacy Policy",
+	"footer_terms": "Terms",
+	"lang_label": "Language",
+	"stub_locale_note": "Full localization coming soon — showing English content."
+}

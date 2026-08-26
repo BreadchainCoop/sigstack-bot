@@ -122,8 +122,9 @@ Check whether the number is already registered with Signal CLI (skip captcha/reg
 ```bash
 docker compose -f docker/compose.yaml --env-file docker/.env \
   exec signal-api curl -sS 'http://localhost:8080/v1/accounts'
-# Expect JSON array, e.g. ["+1YYYYYYYYYY"]. Empty [] means not registered yet.
 ```
+
+Expect a JSON array, e.g. `["+1YYYYYYYYYY"]`. Empty `[]` means not registered yet.
 
 Or via the registration proxy:
 

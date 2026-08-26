@@ -140,4 +140,5 @@ Ops helper on the one CVM: **:8081** (phone B). Multi-tenant “create your pers
 
 ## Website
 
-`web/` is legacy personal-AI framing. Do not treat it as the product suite storefront until the Stripe website work lands.
+- **`site/`** — product educational storefront (SvelteKit static, GitHub Pages). Live URL after Pages is enabled: https://breadchaincoop.github.io/sigstack-bot/ · see [`site/README.md`](../../site/README.md) and issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23). Stripe checkout remains issue [#13](https://github.com/BreadchainCoop/sigstack-bot/issues/13).
+- **`web/`** — legacy personal-AI framing. Do **not** treat it as the product suite storefront.

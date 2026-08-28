@@ -286,16 +286,25 @@
 
 	.products-menu {
 		position: relative;
+		display: flex;
+		align-items: center;
 	}
 
 	.products-wrap {
 		position: relative;
+		display: flex;
+		align-items: center;
 	}
 
 	.products-trigger {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
+		line-height: 1.2;
+	}
+
+	.products-link {
+		line-height: inherit;
 	}
 
 	.products-caret {
@@ -304,9 +313,12 @@
 		justify-content: center;
 		background: transparent;
 		border: 0;
-		padding: 0.2rem;
+		padding: 0;
+		width: 1rem;
+		height: 1rem;
 		color: var(--muted);
 		cursor: pointer;
+		line-height: 0;
 	}
 
 	.products-caret:hover,
@@ -471,14 +483,18 @@
 			display: inline-flex;
 		}
 
-		/* Hoverable bridge between trigger and panel (avoids dead gap) */
-		.products-wrap {
-			padding-bottom: 0.5rem;
+		/* Absolute bridge — keeps hover path without shifting tab baseline */
+		.products-wrap::after {
+			content: '';
+			position: absolute;
+			inset-inline: 0;
+			top: 100%;
+			height: 0.5rem;
 		}
 
 		.products-panel {
 			position: absolute;
-			top: 100%;
+			top: calc(100% + 0.5rem);
 			left: 0;
 			z-index: 50;
 			margin: 0;
@@ -495,13 +511,17 @@
 			display: none;
 		}
 
-		.lang-wrap {
-			padding-bottom: 0.5rem;
+		.lang-wrap::after {
+			content: '';
+			position: absolute;
+			inset-inline: 0;
+			top: 100%;
+			height: 0.5rem;
 		}
 
 		.lang-panel {
 			position: absolute;
-			top: 100%;
+			top: calc(100% + 0.5rem);
 			right: 0;
 			left: auto;
 			z-index: 50;

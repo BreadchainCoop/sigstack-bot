@@ -9,13 +9,13 @@
 		sidecars.
 	</p>
 
-	<svg viewBox="0 0 780 460" role="img" aria-hidden="true" class="canvas">
+	<svg viewBox="0 0 780 520" role="img" aria-hidden="true" class="canvas">
 		<g class="wires" fill="none" stroke-width="1.5" stroke-linecap="round">
-			<path class="wire wire-hub-es" d="M390 126 L120 220" />
-			<path class="wire wire-hub-en" d="M390 126 L390 220" />
-			<path class="wire wire-hub-fr" d="M390 126 L660 220" />
-			<path class="wire wire-es-en" d="M210 300 L300 300" />
-			<path class="wire wire-es-fr" d="M210 318 L570 318" />
+			<path class="wire wire-hub-es" d="M390 166 L120 250" />
+			<path class="wire wire-hub-en" d="M390 166 L390 250" />
+			<path class="wire wire-hub-fr" d="M390 166 L660 250" />
+			<path class="wire wire-es-en" d="M210 340 L300 340" />
+			<path class="wire wire-es-fr" d="M210 358 L570 358" />
 		</g>
 
 		<circle class="pulse pulse-down-es" r="4" />
@@ -25,76 +25,81 @@
 		<circle class="pulse pulse-across-en" r="4" />
 		<circle class="pulse pulse-across-fr" r="4" />
 
+		<!-- Main: chat history stacks during reply phase -->
 		<g class="node main">
-			<rect x="270" y="28" width="240" height="90" rx="10" class="card card-main" />
-			<text x="390" y="52" text-anchor="middle" class="label">Main · multilingual</text>
-			<text x="390" y="68" text-anchor="middle" class="tag tag-main-p2">relay from thread</text>
+			<rect x="270" y="20" width="240" height="138" rx="10" class="card card-main" />
+			<text x="390" y="42" text-anchor="middle" class="label">Main · multilingual</text>
+			<text x="390" y="58" text-anchor="middle" class="tag tag-main-p2">relay from thread</text>
 
+			<!-- Origin stays; reply appears underneath -->
 			<g class="phase phase1-main">
-				<rect x="288" y="74" width="204" height="34" rx="8" class="bubble" />
-				<text x="300" y="88" class="who">Organizer</text>
-				<text x="300" y="102" class="msg">Hola equipo — meeting at 3</text>
+				<rect x="288" y="68" width="204" height="34" rx="8" class="bubble" />
+				<text x="300" y="82" class="who">Organizer</text>
+				<text x="300" y="96" class="msg">Hola equipo — meeting at 3</text>
 			</g>
 			<g class="phase phase2-main">
-				<rect x="288" y="74" width="204" height="34" rx="8" class="bubble" />
-				<text x="300" y="88" class="who">Ana · Spanish</text>
-				<text x="300" y="102" class="msg">¿A qué hora exactamente?</text>
+				<rect x="288" y="110" width="204" height="34" rx="8" class="bubble" />
+				<text x="300" y="124" class="who">Ana · Spanish</text>
+				<text x="300" y="138" class="msg">¿A qué hora exactamente?</text>
 			</g>
 		</g>
 
+		<!-- Spanish sidecar -->
 		<g class="node side side-es">
-			<rect x="30" y="240" width="180" height="120" rx="10" class="card card-es" />
-			<text x="120" y="266" text-anchor="middle" class="label">Spanish · Stacked</text>
-			<text x="120" y="284" text-anchor="middle" class="tag tag-es-p1">relay</text>
-			<text x="120" y="284" text-anchor="middle" class="tag tag-es-p2">reply</text>
+			<rect x="30" y="270" width="180" height="168" rx="10" class="card card-es" />
+			<text x="120" y="294" text-anchor="middle" class="label">Spanish · Stacked</text>
+			<text x="120" y="312" text-anchor="middle" class="tag tag-es-p1">relay</text>
+			<text x="120" y="312" text-anchor="middle" class="tag tag-es-p2">reply</text>
 
 			<g class="phase phase1-es">
-				<rect x="42" y="298" width="156" height="44" rx="8" class="bubble" />
-				<text x="54" y="314" class="who">Organizer</text>
-				<text x="54" y="330" class="msg">Hola equipo — meeting at 3</text>
+				<rect x="42" y="326" width="156" height="40" rx="8" class="bubble" />
+				<text x="54" y="342" class="who">Organizer</text>
+				<text x="54" y="356" class="msg">Hola equipo — meeting at 3</text>
 			</g>
 			<g class="phase phase2-es">
-				<rect x="42" y="298" width="156" height="44" rx="8" class="bubble" />
-				<text x="54" y="314" class="who">Ana</text>
-				<text x="54" y="330" class="msg">¿A qué hora exactamente?</text>
+				<rect x="42" y="376" width="156" height="46" rx="8" class="bubble" />
+				<text x="54" y="392" class="who">Ana</text>
+				<text x="54" y="408" class="msg">¿A qué hora exactamente?</text>
 			</g>
 		</g>
 
+		<!-- English sidecar -->
 		<g class="node side side-en">
-			<rect x="300" y="240" width="180" height="120" rx="10" class="card card-en" />
-			<text x="390" y="266" text-anchor="middle" class="label">English · Stacked</text>
-			<text x="390" y="284" text-anchor="middle" class="tag tag-both">translate</text>
+			<rect x="300" y="270" width="180" height="168" rx="10" class="card card-en" />
+			<text x="390" y="294" text-anchor="middle" class="label">English · Stacked</text>
+			<text x="390" y="312" text-anchor="middle" class="tag tag-both">translate</text>
 
 			<g class="phase phase1-en">
-				<rect x="312" y="298" width="156" height="44" rx="8" class="bubble" />
-				<text x="324" y="314" class="who">Organizer</text>
-				<text x="324" y="330" class="msg">Hi team — meeting at 3</text>
+				<rect x="312" y="326" width="156" height="40" rx="8" class="bubble" />
+				<text x="324" y="342" class="who">Organizer</text>
+				<text x="324" y="356" class="msg">Hi team — meeting at 3</text>
 			</g>
 			<g class="phase phase2-en">
-				<rect x="312" y="298" width="156" height="44" rx="8" class="bubble" />
-				<text x="324" y="314" class="who">Ana</text>
-				<text x="324" y="330" class="msg">What time exactly?</text>
+				<rect x="312" y="376" width="156" height="46" rx="8" class="bubble" />
+				<text x="324" y="392" class="who">Ana</text>
+				<text x="324" y="408" class="msg">What time exactly?</text>
 			</g>
 		</g>
 
+		<!-- French sidecar -->
 		<g class="node side side-fr">
-			<rect x="570" y="240" width="180" height="120" rx="10" class="card card-fr" />
-			<text x="660" y="266" text-anchor="middle" class="label">French · Stacked</text>
-			<text x="660" y="284" text-anchor="middle" class="tag tag-both">translate</text>
+			<rect x="570" y="270" width="180" height="168" rx="10" class="card card-fr" />
+			<text x="660" y="294" text-anchor="middle" class="label">French · Stacked</text>
+			<text x="660" y="312" text-anchor="middle" class="tag tag-both">translate</text>
 
 			<g class="phase phase1-fr">
-				<rect x="582" y="298" width="156" height="44" rx="8" class="bubble" />
-				<text x="594" y="314" class="who">Organizer</text>
-				<text x="594" y="330" class="msg">Salut l'equipe — reunion 15h</text>
+				<rect x="582" y="326" width="156" height="40" rx="8" class="bubble" />
+				<text x="594" y="342" class="who">Organizer</text>
+				<text x="594" y="356" class="msg">Salut l'equipe — reunion 15h</text>
 			</g>
 			<g class="phase phase2-fr">
-				<rect x="582" y="298" width="156" height="44" rx="8" class="bubble" />
-				<text x="594" y="314" class="who">Ana</text>
-				<text x="594" y="330" class="msg">A quelle heure exactement?</text>
+				<rect x="582" y="376" width="156" height="46" rx="8" class="bubble" />
+				<text x="594" y="392" class="who">Ana</text>
+				<text x="594" y="408" class="msg">A quelle heure exactement?</text>
 			</g>
 		</g>
 
-		<g class="legend" transform="translate(30, 392)">
+		<g class="legend" transform="translate(30, 460)">
 			<circle cx="6" cy="0" r="4" class="leg-dot relay" />
 			<text x="16" y="4" class="leg-text">same language → relay</text>
 			<circle cx="200" cy="0" r="4" class="leg-dot translate" />
@@ -104,8 +109,11 @@
 	</svg>
 
 	<figcaption class="caption">
-		Main → sidecars: relay matching language, translate the rest. Sidecar → main: relay only (main
-		stays multilingual). Sidecar → other sidecars: translate.
+		<ul class="rules">
+			<li><strong>Main → sidecars:</strong> relay matching language, translate the rest</li>
+			<li><strong>Sidecar → main:</strong> relay only (main stays multilingual)</li>
+			<li><strong>Sidecar → other sidecars:</strong> translate</li>
+		</ul>
 	</figcaption>
 </figure>
 
@@ -205,6 +213,18 @@
 		max-width: 42rem;
 	}
 
+	.rules {
+		margin: 0;
+		padding-left: 1.15rem;
+		display: grid;
+		gap: var(--space-2);
+	}
+
+	.rules strong {
+		color: var(--fg);
+		font-weight: 600;
+	}
+
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -224,10 +244,10 @@
 			opacity: 0;
 		}
 		8%,
-		40% {
+		90% {
 			opacity: 1;
 		}
-		44%,
+		96%,
 		100% {
 			opacity: 0;
 		}
@@ -239,10 +259,10 @@
 			opacity: 0;
 		}
 		18%,
-		40% {
+		90% {
 			opacity: 1;
 		}
-		44%,
+		96%,
 		100% {
 			opacity: 0;
 		}
@@ -284,10 +304,10 @@
 			opacity: 0;
 		}
 		16%,
-		40% {
+		48% {
 			opacity: 1;
 		}
-		44%,
+		54%,
 		100% {
 			opacity: 0;
 		}
@@ -314,14 +334,6 @@
 			opacity: 0;
 		}
 		16%,
-		40% {
-			opacity: 1;
-		}
-		44%,
-		56% {
-			opacity: 0;
-		}
-		62%,
 		90% {
 			opacity: 1;
 		}
@@ -603,37 +615,37 @@
 	}
 
 	.pulse-down-es {
-		offset-path: path('M390 126 L120 220');
+		offset-path: path('M390 166 L120 250');
 		animation: pulse-down 16s linear infinite;
 	}
 
 	.pulse-down-en {
-		offset-path: path('M390 126 L390 220');
+		offset-path: path('M390 166 L390 250');
 		fill: var(--accent-2);
 		animation: pulse-down 16s linear infinite;
 		animation-delay: 0.2s;
 	}
 
 	.pulse-down-fr {
-		offset-path: path('M390 126 L660 220');
+		offset-path: path('M390 166 L660 250');
 		fill: var(--accent-2);
 		animation: pulse-down 16s linear infinite;
 		animation-delay: 0.4s;
 	}
 
 	.pulse-up-main {
-		offset-path: path('M120 220 L390 126');
+		offset-path: path('M120 250 L390 166');
 		animation: pulse-up 16s linear infinite;
 	}
 
 	.pulse-across-en {
-		offset-path: path('M210 300 L300 300');
+		offset-path: path('M210 340 L300 340');
 		fill: var(--accent-2);
 		animation: pulse-across 16s linear infinite;
 	}
 
 	.pulse-across-fr {
-		offset-path: path('M210 318 L570 318');
+		offset-path: path('M210 358 L570 358');
 		fill: var(--accent-2);
 		animation: pulse-across 16s linear infinite;
 		animation-delay: 0.15s;

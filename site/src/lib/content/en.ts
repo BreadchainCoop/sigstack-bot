@@ -15,7 +15,11 @@ export const en: SiteContent = {
 			title: 'Products',
 			lead: stubLead,
 			sections: [
-				{ id: 'language-threads', title: 'Language Threads', lead: stubLead },
+				{
+					id: 'language-threads',
+					title: 'Language Threads',
+					lead: 'Keep one multilingual Signal group as the hub for your campaign or mutual-aid circle, and give each language its own lane. Organizers and bilingual members post in main; people who prefer Spanish, English, or another language join a Language Thread and read and reply in that language—without anyone dual-posting by hand.'
+				},
 				{ id: 'in-chat', title: 'In-chat Translation', lead: stubLead },
 				{ id: 'transcription', title: 'Transcription', lead: stubLead }
 			]

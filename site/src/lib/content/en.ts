@@ -13,15 +13,23 @@ export const en: SiteContent = {
 		home: { title: 'Bread Bot', lead: stubLead },
 		products: {
 			title: 'Products',
-			lead: stubLead,
+			lead: 'Pick the shape that fits your Signal group. Language Threads keep a multilingual hub with per-language lanes; In-chat Translation stays in one bilingual chat with quote-replies; Transcription turns voice notes into text. Threads and In-chat auto cannot run at the same time—choose one translation mode—while voice can compose with either.',
 			sections: [
 				{
 					id: 'language-threads',
 					title: 'Language Threads',
 					lead: 'Keep one multilingual Signal group as the hub for your campaign or mutual-aid circle, and give each language its own lane. Organizers and bilingual members post in main; people who prefer Spanish, English, or another language join a Language Thread and read and reply in that language—without anyone dual-posting by hand.'
 				},
-				{ id: 'in-chat', title: 'In-chat Translation', lead: stubLead },
-				{ id: 'transcription', title: 'Transcription', lead: stubLead }
+				{
+					id: 'in-chat',
+					title: 'In-chat Translation',
+					lead: 'For a bilingual campaign or mutual-aid group that wants to stay in one Signal chat, the bot quote-replies each message in the other language. Monolingual members keep up in-thread—no sidecar groups, no dual-posting by organizers.'
+				},
+				{
+					id: 'transcription',
+					title: 'Transcription',
+					lead: 'When someone sends a voice note, the bot can post a text transcript so people who cannot listen still follow the action. Opt in for auto, or quote a note to transcribe once; transcripts work in the same groups as your translation products.'
+				}
 			]
 		},
 		howItWorks: { title: 'How it works', lead: stubLead },

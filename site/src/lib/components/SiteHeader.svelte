@@ -12,7 +12,7 @@
 	let open = $state(false);
 	let productsOpen = $state(false);
 	let langOpen = $state(false);
-	let theme = $state<Theme>('light');
+	let theme = $state<Theme>('dark');
 
 	const productsBase = $derived(resolve('/products' as Pathname));
 

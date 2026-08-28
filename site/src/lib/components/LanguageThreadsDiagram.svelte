@@ -5,8 +5,7 @@
 <figure class="diagram" aria-labelledby="lt-diagram-title">
 	<p id="lt-diagram-title" class="sr-only">
 		Language Threads animation. First a message from the multilingual main fans out to language
-		sidecars. Then a Spanish sidecar reply relays into main and translates into the other
-		sidecars.
+		sidecars. Then a Spanish sidecar reply relays into main and translates into the other sidecars.
 	</p>
 
 	<svg viewBox="0 0 780 520" role="img" aria-hidden="true" class="canvas">

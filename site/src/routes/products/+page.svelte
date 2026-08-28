@@ -2,6 +2,8 @@
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
 	import LanguageThreadsDiagram from '$lib/components/LanguageThreadsDiagram.svelte';
+	import InChatDiagram from '$lib/components/InChatDiagram.svelte';
+	import TranscriptionDiagram from '$lib/components/TranscriptionDiagram.svelte';
 
 	const { pages, meta } = $derived(getContent(getLocale()));
 	const page = $derived(pages.products);
@@ -22,6 +24,10 @@
 		<p class="lead">{section.lead}</p>
 		{#if section.id === 'language-threads'}
 			<LanguageThreadsDiagram />
+		{:else if section.id === 'in-chat'}
+			<InChatDiagram />
+		{:else if section.id === 'transcription'}
+			<TranscriptionDiagram />
 		{/if}
 	</section>
 {/each}

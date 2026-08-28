@@ -8,10 +8,10 @@ export function getStoredTheme(): Theme | null {
 	return raw === 'light' || raw === 'dark' ? raw : null;
 }
 
-/** Resolve effective theme from stored preference or system preference. */
-export function resolveTheme(stored: Theme | null, prefersDark: boolean): Theme {
+/** Resolve effective theme from stored preference; default dark when unset. */
+export function resolveTheme(stored: Theme | null, _prefersDark = false): Theme {
 	if (stored) return stored;
-	return prefersDark ? 'dark' : 'light';
+	return 'dark';
 }
 
 export function applyTheme(theme: Theme): void {
@@ -21,10 +21,7 @@ export function applyTheme(theme: Theme): void {
 export function toggleTheme(): Theme {
 	const current =
 		(document.documentElement.dataset.theme as Theme | undefined) ??
-		resolveTheme(
-			getStoredTheme(),
-			typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
-		);
+		resolveTheme(getStoredTheme());
 	const next: Theme = current === 'dark' ? 'light' : 'dark';
 	localStorage.setItem(STORAGE_KEY, next);
 	applyTheme(next);
@@ -32,10 +29,7 @@ export function toggleTheme(): Theme {
 }
 
 export function initThemeFromDocument(): Theme {
-	const theme = resolveTheme(
-		getStoredTheme(),
-		typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
-	);
+	const theme = resolveTheme(getStoredTheme());
 	applyTheme(theme);
 	return theme;
 }

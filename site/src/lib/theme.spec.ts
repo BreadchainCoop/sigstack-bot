@@ -7,8 +7,8 @@ describe('resolveTheme', () => {
 		expect(resolveTheme('light', true)).toBe('light');
 	});
 
-	it('falls back to system preference when nothing stored', () => {
+	it('defaults to dark when nothing stored', () => {
 		expect(resolveTheme(null, true)).toBe('dark');
-		expect(resolveTheme(null, false)).toBe('light');
+		expect(resolveTheme(null, false)).toBe('dark');
 	});
 });

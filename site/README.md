@@ -4,7 +4,7 @@ Educational / marketing site for Bread Bot (issue [#23](https://github.com/Bread
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
 **Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/`  
-**Design:** [Bread Cooperative design system](https://github.com/BreadchainCoop/bread-design-system) tokens · follow-up [bread-design-system#1](https://github.com/BreadchainCoop/bread-design-system/issues/1)
+**Design:** Neutral starter shell (Bread design system removed). Full visual rebuild is a follow-up (Octant-inspired).
 
 ## Local
 
@@ -22,12 +22,12 @@ BASE_PATH= npm run build && BASE_PATH= npm run preview
 
 ## Scripts
 
-| Script | Purpose |
-|--------|---------|
-| `npm run check` | `svelte-check` |
+| Script              | Purpose                   |
+| ------------------- | ------------------------- |
+| `npm run check`     | `svelte-check`            |
 | `npm run test:unit` | Vitest (unit + component) |
-| `npm run test:e2e` | Playwright smoke + axe |
-| `npm run build` | Static build → `build/` |
+| `npm run test:e2e`  | Playwright smoke + axe    |
+| `npm run build`     | Static build → `build/`   |
 
 ## Enable GitHub Pages
 

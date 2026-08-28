@@ -17,7 +17,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link
-		href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap"
+		href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
 		rel="stylesheet"
 	/>
 </svelte:head>
@@ -38,9 +38,10 @@
 	.locale-note {
 		margin: var(--space-3) auto 0;
 		padding: var(--space-2) var(--space-4);
-		background: var(--color-paper-1);
-		border: 1px solid var(--color-paper-2);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 		font-size: 0.9rem;
-		color: var(--color-brown);
+		color: var(--muted);
 	}
 </style>

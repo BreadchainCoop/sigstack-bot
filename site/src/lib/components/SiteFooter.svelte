@@ -31,8 +31,8 @@
 
 <style>
 	.footer {
-		border-top: 1px solid var(--color-paper-1);
-		background: var(--color-paper-2);
+		border-top: 1px solid var(--border);
+		background: var(--surface);
 		padding: var(--space-7) 0;
 	}
 
@@ -48,17 +48,17 @@
 	}
 
 	.brand {
-		font-family: var(--font-display);
-		font-weight: 800;
+		font-family: var(--font-sans);
+		font-weight: 700;
 		font-size: 1.1rem;
 		margin: 0 0 var(--space-2);
-		color: var(--color-ink);
+		color: var(--fg);
 	}
 
 	.label {
 		font-weight: 700;
 		margin: 0 0 var(--space-2);
-		color: var(--color-ink);
+		color: var(--fg);
 	}
 
 	ul {
@@ -70,12 +70,12 @@
 	}
 
 	a {
-		color: var(--color-brown);
+		color: var(--muted);
 		text-decoration: none;
 		font-weight: 600;
 	}
 
 	a:hover {
-		color: var(--color-primary-jade);
+		color: var(--accent);
 	}
 </style>

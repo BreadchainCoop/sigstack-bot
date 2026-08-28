@@ -6,7 +6,6 @@
 	"nav_in_chat": "In-chat",
 	"nav_transcription": "Transcription",
 	"nav_privacy": "Privacy",
-	"nav_faq": "FAQ",
 	"nav_start": "Get started",
 	"nav_plans": "Plans",
 	"cta_start": "Get started",
@@ -17,5 +16,7 @@
 	"footer_privacy_policy": "Privacy Policy",
 	"footer_terms": "Terms",
 	"lang_label": "Language",
+	"theme_to_light": "Switch to light mode",
+	"theme_to_dark": "Switch to dark mode",
 	"stub_locale_note": "Full localization coming soon — showing English content."
 }

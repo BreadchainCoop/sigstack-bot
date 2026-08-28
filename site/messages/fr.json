@@ -6,7 +6,6 @@
 	"nav_in_chat": "Dans le chat",
 	"nav_transcription": "Transcription",
 	"nav_privacy": "Confidentialité",
-	"nav_faq": "FAQ",
 	"nav_start": "Démarrer",
 	"nav_plans": "Tarifs",
 	"cta_start": "Démarrer",
@@ -17,5 +16,7 @@
 	"footer_privacy_policy": "Politique de confidentialité",
 	"footer_terms": "Conditions",
 	"lang_label": "Langue",
+	"theme_to_light": "Passer en mode clair",
+	"theme_to_dark": "Passer en mode sombre",
 	"stub_locale_note": "Traduction complète bientôt — contenu affiché en anglais."
 }

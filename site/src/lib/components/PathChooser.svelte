@@ -51,20 +51,21 @@
 	<div class="grid-3" role="radiogroup" aria-labelledby="path-chooser-heading">
 		{#each paths as path (path.id)}
 			{@const selected = path.id === selectedId}
-			<div
-				class="panel"
-				class:selected
-				role="radio"
-				aria-checked={selected}
-				tabindex={selected ? 0 : -1}
-				onclick={() => select(path.id)}
-				onkeydown={(e) => onCardKeydown(e, path.id)}
-			>
-				{#if path.primary}
-					<p class="eyebrow">Recommended</p>
-				{/if}
-				<h3>{path.title}</h3>
-				<p>{path.blurb}</p>
+			<div class="panel" class:selected>
+				<div
+					class="choice"
+					role="radio"
+					aria-checked={selected}
+					tabindex={selected ? 0 : -1}
+					onclick={() => select(path.id)}
+					onkeydown={(e) => onCardKeydown(e, path.id)}
+				>
+					{#if path.primary}
+						<p class="eyebrow">Recommended</p>
+					{/if}
+					<h3>{path.title}</h3>
+					<p>{path.blurb}</p>
+				</div>
 				<div class="cta">
 					<Button href={path.href} variant={selected ? 'primary' : 'ghost'}>
 						Learn more
@@ -85,7 +86,6 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		cursor: pointer;
 		transition:
 			border-color 0.15s ease,
 			box-shadow 0.15s ease;
@@ -100,12 +100,20 @@
 		box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
-	.panel:focus-visible {
+	.choice {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		cursor: pointer;
+		border-radius: inherit;
+	}
+
+	.choice:focus-visible {
 		outline: 2px solid var(--accent-2);
 		outline-offset: 2px;
 	}
 
-	.panel p:not(.eyebrow) {
+	.choice p:not(.eyebrow) {
 		color: var(--muted);
 		flex: 1;
 	}

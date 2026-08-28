@@ -1,3 +1,8 @@
+<script lang="ts">
+	import ProductCommandList from '$lib/components/ProductCommandList.svelte';
+	import { transcriptionMenu } from '$lib/content/productMenus';
+</script>
+
 <figure class="diagram" aria-labelledby="tx-diagram-title">
 	<p id="tx-diagram-title" class="sr-only">
 		Voice transcription: a voice note in a Signal group becomes a quote-reply transcript from the
@@ -25,14 +30,20 @@
 		</g>
 	</svg>
 
-	<figcaption class="caption">
-		<ul class="rules">
-			<li><strong>Opt-in:</strong> auto off until enabled; or quote <code>!transcribe</code></li>
-			<li><strong>Privacy-shaped STT:</strong> audio stripped of Signal metadata before Whisper</li>
-			<li>
-				<strong>Composes:</strong> transcript can fan into In-chat or Language Threads like a normal post
-			</li>
-		</ul>
+	<figcaption class="footer">
+		<div class="caption">
+			<ul class="rules">
+				<li><strong>Opt-in:</strong> auto off until enabled; or quote <code>!transcribe</code></li>
+				<li>
+					<strong>Privacy-shaped STT:</strong> audio stripped of Signal metadata before Whisper
+				</li>
+				<li>
+					<strong>Composes:</strong> transcript can fan into In-chat or Language Threads like a normal
+					post
+				</li>
+			</ul>
+		</div>
+		<ProductCommandList id="tx-commands" menu={transcriptionMenu} />
 	</figcaption>
 </figure>
 
@@ -104,8 +115,18 @@
 		font-size: 14px;
 	}
 
+	.footer {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: var(--space-4);
+		margin-top: var(--space-4);
+	}
+
 	.caption {
-		margin: var(--space-4) 0 0;
+		margin: 0;
+		flex: 1 1 12rem;
 		font-size: 0.95rem;
 		color: var(--muted);
 		max-width: 42rem;

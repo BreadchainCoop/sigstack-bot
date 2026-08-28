@@ -3,12 +3,11 @@ import { resolveTheme } from './theme';
 
 describe('resolveTheme', () => {
 	it('uses stored preference when present', () => {
-		expect(resolveTheme('dark', false)).toBe('dark');
-		expect(resolveTheme('light', true)).toBe('light');
+		expect(resolveTheme('dark')).toBe('dark');
+		expect(resolveTheme('light')).toBe('light');
 	});
 
 	it('defaults to dark when nothing stored', () => {
-		expect(resolveTheme(null, true)).toBe('dark');
-		expect(resolveTheme(null, false)).toBe('dark');
+		expect(resolveTheme(null)).toBe('dark');
 	});
 });

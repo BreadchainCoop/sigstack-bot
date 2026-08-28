@@ -9,7 +9,7 @@ export function getStoredTheme(): Theme | null {
 }
 
 /** Resolve effective theme from stored preference; default dark when unset. */
-export function resolveTheme(stored: Theme | null, _prefersDark = false): Theme {
+export function resolveTheme(stored: Theme | null): Theme {
 	if (stored) return stored;
 	return 'dark';
 }
@@ -20,8 +20,7 @@ export function applyTheme(theme: Theme): void {
 
 export function toggleTheme(): Theme {
 	const current =
-		(document.documentElement.dataset.theme as Theme | undefined) ??
-		resolveTheme(getStoredTheme());
+		(document.documentElement.dataset.theme as Theme | undefined) ?? resolveTheme(getStoredTheme());
 	const next: Theme = current === 'dark' ? 'light' : 'dark';
 	localStorage.setItem(STORAGE_KEY, next);
 	applyTheme(next);

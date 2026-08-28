@@ -1,5 +1,7 @@
 <script lang="ts">
 	/** Language Threads: main→sidecars, then sidecar reply→main + other sidecars. */
+	import ProductCommandList from '$lib/components/ProductCommandList.svelte';
+	import { threadsMenu } from '$lib/content/productMenus';
 </script>
 
 <figure class="diagram" aria-labelledby="lt-diagram-title">
@@ -107,12 +109,15 @@
 		</g>
 	</svg>
 
-	<figcaption class="caption">
-		<ul class="rules">
-			<li><strong>Main → sidecars:</strong> relay matching language, translate the rest</li>
-			<li><strong>Sidecar → main:</strong> relay only (main stays multilingual)</li>
-			<li><strong>Sidecar → other sidecars:</strong> translate</li>
-		</ul>
+	<figcaption class="footer">
+		<div class="caption">
+			<ul class="rules">
+				<li><strong>Main → sidecars:</strong> relay matching language, translate the rest</li>
+				<li><strong>Sidecar → main:</strong> relay only (main stays multilingual)</li>
+				<li><strong>Sidecar → other sidecars:</strong> translate</li>
+			</ul>
+		</div>
+		<ProductCommandList id="lt-commands" menu={threadsMenu} />
 	</figcaption>
 </figure>
 
@@ -205,8 +210,18 @@
 		fill: var(--accent-2);
 	}
 
+	.footer {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: var(--space-4);
+		margin-top: var(--space-4);
+	}
+
 	.caption {
-		margin: var(--space-4) 0 0;
+		margin: 0;
+		flex: 1 1 12rem;
 		font-size: 0.95rem;
 		color: var(--muted);
 		max-width: 42rem;

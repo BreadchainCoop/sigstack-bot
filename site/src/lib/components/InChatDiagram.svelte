@@ -1,3 +1,8 @@
+<script lang="ts">
+	import ProductCommandList from '$lib/components/ProductCommandList.svelte';
+	import { inChatMenu } from '$lib/content/productMenus';
+</script>
+
 <figure class="diagram" aria-labelledby="ic-diagram-title">
 	<p id="ic-diagram-title" class="sr-only">
 		In-chat translation: one bilingual Signal group. An English message stays in place; the bot
@@ -23,12 +28,15 @@
 		</g>
 	</svg>
 
-	<figcaption class="caption">
-		<ul class="rules">
-			<li><strong>Same group:</strong> translation is a quote-reply; the original stays</li>
-			<li><strong>Pair:</strong> group-wide or personal auto for two languages</li>
-			<li><strong>Manual:</strong> quote <code>!translate</code> anytime</li>
-		</ul>
+	<figcaption class="footer">
+		<div class="caption">
+			<ul class="rules">
+				<li><strong>Same group:</strong> translation is a quote-reply; the original stays</li>
+				<li><strong>Pair:</strong> group-wide or personal auto for two languages</li>
+				<li><strong>Manual:</strong> quote <code>!translate</code> anytime</li>
+			</ul>
+		</div>
+		<ProductCommandList id="ic-commands" menu={inChatMenu} />
 	</figcaption>
 </figure>
 
@@ -100,8 +108,18 @@
 		font-size: 9px;
 	}
 
+	.footer {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: var(--space-4);
+		margin-top: var(--space-4);
+	}
+
 	.caption {
-		margin: var(--space-4) 0 0;
+		margin: 0;
+		flex: 1 1 12rem;
 		font-size: 0.95rem;
 		color: var(--muted);
 		max-width: 42rem;

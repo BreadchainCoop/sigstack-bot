@@ -20,7 +20,7 @@
 		<!-- Phala TEE -->
 		<rect x="205" y="100" width="110" height="88" rx="8" class="bubble bubble-sealed" />
 		<text x="260" y="128" text-anchor="middle" class="who">Phala TEE</text>
-		<text x="260" y="150" text-anchor="middle" class="msg">Bread Bot</text>
+		<text x="260" y="150" text-anchor="middle" class="msg">CipherSlate</text>
 		<text x="260" y="168" text-anchor="middle" class="msg">decrypts here</text>
 
 		<text x="330" y="148" text-anchor="middle" class="arrow">→</text>

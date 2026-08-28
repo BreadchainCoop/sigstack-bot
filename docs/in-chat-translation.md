@@ -1,6 +1,6 @@
 # In-chat (group) translation
 
-Status: **MVP implemented** on the unified Bread Bot (hub menus, in-chat, Language Threads, and voice).
+Status: **MVP implemented** on the unified CipherSlate (hub menus, in-chat, Language Threads, and voice).
 
 One **bilingual** Signal group (e.g. English + Spanish). The bot detects which side of the pair a message is on and quote-replies with the other language in the **same** main thread.
 

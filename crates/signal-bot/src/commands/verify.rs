@@ -55,7 +55,7 @@ impl VerifyHandler {
 
     pub(crate) fn prefixed_challenge(&self, raw: Option<String>) -> String {
         let user_part = raw.unwrap_or_else(|| "no-challenge-provided".into());
-        format!("Bread Bot: {user_part}")
+        format!("CipherSlate: {user_part}")
     }
 
     /// Parse the challenge nonce from the message text.
@@ -316,11 +316,11 @@ mod tests {
         let handler = create_test_handler();
         assert_eq!(
             handler.prefixed_challenge(Some("hello".into())),
-            "Bread Bot: hello"
+            "CipherSlate: hello"
         );
         assert_eq!(
             handler.prefixed_challenge(None),
-            "Bread Bot: no-challenge-provided"
+            "CipherSlate: no-challenge-provided"
         );
     }
 

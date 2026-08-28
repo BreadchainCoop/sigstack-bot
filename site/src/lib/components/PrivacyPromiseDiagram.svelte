@@ -17,7 +17,7 @@
 
 		<!-- Proof column -->
 		<rect x="280" y="96" width="180" height="120" rx="8" class="bubble bubble-sealed" />
-		<text x="370" y="124" text-anchor="middle" class="who">Bread Bot</text>
+		<text x="370" y="124" text-anchor="middle" class="who">CipherSlate</text>
 		<text x="370" y="148" text-anchor="middle" class="msg">TEE isolation</text>
 		<text x="370" y="168" text-anchor="middle" class="msg">!verify challenge</text>
 		<text x="370" y="192" text-anchor="middle" class="hint">you can check the box</text>

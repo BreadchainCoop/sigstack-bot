@@ -162,7 +162,7 @@ PER MSG QUOTE REPLY:
 
 !help-transcription"#;
 
-const HELP_HUB: &str = r#"--Bread Bot--
+const HELP_HUB: &str = r#"--CipherSlate--
 
 MENUS:
 !translation-threads
@@ -188,7 +188,7 @@ const HELP_THREAD: &str = r#"Language Thread
 !info
 !commands"#;
 
-const INFO_HUB: &str = r#"--Bread Bot--
+const INFO_HUB: &str = r#"--CipherSlate--
 
 !translation-threads
   Language Threads — multilingual main chat + language sidecars
@@ -352,7 +352,7 @@ const PRIVACY_MENU: &str = r#"Privacy & TEE
 example:
    !verify "write something unique here"
 
-Bread Bot is one Signal number in one Phala TEE/CVM.
+CipherSlate is one Signal number in one Phala TEE/CVM.
 
 Translation: Signal text is processed in this TEE and translated via NEAR AI private inference.
 

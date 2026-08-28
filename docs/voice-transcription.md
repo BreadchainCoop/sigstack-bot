@@ -1,6 +1,6 @@
 # Voice transcription
 
-Status: **implemented** on the unified Bread Bot on the surviving Phala CVM.
+Status: **implemented** on the unified CipherSlate on the surviving Phala CVM.
 
 Speech → text via **NEAR AI Whisper Large V3** (GPU TEE). Audio is decrypted in this CVM, stripped of Signal metadata, and uploaded as a generic file. See [one-CVM architecture](one-cvm-architecture.md), [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md), and [issue #8](https://github.com/BreadchainCoop/sigstack-bot/issues/8) under umbrella [#10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
 

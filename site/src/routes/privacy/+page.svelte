@@ -26,7 +26,7 @@
 		<p class="lead">{section.lead}</p>
 		{#if section.id === 'what-is-a-tee'}
 			<PrivacyTeeDiagram />
-		{:else if section.id === 'how-bread-bot'}
+		{:else if section.id === 'how-cipherslate'}
 			<PrivacyTrustDiagram />
 		{:else if section.id === 'promise-vs-proof'}
 			<PrivacyPromiseDiagram />

@@ -8,7 +8,7 @@ See also: [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10) 
 
 | Bot | Phone | Duty |
 |-----|-------|------|
-| **Bread Bot** | Registered number on this CVM | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, Bilingual Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
+| **CipherSlate** | Registered number on this CVM | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, Bilingual Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
 
 Voice crate [`crates/signal-bot-voice`](../crates/signal-bot-voice); pairing / `PEER_PHONE` / a second Signal number do not exist.
 

@@ -1,4 +1,4 @@
-# Bread Bot — Development Guide
+# CipherSlate — Development Guide
 
 ## Product direction
 

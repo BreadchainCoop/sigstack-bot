@@ -4,8 +4,8 @@ import { getContent } from './index';
 describe('getContent', () => {
 	it('returns English content for en', () => {
 		const c = getContent('en');
-		expect(c.meta.siteName).toBe('Bread Bot');
-		expect(c.pages.home.title).toBe('Bread Bot');
+		expect(c.meta.siteName).toBe('CipherSlate');
+		expect(c.pages.home.title).toBe('CipherSlate');
 		expect(c.pages.products.sections).toHaveLength(3);
 		expect(c.legalLicense.title).toBe('Apache License 2.0');
 		expect(c.legalLicense.fullText).toContain('Apache License');

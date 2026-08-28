@@ -1,4 +1,4 @@
-# Bread Bot
+# CipherSlate
 
 TEE-hosted Signal bot for **voice transcription** and **group translation**, designed as an interoperable product suite (see [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)).
 
@@ -23,7 +23,7 @@ Details: [docs/one-cvm-architecture.md](docs/one-cvm-architecture.md) · [docs/v
 
 | Product | Command | Effect |
 |---------|---------|--------|
-| Hub | `!help` / `!info` | Bread Bot hub menus |
+| Hub | `!help` / `!info` | CipherSlate hub menus |
 | Hub | `!privacy` | Privacy, TEE, and `!verify` (one reply) |
 | Hub | `!translation-threads` | Language Threads menu |
 | Hub | `!translation-in-chat` | In-chat translation menu |

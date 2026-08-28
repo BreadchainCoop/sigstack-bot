@@ -4,13 +4,13 @@ const stubLead = 'Placeholder — redesign pending.';
 
 export const en: SiteContent = {
 	meta: {
-		siteName: 'Bread Bot',
+		siteName: 'CipherSlate',
 		tagline: 'Translation and transcription inside Signal',
 		description:
 			'TEE-hosted Signal bot for Language Threads, in-chat translation, and voice transcription — not a general chat assistant.'
 	},
 	pages: {
-		home: { title: 'Bread Bot', lead: stubLead },
+		home: { title: 'CipherSlate', lead: stubLead },
 		products: {
 			title: 'Products',
 			lead: 'Pick the shape that fits your Signal group. Language Threads keep a multilingual hub with per-language lanes; In-chat Translation stays in one bilingual chat with quote-replies; Transcription turns voice notes into text. Threads and In-chat auto cannot run at the same time—choose one translation mode—while voice can compose with either.',
@@ -35,16 +35,16 @@ export const en: SiteContent = {
 		howItWorks: { title: 'How it works', lead: stubLead },
 		privacy: {
 			title: 'Privacy and trust',
-			lead: 'Bread Bot runs in a Phala Trusted Execution Environment (TEE)—sealed hardware the host cannot read. Privacy is enforced by the chip, not by a policy alone.',
+			lead: 'CipherSlate runs in a Phala Trusted Execution Environment (TEE)—sealed hardware the host cannot read. Privacy is enforced by the chip, not by a policy alone.',
 			sections: [
 				{
 					id: 'what-is-a-tee',
 					title: 'What a TEE is',
-					lead: 'A locked region inside the server chip. Code and messages stay encrypted in memory; the cloud host cannot peek. Phala provides that sealed hardware for Bread Bot.'
+					lead: 'A locked region inside the server chip. Code and messages stay encrypted in memory; the cloud host cannot peek. Phala provides that sealed hardware for CipherSlate.'
 				},
 				{
-					id: 'how-bread-bot',
-					title: 'How Bread Bot uses it',
+					id: 'how-cipherslate',
+					title: 'How CipherSlate uses it',
 					lead: 'One Signal number in one Phala TEE. Text and voice decrypt only inside that box. Translation and transcription go to NEAR AI private inference; voice leaves only as metadata-stripped audio.'
 				},
 				{
@@ -68,7 +68,7 @@ export const en: SiteContent = {
 		sections: [
 			{
 				title: 'Overview',
-				body: 'Bread Bot processes Signal group messages to provide translation and transcription. This stub summarizes processing for the public site; operators should align it with live deployment before collecting payment.'
+				body: 'CipherSlate processes Signal group messages to provide translation and transcription. This stub summarizes processing for the public site; operators should align it with live deployment before collecting payment.'
 			},
 			{
 				title: 'Data we process',
@@ -90,7 +90,7 @@ export const en: SiteContent = {
 		sections: [
 			{
 				title: 'Service',
-				body: 'Bread Bot is provided as a Signal automation for translation and transcription. Availability depends on the operator’s deployment.'
+				body: 'CipherSlate is provided as a Signal automation for translation and transcription. Availability depends on the operator’s deployment.'
 			},
 			{
 				title: 'Acceptable use',
@@ -111,7 +111,7 @@ export const en: SiteContent = {
 		updated: 'January 2004',
 		copyright: 'Copyright 2024 Zaki Manian',
 		overview:
-			'Bread Bot source code is licensed under the Apache License, Version 2.0. You may use, reproduce, and distribute the software subject to the terms below. The same text appears in the project LICENSE file.',
+			'CipherSlate source code is licensed under the Apache License, Version 2.0. You may use, reproduce, and distribute the software subject to the terms below. The same text appears in the project LICENSE file.',
 		fullText: `Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

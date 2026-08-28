@@ -7,7 +7,7 @@
 <footer class="footer">
 	<div class="shell grid">
 		<div>
-			<p class="brand">Bread Bot</p>
+			<p class="brand">CipherSlate</p>
 			<p class="muted">{m.footer_tagline()}</p>
 		</div>
 		<div>

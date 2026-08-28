@@ -11,7 +11,7 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
 test.describe('smoke', () => {
 	test('home loads with brand stub and CTAs', async ({ page }) => {
 		await page.goto('./');
-		await expect(page.getByRole('heading', { level: 1, name: 'Bread Bot' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'CipherSlate' })).toBeVisible();
 		await expect(page.getByText('Placeholder — redesign pending.')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Products' }).first()).toBeVisible();
@@ -103,7 +103,7 @@ test.describe('smoke mobile', () => {
 
 	test('drawer opens and products anchors navigate', async ({ page }) => {
 		await page.goto('./');
-		await expect(page.getByRole('heading', { level: 1, name: 'Bread Bot' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'CipherSlate' })).toBeVisible();
 		await expectNoHorizontalOverflow(page);
 
 		await page.getByRole('button', { name: 'Open menu' }).click();

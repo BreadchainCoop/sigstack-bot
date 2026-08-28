@@ -1,6 +1,6 @@
-# Bread Bot site
+# CipherSlate site
 
-Educational / marketing site for Bread Bot (issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23)).
+Educational / marketing site for CipherSlate (issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23)).
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
 **Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/`  

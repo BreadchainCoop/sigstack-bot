@@ -7,6 +7,8 @@ export type PathCard = {
 	title: string;
 	blurb: string;
 	href: string;
+	teaserHeading: string;
+	teaserLead: string;
 	primary?: boolean;
 };
 
@@ -43,8 +45,6 @@ export type SiteContent = {
 			notChat: string;
 			pathsHeading: string;
 			paths: PathCard[];
-			diagramHeading: string;
-			diagramLead: string;
 		};
 		products: {
 			title: string;

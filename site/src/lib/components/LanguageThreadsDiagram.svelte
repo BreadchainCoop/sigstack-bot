@@ -340,7 +340,7 @@
 		border: 0;
 	}
 
-	/* 16s: 0–45% main→threads, 45–100% Spanish reply */
+	/* 13s: 0–32% main→threads, 32–100% Spanish reply */
 
 	@keyframes phase1-show {
 		0%,
@@ -348,10 +348,10 @@
 			opacity: 0;
 		}
 		8%,
-		90% {
+		88% {
 			opacity: 1;
 		}
-		96%,
+		94%,
 		100% {
 			opacity: 0;
 		}
@@ -363,10 +363,10 @@
 			opacity: 0;
 		}
 		18%,
-		90% {
+		88% {
 			opacity: 1;
 		}
-		96%,
+		94%,
 		100% {
 			opacity: 0;
 		}
@@ -374,14 +374,14 @@
 
 	@keyframes phase2-show {
 		0%,
-		48% {
+		32% {
 			opacity: 0;
 		}
-		54%,
-		90% {
+		37%,
+		88% {
 			opacity: 1;
 		}
-		96%,
+		94%,
 		100% {
 			opacity: 0;
 		}
@@ -389,14 +389,14 @@
 
 	@keyframes phase2-late {
 		0%,
-		58% {
+		40% {
 			opacity: 0;
 		}
-		64%,
-		90% {
+		45%,
+		88% {
 			opacity: 1;
 		}
-		96%,
+		94%,
 		100% {
 			opacity: 0;
 		}
@@ -408,10 +408,10 @@
 			opacity: 0;
 		}
 		16%,
-		48% {
+		32% {
 			opacity: 1;
 		}
-		54%,
+		37%,
 		100% {
 			opacity: 0;
 		}
@@ -419,14 +419,14 @@
 
 	@keyframes tag-p2 {
 		0%,
-		56% {
+		38% {
 			opacity: 0;
 		}
-		62%,
-		90% {
+		43%,
+		88% {
 			opacity: 1;
 		}
-		96%,
+		94%,
 		100% {
 			opacity: 0;
 		}
@@ -438,10 +438,10 @@
 			opacity: 0;
 		}
 		16%,
-		90% {
+		88% {
 			opacity: 1;
 		}
-		96%,
+		94%,
 		100% {
 			opacity: 0;
 		}
@@ -454,21 +454,21 @@
 			stroke-width: 1.5;
 		}
 		14%,
-		32% {
+		24% {
 			stroke: var(--accent);
 			stroke-width: 2;
 		}
-		40%,
-		52% {
+		28%,
+		34% {
 			stroke: var(--border);
 			stroke-width: 1.5;
 		}
-		58%,
-		78% {
+		40%,
+		58% {
 			stroke: var(--accent);
 			stroke-width: 2;
 		}
-		88%,
+		68%,
 		100% {
 			stroke: var(--border);
 			stroke-width: 1.5;
@@ -495,16 +495,16 @@
 
 	@keyframes wire-cross {
 		0%,
-		56% {
+		38% {
 			stroke: var(--border);
 			stroke-width: 1.5;
 		}
-		62%,
-		80% {
+		43%,
+		62% {
 			stroke: var(--accent-2);
 			stroke-width: 2;
 		}
-		90%,
+		72%,
 		100% {
 			stroke: var(--border);
 			stroke-width: 1.5;
@@ -533,18 +533,18 @@
 
 	@keyframes pulse-up {
 		0%,
-		52% {
+		34% {
 			opacity: 0;
 			offset-distance: 0%;
 		}
-		54% {
+		36% {
 			opacity: 1;
 		}
-		64% {
+		46% {
 			opacity: 1;
 			offset-distance: 100%;
 		}
-		66%,
+		48%,
 		100% {
 			opacity: 0;
 			offset-distance: 100%;
@@ -553,18 +553,18 @@
 
 	@keyframes pulse-across {
 		0%,
-		58% {
+		40% {
 			opacity: 0;
 			offset-distance: 0%;
 		}
-		60% {
+		42% {
 			opacity: 1;
 		}
-		70% {
+		52% {
 			opacity: 1;
 			offset-distance: 100%;
 		}
-		72%,
+		54%,
 		100% {
 			opacity: 0;
 			offset-distance: 100%;
@@ -581,14 +581,14 @@
 			stroke: var(--accent);
 		}
 		36%,
-		60% {
+		46% {
 			stroke: var(--border);
 		}
-		64%,
-		74% {
+		50%,
+		60% {
 			stroke: var(--accent);
 		}
-		82%,
+		68%,
 		100% {
 			stroke: var(--border);
 		}
@@ -604,14 +604,14 @@
 			stroke: var(--accent);
 		}
 		37%,
-		62% {
+		48% {
 			stroke: var(--border);
 		}
-		66%,
-		76% {
+		52%,
+		62% {
 			stroke: var(--accent);
 		}
-		84%,
+		70%,
 		100% {
 			stroke: var(--border);
 		}
@@ -627,14 +627,14 @@
 			stroke: var(--accent);
 		}
 		38%,
-		64% {
+		50% {
 			stroke: var(--border);
 		}
-		68%,
-		78% {
+		54%,
+		64% {
 			stroke: var(--accent);
 		}
-		86%,
+		72%,
 		100% {
 			stroke: var(--border);
 		}
@@ -642,155 +642,155 @@
 
 	@keyframes flash-main-p2 {
 		0%,
-		58% {
+		40% {
 			stroke: var(--border);
 		}
-		62%,
-		72% {
+		44%,
+		54% {
 			stroke: var(--accent);
 		}
-		80%,
+		62%,
 		100% {
 			stroke: var(--border);
 		}
 	}
 
 	.phase1-main {
-		animation: phase1-show 16s ease-in-out infinite;
+		animation: phase1-show 13s ease-in-out infinite;
 	}
 
 	.phase1-es,
 	.phase1-en,
 	.phase1-fr {
-		animation: phase1-late 16s ease-in-out infinite;
+		animation: phase1-late 13s ease-in-out infinite;
 	}
 
 	.phase2-es {
-		animation: phase2-show 16s ease-in-out infinite;
+		animation: phase2-show 13s ease-in-out infinite;
 	}
 
 	.phase2-main,
 	.phase2-en,
 	.phase2-fr {
-		animation: phase2-late 16s ease-in-out infinite;
+		animation: phase2-late 13s ease-in-out infinite;
 	}
 
 	.tag-es-p1 {
-		animation: tag-p1 16s ease-in-out infinite;
+		animation: tag-p1 13s ease-in-out infinite;
 	}
 
 	.tag-es-p2,
 	.tag-main-p2 {
-		animation: tag-p2 16s ease-in-out infinite;
+		animation: tag-p2 13s ease-in-out infinite;
 	}
 
 	.tag-both {
-		animation: tag-both-phases 16s ease-in-out infinite;
+		animation: tag-both-phases 13s ease-in-out infinite;
 	}
 
 	.wire-hub-es {
-		animation: wire-hub-es-both 16s ease-in-out infinite;
+		animation: wire-hub-es-both 13s ease-in-out infinite;
 	}
 
 	.wire-hub-en,
 	.wire-hub-fr {
-		animation: wire-hub-down 16s ease-in-out infinite;
+		animation: wire-hub-down 13s ease-in-out infinite;
 	}
 
 	.wire-es-en,
 	.wire-es-fr {
-		animation: wire-cross 16s ease-in-out infinite;
+		animation: wire-cross 13s ease-in-out infinite;
 	}
 
 	.card-es {
-		animation: flash-es-both 16s ease-in-out infinite;
+		animation: flash-es-both 13s ease-in-out infinite;
 	}
 
 	.card-en {
-		animation: flash-en-both 16s ease-in-out infinite;
+		animation: flash-en-both 13s ease-in-out infinite;
 	}
 
 	.card-fr {
-		animation: flash-fr-both 16s ease-in-out infinite;
+		animation: flash-fr-both 13s ease-in-out infinite;
 	}
 
 	.card-main {
-		animation: flash-main-p2 16s ease-in-out infinite;
+		animation: flash-main-p2 13s ease-in-out infinite;
 	}
 
 	/* Wide geometry offset-paths */
 	.pulse-wide.pulse-down-es {
 		offset-path: path('M390 166 L120 250');
-		animation: pulse-down 16s linear infinite;
+		animation: pulse-down 13s linear infinite;
 	}
 
 	.pulse-wide.pulse-down-en {
 		offset-path: path('M390 166 L390 250');
 		fill: var(--accent-2);
-		animation: pulse-down 16s linear infinite;
+		animation: pulse-down 13s linear infinite;
 		animation-delay: 0.2s;
 	}
 
 	.pulse-wide.pulse-down-fr {
 		offset-path: path('M390 166 L660 250');
 		fill: var(--accent-2);
-		animation: pulse-down 16s linear infinite;
+		animation: pulse-down 13s linear infinite;
 		animation-delay: 0.4s;
 	}
 
 	.pulse-wide.pulse-up-main {
 		offset-path: path('M120 250 L390 166');
-		animation: pulse-up 16s linear infinite;
+		animation: pulse-up 13s linear infinite;
 	}
 
 	.pulse-wide.pulse-across-en {
 		offset-path: path('M210 340 L300 340');
 		fill: var(--accent-2);
-		animation: pulse-across 16s linear infinite;
+		animation: pulse-across 13s linear infinite;
 	}
 
 	.pulse-wide.pulse-across-fr {
 		offset-path: path('M210 358 L570 358');
 		fill: var(--accent-2);
-		animation: pulse-across 16s linear infinite;
+		animation: pulse-across 13s linear infinite;
 		animation-delay: 0.15s;
 	}
 
 	/* Narrow stacked geometry offset-paths */
 	.pulse-narrow.pulse-down-es {
 		offset-path: path('M170 154 L170 200');
-		animation: pulse-down 16s linear infinite;
+		animation: pulse-down 13s linear infinite;
 	}
 
 	.pulse-narrow.pulse-down-en {
 		offset-path: path('M300 154 L300 400');
 		fill: var(--accent-2);
-		animation: pulse-down 16s linear infinite;
+		animation: pulse-down 13s linear infinite;
 		animation-delay: 0.2s;
 	}
 
 	.pulse-narrow.pulse-down-fr {
 		offset-path: path('M60 154 L60 600');
 		fill: var(--accent-2);
-		animation: pulse-down 16s linear infinite;
+		animation: pulse-down 13s linear infinite;
 		animation-delay: 0.4s;
 	}
 
 	.pulse-narrow.pulse-up-main {
 		offset-path: path('M170 200 L170 154');
-		animation: pulse-up 16s linear infinite;
+		animation: pulse-up 13s linear infinite;
 	}
 
 	.pulse-narrow.pulse-across-en {
 		offset-path: path('M180 368 L180 400');
 		fill: var(--accent-2);
-		animation: pulse-across 16s linear infinite;
+		animation: pulse-across 13s linear infinite;
 	}
 
 	.pulse-narrow.pulse-across-fr {
 		offset-path: path('M60 368 L60 600 L180 600');
 		fill: var(--accent-2);
-		animation: pulse-across 16s linear infinite;
+		animation: pulse-across 13s linear infinite;
 		animation-delay: 0.15s;
 	}
 

@@ -23,6 +23,9 @@ export const en: SiteContent = {
 					blurb:
 						'Multilingual main chat plus one sidecar group per language. Best default for multilingual organizing.',
 					href: '/products#language-threads',
+					teaserHeading: 'See Language Threads',
+					teaserLead:
+						'Diagrams first — so organizers can picture fan-out before learning commands.',
 					primary: true
 				},
 				{
@@ -30,18 +33,21 @@ export const en: SiteContent = {
 					title: 'In-chat translation',
 					blurb:
 						'Stay in one bilingual group. The bot quote-replies with the other language in the same thread.',
-					href: '/products#in-chat'
+					href: '/products#in-chat',
+					teaserHeading: 'See In-chat Translation',
+					teaserLead:
+						'One bilingual chat — the bot quote-replies so everyone keeps up in-thread.'
 				},
 				{
 					id: 'transcription',
 					title: 'Voice transcription',
 					blurb: 'Turn voice notes into text in-group. Pairs with either translation mode.',
-					href: '/products#transcription'
+					href: '/products#transcription',
+					teaserHeading: 'See Voice Transcription',
+					teaserLead:
+						'Voice notes become text in-group — follow along without needing to listen.'
 				}
-			],
-			diagramHeading: 'See Language Threads',
-			diagramLead:
-				'Diagrams first — so organizers can picture fan-out before learning commands.'
+			]
 		},
 		products: {
 			title: 'Products',
@@ -133,7 +139,7 @@ export const en: SiteContent = {
 						scope: 'individual',
 						blurb:
 							'Language Threads, In-chat me, and Transcription for one person. Self-subscribe in any group where the bot is present.',
-						priceLabel: '$29',
+						priceLabel: '$10.49',
 						period: '/mo',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
@@ -144,7 +150,7 @@ export const en: SiteContent = {
 						scope: 'group',
 						blurb:
 							'Everything in Individual, plus In-chat all for one Signal group—bilingual quote-replies for every member.',
-						priceLabel: '$79',
+						priceLabel: '$13.99',
 						period: '/mo',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
@@ -164,7 +170,7 @@ export const en: SiteContent = {
 							name: 'Language Threads',
 							scope: 'individual',
 							blurb: 'You join or create a Language Thread for yourself (`!translate-me-thread`).',
-							priceLabel: '$12',
+							priceLabel: '$5.49',
 							period: '/mo',
 							ctaHref: '/products#language-threads',
 							ctaLabel: 'Learn more'
@@ -181,7 +187,7 @@ export const en: SiteContent = {
 							name: 'In-chat · me',
 							scope: 'individual',
 							blurb: 'Auto-translate your messages only (`!translate-me-on`).',
-							priceLabel: '$10',
+							priceLabel: '$3.49',
 							period: '/mo',
 							ctaHref: '/products#in-chat',
 							ctaLabel: 'Learn more'
@@ -191,7 +197,7 @@ export const en: SiteContent = {
 							name: 'In-chat · all',
 							scope: 'group',
 							blurb: 'Group-wide bilingual quote-replies (`!translate-all-on`).',
-							priceLabel: '$35',
+							priceLabel: '$8.99',
 							period: '/mo',
 							ctaHref: '/products#in-chat',
 							ctaLabel: 'Learn more'
@@ -208,7 +214,7 @@ export const en: SiteContent = {
 							name: 'Transcription',
 							scope: 'individual',
 							blurb: 'Per-person auto transcription (`!transcribe-on`).',
-							priceLabel: '$8',
+							priceLabel: '$3.99',
 							period: '/mo',
 							ctaHref: '/products#transcription',
 							ctaLabel: 'Learn more'

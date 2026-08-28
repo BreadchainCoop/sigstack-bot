@@ -3,6 +3,8 @@
 	import { getContent } from '$lib/content';
 	import PathChooser from '$lib/components/PathChooser.svelte';
 	import LanguageThreadsDiagram from '$lib/components/LanguageThreadsDiagram.svelte';
+	import InChatDiagram from '$lib/components/InChatDiagram.svelte';
+	import TranscriptionDiagram from '$lib/components/TranscriptionDiagram.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import { ShieldCheck, Translate, Microphone } from 'phosphor-svelte';
@@ -10,6 +12,12 @@
 	const content = $derived(getContent(getLocale()));
 	const { pages, meta } = $derived(content);
 	const page = $derived(pages.home);
+
+	let selectedId = $state('threads');
+
+	const selectedPath = $derived(
+		page.paths.find((p) => p.id === selectedId) ?? page.paths[0]
+	);
 </script>
 
 <svelte:head>
@@ -47,12 +55,20 @@
 	</div>
 </section>
 
-<PathChooser heading={page.pathsHeading} paths={page.paths} />
+<PathChooser heading={page.pathsHeading} paths={page.paths} bind:selectedId />
 
-<section class="section teaser">
-	<h2>{page.diagramHeading}</h2>
-	<p class="lead">{page.diagramLead}</p>
-	<LanguageThreadsDiagram />
+<section class="section teaser" aria-live="polite">
+	{#if selectedPath}
+		<h2>{selectedPath.teaserHeading}</h2>
+		<p class="lead">{selectedPath.teaserLead}</p>
+		{#if selectedPath.id === 'in-chat'}
+			<InChatDiagram />
+		{:else if selectedPath.id === 'transcription'}
+			<TranscriptionDiagram />
+		{:else}
+			<LanguageThreadsDiagram />
+		{/if}
+	{/if}
 </section>
 
 <style>
@@ -84,7 +100,7 @@
 	}
 
 	.teaser {
-		padding-top: 0;
+		padding-top: var(--space-8);
 		border-top: none;
 	}
 </style>

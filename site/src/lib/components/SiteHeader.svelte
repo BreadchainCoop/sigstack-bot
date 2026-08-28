@@ -17,7 +17,6 @@
 	const productsBase = $derived(resolve('/products' as Pathname));
 
 	const flatLinks = $derived([
-		{ href: '/how-it-works', label: m.nav_how() },
 		{ href: '/privacy', label: m.nav_privacy() },
 		{ href: '/plans', label: m.nav_plans() }
 	]);

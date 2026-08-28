@@ -9,12 +9,10 @@
 	</p>
 
 	<svg viewBox="0 0 640 420" role="img" aria-hidden="true" class="canvas">
-		<!-- connectors (drawn under nodes) -->
 		<g class="wires" fill="none" stroke-width="1.5" stroke-linecap="round">
 			<path class="wire wire-es" d="M320 118 L160 200" />
 			<path class="wire wire-en" d="M320 118 L320 200" />
 			<path class="wire wire-fr" d="M320 118 L480 200" />
-			<!-- pulse dots traveling along paths -->
 			<circle class="pulse pulse-es" r="4" />
 			<circle class="pulse pulse-en" r="4" />
 			<circle class="pulse pulse-fr" r="4" />
@@ -23,56 +21,43 @@
 		<!-- Main hub -->
 		<g class="node main">
 			<rect x="200" y="36" width="240" height="82" rx="10" class="card" />
-			<text x="320" y="62" text-anchor="middle" class="label">Main · multilingual</text>
-			<foreignObject x="214" y="72" width="212" height="36">
-				<div xmlns="http://www.w3.org/1999/xhtml" class="bubble bubble-main">
-					<span class="who">Organizer</span>
-					<span class="msg msg-main">Hola equipo — meeting at 3</span>
-				</div>
-			</foreignObject>
+			<text x="320" y="60" text-anchor="middle" class="label">Main · multilingual</text>
+			<rect x="218" y="72" width="204" height="34" rx="8" class="bubble bubble-main" />
+			<text x="230" y="86" class="who">Organizer</text>
+			<text x="230" y="100" class="msg msg-main">Hola equipo — meeting at 3</text>
 		</g>
 
-		<!-- Spanish sidecar -->
+		<!-- Spanish sidecar (relay) -->
 		<g class="node side side-es">
 			<rect x="48" y="220" width="180" height="120" rx="10" class="card" />
 			<text x="138" y="246" text-anchor="middle" class="label">Spanish · Stacked</text>
 			<text x="138" y="264" text-anchor="middle" class="tag tag-relay">relay</text>
-			<foreignObject x="60" y="276" width="156" height="50">
-				<div xmlns="http://www.w3.org/1999/xhtml" class="bubble bubble-es">
-					<span class="who">Organizer</span>
-					<span class="msg">Hola equipo — meeting at 3</span>
-				</div>
-			</foreignObject>
+			<rect x="60" y="278" width="156" height="44" rx="8" class="bubble bubble-es" />
+			<text x="72" y="294" class="who">Organizer</text>
+			<text x="72" y="310" class="msg">Hola equipo — meeting at 3</text>
 		</g>
 
-		<!-- English sidecar -->
+		<!-- English sidecar (translate) -->
 		<g class="node side side-en">
 			<rect x="230" y="220" width="180" height="120" rx="10" class="card" />
 			<text x="320" y="246" text-anchor="middle" class="label">English · Stacked</text>
 			<text x="320" y="264" text-anchor="middle" class="tag tag-translate">translate</text>
-			<foreignObject x="242" y="276" width="156" height="50">
-				<div xmlns="http://www.w3.org/1999/xhtml" class="bubble bubble-en">
-					<span class="who">Organizer</span>
-					<span class="msg">Hi team — meeting at 3</span>
-				</div>
-			</foreignObject>
+			<rect x="242" y="278" width="156" height="44" rx="8" class="bubble bubble-en" />
+			<text x="254" y="294" class="who">Organizer</text>
+			<text x="254" y="310" class="msg">Hi team — meeting at 3</text>
 		</g>
 
-		<!-- French sidecar -->
+		<!-- French sidecar (translate) -->
 		<g class="node side side-fr">
 			<rect x="412" y="220" width="180" height="120" rx="10" class="card" />
 			<text x="502" y="246" text-anchor="middle" class="label">French · Stacked</text>
 			<text x="502" y="264" text-anchor="middle" class="tag tag-translate">translate</text>
-			<foreignObject x="424" y="276" width="156" height="50">
-				<div xmlns="http://www.w3.org/1999/xhtml" class="bubble bubble-fr">
-					<span class="who">Organizer</span>
-					<span class="msg">Salut l’équipe — réunion à 15h</span>
-				</div>
-			</foreignObject>
+			<rect x="424" y="278" width="156" height="44" rx="8" class="bubble bubble-fr" />
+			<text x="436" y="294" class="who">Organizer</text>
+			<text x="436" y="310" class="msg">Salut l'equipe — reunion 15h</text>
 		</g>
 
-		<!-- legend -->
-		<g class="legend" transform="translate(48, 368)">
+		<g class="legend" transform="translate(48, 372)">
 			<circle cx="6" cy="0" r="4" class="leg-dot relay" />
 			<text x="16" y="4" class="leg-text">same language → relay</text>
 			<circle cx="200" cy="0" r="4" class="leg-dot translate" />
@@ -120,15 +105,8 @@
 		font-weight: 600;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
+		fill: var(--accent-text);
 		opacity: 0;
-	}
-
-	.tag-relay {
-		fill: var(--accent-text);
-	}
-
-	.tag-translate {
-		fill: var(--accent-text);
 	}
 
 	.wires path {
@@ -141,28 +119,25 @@
 	}
 
 	.bubble {
-		font-family: var(--font-sans);
-		font-size: 11px;
-		line-height: 1.3;
-		color: var(--fg);
-		background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 6px 8px;
+		fill: color-mix(in srgb, var(--accent) 12%, var(--surface));
+		stroke: var(--border);
+		stroke-width: 1;
 		opacity: 0;
-		transform: translateY(4px);
 	}
 
 	.who {
-		display: block;
+		fill: var(--muted);
+		font-family: var(--font-sans);
 		font-size: 9px;
 		font-weight: 700;
-		color: var(--muted);
-		margin-bottom: 2px;
+		opacity: 0;
 	}
 
 	.msg {
-		display: block;
+		fill: var(--fg);
+		font-family: var(--font-sans);
+		font-size: 11px;
+		opacity: 0;
 	}
 
 	.leg-text {
@@ -197,40 +172,33 @@
 		border: 0;
 	}
 
-	/* Animation timeline (~8s loop) */
-	@keyframes fade-in-up {
+	@keyframes fade-bubble {
 		0%,
 		8% {
 			opacity: 0;
-			transform: translateY(6px);
 		}
 		14%,
 		78% {
 			opacity: 1;
-			transform: translateY(0);
 		}
 		88%,
 		100% {
 			opacity: 0;
-			transform: translateY(-2px);
 		}
 	}
 
-	@keyframes fade-in-late {
+	@keyframes fade-late {
 		0%,
 		28% {
 			opacity: 0;
-			transform: translateY(6px);
 		}
 		38%,
 		78% {
 			opacity: 1;
-			transform: translateY(0);
 		}
 		88%,
 		100% {
 			opacity: 0;
-			transform: translateY(-2px);
 		}
 	}
 
@@ -342,14 +310,18 @@
 		}
 	}
 
-	.bubble-main {
-		animation: fade-in-up 8s ease-in-out infinite;
+	.bubble-main,
+	.main .who,
+	.main .msg {
+		animation: fade-bubble 8s ease-in-out infinite;
 	}
 
 	.bubble-es,
 	.bubble-en,
-	.bubble-fr {
-		animation: fade-in-late 8s ease-in-out infinite;
+	.bubble-fr,
+	.side .who,
+	.side .msg {
+		animation: fade-late 8s ease-in-out infinite;
 	}
 
 	.tag {
@@ -381,24 +353,20 @@
 
 	.pulse-en {
 		offset-path: path('M320 118 L320 200');
+		fill: var(--accent-2);
 		animation: pulse-en 8s linear infinite;
 	}
 
 	.pulse-fr {
 		offset-path: path('M320 118 L480 200');
+		fill: var(--accent-2);
 		animation: pulse-fr 8s linear infinite;
-	}
-
-	.pulse-en {
-		fill: var(--accent-2);
-	}
-
-	.pulse-fr {
-		fill: var(--accent-2);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.bubble,
+		.who,
+		.msg,
 		.tag,
 		.wire,
 		.pulse,
@@ -407,9 +375,10 @@
 		}
 
 		.bubble,
+		.who,
+		.msg,
 		.tag {
 			opacity: 1;
-			transform: none;
 		}
 
 		.pulse {

@@ -118,7 +118,111 @@ export const en: SiteContent = {
 				{ command: '!transcription', where: 'Any', effect: 'Voice product menu' }
 			]
 		},
-		plans: { title: 'Plans', lead: stubLead }
+		plans: {
+			title: 'Plans',
+			lead: 'Pick a Bundle for all three products, or pay à la carte. Individual plans cover you; Group plans cover a whole Signal chat where the product works that way.',
+			bundle: {
+				eyebrow: 'Package',
+				title: 'CipherSlate Bundle',
+				lead: 'Access to Language Threads, In-chat Translation, and Transcription in one subscription.',
+				note: 'Language Threads and In-chat auto cannot run at the same time—choose one translation mode. Voice pairs with either.',
+				offers: [
+					{
+						id: 'bundle-individual',
+						name: 'Bundle · Individual',
+						scope: 'individual',
+						blurb:
+							'Language Threads, In-chat me, and Transcription for one person. Self-subscribe in any group where the bot is present.',
+						priceLabel: '$29',
+						period: '/mo',
+						ctaHref: '/get-started',
+						ctaLabel: 'Get started'
+					},
+					{
+						id: 'bundle-group',
+						name: 'Bundle · Group',
+						scope: 'group',
+						blurb:
+							'Everything in Individual, plus In-chat all for one Signal group—bilingual quote-replies for every member.',
+						priceLabel: '$79',
+						period: '/mo',
+						ctaHref: '/get-started',
+						ctaLabel: 'Get started'
+					}
+				]
+			},
+			aLaCarteHeading: 'À la carte',
+			aLaCarteLead: 'Subscribe to one product. Scope follows how the feature works in Signal.',
+			products: [
+				{
+					id: 'language-threads',
+					title: 'Language Threads',
+					lead: 'Self-subscribe to a monolingual sidecar lane off a multilingual main.',
+					offers: [
+						{
+							id: 'threads-individual',
+							name: 'Language Threads',
+							scope: 'individual',
+							blurb: 'You join or create a Language Thread for yourself (`!translate-me-thread`).',
+							priceLabel: '$12',
+							period: '/mo',
+							ctaHref: '/products#language-threads',
+							ctaLabel: 'Learn more'
+						}
+					]
+				},
+				{
+					id: 'in-chat',
+					title: 'In-chat Translation',
+					lead: 'Stay in one bilingual chat. Me is per person; All covers the whole group.',
+					offers: [
+						{
+							id: 'in-chat-me',
+							name: 'In-chat · me',
+							scope: 'individual',
+							blurb: 'Auto-translate your messages only (`!translate-me-on`).',
+							priceLabel: '$10',
+							period: '/mo',
+							ctaHref: '/products#in-chat',
+							ctaLabel: 'Learn more'
+						},
+						{
+							id: 'in-chat-all',
+							name: 'In-chat · all',
+							scope: 'group',
+							blurb: 'Group-wide bilingual quote-replies (`!translate-all-on`).',
+							priceLabel: '$35',
+							period: '/mo',
+							ctaHref: '/products#in-chat',
+							ctaLabel: 'Learn more'
+						}
+					]
+				},
+				{
+					id: 'transcription',
+					title: 'Transcription',
+					lead: 'Voice notes become text so members who cannot listen still follow along.',
+					offers: [
+						{
+							id: 'transcription-individual',
+							name: 'Transcription',
+							scope: 'individual',
+							blurb: 'Per-person auto transcription (`!transcribe-on`).',
+							priceLabel: '$8',
+							period: '/mo',
+							ctaHref: '/products#transcription',
+							ctaLabel: 'Learn more'
+						}
+					]
+				}
+			],
+			scopeLabels: {
+				individual: 'Individual',
+				group: 'Group'
+			},
+			footnote:
+				'Prices are illustrative placeholders. Checkout is not live yet—start in Signal with the organizer checklist.'
+		}
 	},
 	legalPrivacy: {
 		title: 'Privacy Policy',

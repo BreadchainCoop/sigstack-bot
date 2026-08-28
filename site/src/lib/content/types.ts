@@ -10,6 +10,26 @@ export type PathCard = {
 	primary?: boolean;
 };
 
+export type PlanScope = 'individual' | 'group';
+
+export type PlanOffer = {
+	id: string;
+	name: string;
+	scope: PlanScope;
+	blurb: string;
+	priceLabel: string;
+	period: string;
+	ctaHref: string;
+	ctaLabel: string;
+};
+
+export type PlanProduct = {
+	id: string;
+	title: string;
+	lead: string;
+	offers: PlanOffer[];
+};
+
 export type SiteContent = {
 	meta: {
 		siteName: string;
@@ -45,7 +65,22 @@ export type SiteContent = {
 			hubCommandsHeading: string;
 			hubCommands: CommandRow[];
 		};
-		plans: { title: string; lead: string };
+		plans: {
+			title: string;
+			lead: string;
+			bundle: {
+				eyebrow: string;
+				title: string;
+				lead: string;
+				note: string;
+				offers: PlanOffer[];
+			};
+			aLaCarteHeading: string;
+			aLaCarteLead: string;
+			products: PlanProduct[];
+			scopeLabels: Record<PlanScope, string>;
+			footnote: string;
+		};
 	};
 	legalPrivacy: {
 		title: string;

@@ -79,6 +79,21 @@ test.describe('smoke', () => {
 		await expect(page.getByRole('link', { name: 'Privacy Policy' }).first()).toBeVisible();
 	});
 
+	test('plans page shows Bundle and Individual/Group scopes', async ({ page }) => {
+		await page.goto('./plans/');
+		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'CipherSlate Bundle' })).toBeVisible();
+		await expect(page.getByText('$29')).toBeVisible();
+		await expect(page.getByText('$79')).toBeVisible();
+		await expect(page.getByText('Individual').first()).toBeVisible();
+		await expect(page.getByText('Group').first()).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'À la carte' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 3, name: 'In-chat Translation' })).toBeVisible();
+		await expect(page.getByText('In-chat · me')).toBeVisible();
+		await expect(page.getByText('In-chat · all')).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
+	});
+
 	test('footer Legal links to Apache license page', async ({ page }) => {
 		await page.goto('./');
 		const legal = page.getByRole('contentinfo').getByRole('link', { name: 'Legal' });

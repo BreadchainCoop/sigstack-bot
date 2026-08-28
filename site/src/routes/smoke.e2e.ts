@@ -60,11 +60,40 @@ test.describe('smoke', () => {
 		expect(serious).toEqual([]);
 	});
 
-	test('home and products have no horizontal overflow at desktop', async ({ page }) => {
+	test('privacy page loads trust sections', async ({ page }) => {
+		await page.goto('./privacy/');
+		await expect(page.getByRole('heading', { level: 1, name: 'Privacy and trust' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'What a TEE is' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'Promise vs proof' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Privacy Policy' }).first()).toBeVisible();
+	});
+
+	test('footer Legal links to Apache license page', async ({ page }) => {
+		await page.goto('./');
+		const legal = page.getByRole('contentinfo').getByRole('link', { name: 'Legal' });
+		await expect(legal).toBeVisible();
+		await legal.click();
+		await expect(page).toHaveURL(/\/license\/?/);
+		await expect(page.getByRole('heading', { level: 1, name: 'Apache License 2.0' })).toBeVisible();
+		await expect(page.getByText('Copyright 2024 Zaki Manian', { exact: true })).toBeVisible();
+	});
+
+	test('privacy page has no serious a11y violations', async ({ page }) => {
+		await page.goto('./privacy/');
+		const results = await new AxeBuilder({ page }).analyze();
+		const serious = results.violations.filter((v) =>
+			['serious', 'critical'].includes(v.impact ?? '')
+		);
+		expect(serious).toEqual([]);
+	});
+
+	test('home, products, and privacy have no horizontal overflow at desktop', async ({ page }) => {
 		await page.setViewportSize({ width: 1200, height: 800 });
 		await page.goto('./');
 		await expectNoHorizontalOverflow(page);
 		await page.goto('./products/');
+		await expectNoHorizontalOverflow(page);
+		await page.goto('./privacy/');
 		await expectNoHorizontalOverflow(page);
 	});
 });

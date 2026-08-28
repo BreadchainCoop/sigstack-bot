@@ -11,7 +11,7 @@
 			<p class="muted">{m.footer_tagline()}</p>
 		</div>
 		<div>
-			<p class="label">{m.footer_legal()}</p>
+			<a class="label" href={resolve('/license' as Pathname)}>{m.footer_legal()}</a>
 			<ul>
 				<li>
 					<a href={resolve('/privacy-policy' as Pathname)}>{m.footer_privacy_policy()}</a>
@@ -57,9 +57,15 @@
 	}
 
 	.label {
+		display: inline-block;
 		font-weight: 700;
 		margin: 0 0 var(--space-2);
 		color: var(--fg);
+		text-decoration: none;
+	}
+
+	a.label:hover {
+		color: var(--accent-text);
 	}
 
 	ul {

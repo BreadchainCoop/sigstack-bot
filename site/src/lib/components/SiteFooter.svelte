@@ -41,7 +41,8 @@
 		gap: var(--space-5);
 	}
 
-	@media (min-width: 720px) {
+	/* Sync with --bp-md (640px) in app.css */
+	@media (min-width: 640px) {
 		.grid {
 			grid-template-columns: 1.4fr 1fr;
 		}

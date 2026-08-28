@@ -254,6 +254,8 @@
 		background: var(--surface);
 		border-bottom: 1px solid var(--border);
 		padding: var(--space-4) 1rem var(--space-5);
+		max-height: calc(100dvh - var(--header-height));
+		overflow-y: auto;
 	}
 
 	.nav.open {
@@ -456,6 +458,7 @@
 		border: 0;
 	}
 
+	/* Sync with --bp-lg (980px) in app.css */
 	@media (min-width: 980px) {
 		.menu-toggle {
 			display: none;
@@ -469,6 +472,8 @@
 			background: transparent;
 			border: 0;
 			padding: 0;
+			max-height: none;
+			overflow: visible;
 		}
 
 		.nav > ul {

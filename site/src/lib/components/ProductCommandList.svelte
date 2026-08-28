@@ -63,5 +63,14 @@
 		line-height: 1.45;
 		white-space: pre-wrap;
 		overflow-x: auto;
+		max-width: 100%;
+	}
+
+	/* Sync with --bp-md (640px) in app.css */
+	@media (max-width: 639px) {
+		.menu {
+			font-size: 0.75rem;
+			padding: var(--space-3);
+		}
 	}
 </style>

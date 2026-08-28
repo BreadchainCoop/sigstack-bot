@@ -4,13 +4,14 @@
 	import { threadsMenu } from '$lib/content/productMenus';
 </script>
 
-<figure class="diagram" aria-labelledby="lt-diagram-title">
+<figure class="diagram diagram-panel" aria-labelledby="lt-diagram-title">
 	<p id="lt-diagram-title" class="sr-only">
 		Language Threads animation. First a message from the multilingual main fans out to language
 		sidecars. Then a Spanish sidecar reply relays into main and translates into the other sidecars.
 	</p>
 
-	<svg viewBox="0 0 780 520" role="img" aria-hidden="true" class="canvas">
+	<!-- Wide: hub-and-spoke (sync show/hide with --bp-lg / 980px) -->
+	<svg viewBox="0 0 780 520" role="img" aria-hidden="true" class="canvas layout-wide">
 		<g class="wires" fill="none" stroke-width="1.5" stroke-linecap="round">
 			<path class="wire wire-hub-es" d="M390 166 L120 250" />
 			<path class="wire wire-hub-en" d="M390 166 L390 250" />
@@ -19,20 +20,18 @@
 			<path class="wire wire-es-fr" d="M210 358 L570 358" />
 		</g>
 
-		<circle class="pulse pulse-down-es" r="4" />
-		<circle class="pulse pulse-down-en" r="4" />
-		<circle class="pulse pulse-down-fr" r="4" />
-		<circle class="pulse pulse-up-main" r="4" />
-		<circle class="pulse pulse-across-en" r="4" />
-		<circle class="pulse pulse-across-fr" r="4" />
+		<circle class="pulse pulse-down-es pulse-wide" r="4" />
+		<circle class="pulse pulse-down-en pulse-wide" r="4" />
+		<circle class="pulse pulse-down-fr pulse-wide" r="4" />
+		<circle class="pulse pulse-up-main pulse-wide" r="4" />
+		<circle class="pulse pulse-across-en pulse-wide" r="4" />
+		<circle class="pulse pulse-across-fr pulse-wide" r="4" />
 
-		<!-- Main: chat history stacks during reply phase -->
 		<g class="node main">
 			<rect x="270" y="20" width="240" height="138" rx="10" class="card card-main" />
 			<text x="390" y="42" text-anchor="middle" class="label">Main · multilingual</text>
 			<text x="390" y="58" text-anchor="middle" class="tag tag-main-p2">relay from thread</text>
 
-			<!-- Origin stays; reply appears underneath -->
 			<g class="phase phase1-main">
 				<rect x="288" y="68" width="204" height="34" rx="8" class="bubble" />
 				<text x="300" y="82" class="who">Organizer</text>
@@ -45,7 +44,6 @@
 			</g>
 		</g>
 
-		<!-- Spanish sidecar -->
 		<g class="node side side-es">
 			<rect x="30" y="270" width="180" height="168" rx="10" class="card card-es" />
 			<text x="120" y="294" text-anchor="middle" class="label">Spanish · Stacked</text>
@@ -64,7 +62,6 @@
 			</g>
 		</g>
 
-		<!-- English sidecar -->
 		<g class="node side side-en">
 			<rect x="300" y="270" width="180" height="168" rx="10" class="card card-en" />
 			<text x="390" y="294" text-anchor="middle" class="label">English · Stacked</text>
@@ -82,7 +79,6 @@
 			</g>
 		</g>
 
-		<!-- French sidecar -->
 		<g class="node side side-fr">
 			<rect x="570" y="270" width="180" height="168" rx="10" class="card card-fr" />
 			<text x="660" y="294" text-anchor="middle" class="label">French · Stacked</text>
@@ -109,7 +105,101 @@
 		</g>
 	</svg>
 
-	<figcaption class="footer">
+	<!-- Narrow: stacked cards for readable labels on phones -->
+	<svg viewBox="0 0 360 820" role="img" aria-hidden="true" class="canvas layout-narrow">
+		<g class="wires" fill="none" stroke-width="1.5" stroke-linecap="round">
+			<path class="wire wire-hub-es" d="M170 154 L170 200" />
+			<path class="wire wire-hub-en" d="M300 154 L300 400" />
+			<path class="wire wire-hub-fr" d="M60 154 L60 600" />
+			<path class="wire wire-es-en" d="M180 368 L180 400" />
+			<path class="wire wire-es-fr" d="M60 368 L60 600 L180 600" />
+		</g>
+
+		<circle class="pulse pulse-down-es pulse-narrow" r="4" />
+		<circle class="pulse pulse-down-en pulse-narrow" r="4" />
+		<circle class="pulse pulse-down-fr pulse-narrow" r="4" />
+		<circle class="pulse pulse-up-main pulse-narrow" r="4" />
+		<circle class="pulse pulse-across-en pulse-narrow" r="4" />
+		<circle class="pulse pulse-across-fr pulse-narrow" r="4" />
+
+		<g class="node main">
+			<rect x="40" y="16" width="280" height="138" rx="10" class="card card-main" />
+			<text x="180" y="40" text-anchor="middle" class="label">Main · multilingual</text>
+			<text x="180" y="56" text-anchor="middle" class="tag tag-main-p2">relay from thread</text>
+
+			<g class="phase phase1-main">
+				<rect x="56" y="68" width="248" height="34" rx="8" class="bubble" />
+				<text x="68" y="82" class="who">Organizer</text>
+				<text x="68" y="96" class="msg">Hola equipo — meeting at 3</text>
+			</g>
+			<g class="phase phase2-main">
+				<rect x="56" y="110" width="248" height="34" rx="8" class="bubble" />
+				<text x="68" y="124" class="who">Ana · Spanish</text>
+				<text x="68" y="138" class="msg">¿A qué hora exactamente?</text>
+			</g>
+		</g>
+
+		<g class="node side side-es">
+			<rect x="40" y="200" width="280" height="168" rx="10" class="card card-es" />
+			<text x="180" y="224" text-anchor="middle" class="label">Spanish · Stacked</text>
+			<text x="180" y="242" text-anchor="middle" class="tag tag-es-p1">relay</text>
+			<text x="180" y="242" text-anchor="middle" class="tag tag-es-p2">reply</text>
+
+			<g class="phase phase1-es">
+				<rect x="56" y="256" width="248" height="40" rx="8" class="bubble" />
+				<text x="68" y="272" class="who">Organizer</text>
+				<text x="68" y="286" class="msg">Hola equipo — meeting at 3</text>
+			</g>
+			<g class="phase phase2-es">
+				<rect x="56" y="306" width="248" height="46" rx="8" class="bubble" />
+				<text x="68" y="322" class="who">Ana</text>
+				<text x="68" y="338" class="msg">¿A qué hora exactamente?</text>
+			</g>
+		</g>
+
+		<g class="node side side-en">
+			<rect x="40" y="400" width="280" height="168" rx="10" class="card card-en" />
+			<text x="180" y="424" text-anchor="middle" class="label">English · Stacked</text>
+			<text x="180" y="442" text-anchor="middle" class="tag tag-both">translate</text>
+
+			<g class="phase phase1-en">
+				<rect x="56" y="456" width="248" height="40" rx="8" class="bubble" />
+				<text x="68" y="472" class="who">Organizer</text>
+				<text x="68" y="486" class="msg">Hi team — meeting at 3</text>
+			</g>
+			<g class="phase phase2-en">
+				<rect x="56" y="506" width="248" height="46" rx="8" class="bubble" />
+				<text x="68" y="522" class="who">Ana</text>
+				<text x="68" y="538" class="msg">What time exactly?</text>
+			</g>
+		</g>
+
+		<g class="node side side-fr">
+			<rect x="40" y="600" width="280" height="168" rx="10" class="card card-fr" />
+			<text x="180" y="624" text-anchor="middle" class="label">French · Stacked</text>
+			<text x="180" y="642" text-anchor="middle" class="tag tag-both">translate</text>
+
+			<g class="phase phase1-fr">
+				<rect x="56" y="656" width="248" height="40" rx="8" class="bubble" />
+				<text x="68" y="672" class="who">Organizer</text>
+				<text x="68" y="686" class="msg">Salut l'equipe — reunion 15h</text>
+			</g>
+			<g class="phase phase2-fr">
+				<rect x="56" y="706" width="248" height="46" rx="8" class="bubble" />
+				<text x="68" y="722" class="who">Ana</text>
+				<text x="68" y="738" class="msg">A quelle heure exactement?</text>
+			</g>
+		</g>
+
+		<g class="legend" transform="translate(24, 788)">
+			<circle cx="6" cy="0" r="4" class="leg-dot relay" />
+			<text x="16" y="4" class="leg-text">same language → relay</text>
+			<circle cx="6" cy="18" r="4" class="leg-dot translate" />
+			<text x="16" y="22" class="leg-text">other language → translate</text>
+		</g>
+	</svg>
+
+	<figcaption class="footer diagram-footer">
 		<div class="caption">
 			<ul class="rules">
 				<li><strong>Main → sidecars:</strong> relay matching language, translate the rest</li>
@@ -122,18 +212,27 @@
 </figure>
 
 <style>
-	.diagram {
-		margin: var(--space-6) 0 0;
-		padding: var(--space-5);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-	}
-
 	.canvas {
 		display: block;
 		width: 100%;
 		height: auto;
+	}
+
+	.layout-narrow {
+		display: none;
+	}
+
+	/* Sync with --bp-lg (980px): stacked geometry below desktop nav */
+	@media (max-width: 979px) {
+		.layout-wide {
+			display: none;
+		}
+
+		.layout-narrow {
+			display: block;
+			max-width: 24rem;
+			margin-inline: auto;
+		}
 	}
 
 	.card {
@@ -208,15 +307,6 @@
 
 	.leg-dot.translate {
 		fill: var(--accent-2);
-	}
-
-	.footer {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: var(--space-4);
-		margin-top: var(--space-4);
 	}
 
 	.caption {
@@ -628,38 +718,77 @@
 		animation: flash-main-p2 16s ease-in-out infinite;
 	}
 
-	.pulse-down-es {
+	/* Wide geometry offset-paths */
+	.pulse-wide.pulse-down-es {
 		offset-path: path('M390 166 L120 250');
 		animation: pulse-down 16s linear infinite;
 	}
 
-	.pulse-down-en {
+	.pulse-wide.pulse-down-en {
 		offset-path: path('M390 166 L390 250');
 		fill: var(--accent-2);
 		animation: pulse-down 16s linear infinite;
 		animation-delay: 0.2s;
 	}
 
-	.pulse-down-fr {
+	.pulse-wide.pulse-down-fr {
 		offset-path: path('M390 166 L660 250');
 		fill: var(--accent-2);
 		animation: pulse-down 16s linear infinite;
 		animation-delay: 0.4s;
 	}
 
-	.pulse-up-main {
+	.pulse-wide.pulse-up-main {
 		offset-path: path('M120 250 L390 166');
 		animation: pulse-up 16s linear infinite;
 	}
 
-	.pulse-across-en {
+	.pulse-wide.pulse-across-en {
 		offset-path: path('M210 340 L300 340');
 		fill: var(--accent-2);
 		animation: pulse-across 16s linear infinite;
 	}
 
-	.pulse-across-fr {
+	.pulse-wide.pulse-across-fr {
 		offset-path: path('M210 358 L570 358');
+		fill: var(--accent-2);
+		animation: pulse-across 16s linear infinite;
+		animation-delay: 0.15s;
+	}
+
+	/* Narrow stacked geometry offset-paths */
+	.pulse-narrow.pulse-down-es {
+		offset-path: path('M170 154 L170 200');
+		animation: pulse-down 16s linear infinite;
+	}
+
+	.pulse-narrow.pulse-down-en {
+		offset-path: path('M300 154 L300 400');
+		fill: var(--accent-2);
+		animation: pulse-down 16s linear infinite;
+		animation-delay: 0.2s;
+	}
+
+	.pulse-narrow.pulse-down-fr {
+		offset-path: path('M60 154 L60 600');
+		fill: var(--accent-2);
+		animation: pulse-down 16s linear infinite;
+		animation-delay: 0.4s;
+	}
+
+	.pulse-narrow.pulse-up-main {
+		offset-path: path('M170 200 L170 154');
+		animation: pulse-up 16s linear infinite;
+	}
+
+	.pulse-narrow.pulse-across-en {
+		offset-path: path('M180 368 L180 400');
+		fill: var(--accent-2);
+		animation: pulse-across 16s linear infinite;
+	}
+
+	.pulse-narrow.pulse-across-fr {
+		offset-path: path('M60 368 L60 600 L180 600');
 		fill: var(--accent-2);
 		animation: pulse-across 16s linear infinite;
 		animation-delay: 0.15s;

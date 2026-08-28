@@ -3,7 +3,7 @@
 	import { transcriptionMenu } from '$lib/content/productMenus';
 </script>
 
-<figure class="diagram" aria-labelledby="tx-diagram-title">
+<figure class="diagram diagram-panel" aria-labelledby="tx-diagram-title">
 	<p id="tx-diagram-title" class="sr-only">
 		Voice transcription: a voice note in a Signal group becomes a quote-reply transcript from the
 		bot.
@@ -30,7 +30,7 @@
 		</g>
 	</svg>
 
-	<figcaption class="footer">
+	<figcaption class="footer diagram-footer">
 		<div class="caption">
 			<ul class="rules">
 				<li><strong>Opt-in:</strong> auto off until enabled; or quote <code>!transcribe</code></li>
@@ -48,14 +48,6 @@
 </figure>
 
 <style>
-	.diagram {
-		margin: var(--space-6) 0 0;
-		padding: var(--space-5);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-	}
-
 	.canvas {
 		display: block;
 		width: 100%;
@@ -113,15 +105,6 @@
 		fill: var(--muted);
 		font-family: var(--font-sans);
 		font-size: 14px;
-	}
-
-	.footer {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: var(--space-4);
-		margin-top: var(--space-4);
 	}
 
 	.caption {

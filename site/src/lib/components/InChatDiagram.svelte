@@ -3,7 +3,7 @@
 	import { inChatMenu } from '$lib/content/productMenus';
 </script>
 
-<figure class="diagram" aria-labelledby="ic-diagram-title">
+<figure class="diagram diagram-panel" aria-labelledby="ic-diagram-title">
 	<p id="ic-diagram-title" class="sr-only">
 		In-chat translation: one bilingual Signal group. An English message stays in place; the bot
 		quote-replies with a Spanish translation.
@@ -28,7 +28,7 @@
 		</g>
 	</svg>
 
-	<figcaption class="footer">
+	<figcaption class="footer diagram-footer">
 		<div class="caption">
 			<ul class="rules">
 				<li><strong>Same group:</strong> translation is a quote-reply; the original stays</li>
@@ -41,14 +41,6 @@
 </figure>
 
 <style>
-	.diagram {
-		margin: var(--space-6) 0 0;
-		padding: var(--space-5);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-	}
-
 	.canvas {
 		display: block;
 		width: 100%;
@@ -106,15 +98,6 @@
 		fill: var(--muted);
 		font-family: var(--font-sans);
 		font-size: 9px;
-	}
-
-	.footer {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: var(--space-4);
-		margin-top: var(--space-4);
 	}
 
 	.caption {

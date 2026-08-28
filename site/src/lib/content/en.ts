@@ -10,7 +10,39 @@ export const en: SiteContent = {
 			'TEE-hosted Signal bot for Language Threads, in-chat translation, and voice transcription — not a general chat assistant.'
 	},
 	pages: {
-		home: { title: 'CipherSlate', lead: stubLead },
+		home: {
+			title: 'CipherSlate',
+			lead: 'One Signal bot for multilingual groups: Language Threads, same-group translation, and voice-to-text — hosted in a hardware TEE.',
+			notChat:
+				'CipherSlate is not a general AI chat assistant. It translates and transcribes inside Signal so organizers can run multilingual rooms without leaving the app.',
+			pathsHeading: 'Which mode do you want?',
+			paths: [
+				{
+					id: 'threads',
+					title: 'Language Threads',
+					blurb:
+						'Multilingual main chat plus one sidecar group per language. Best default for multilingual organizing.',
+					href: '/products#language-threads',
+					primary: true
+				},
+				{
+					id: 'in-chat',
+					title: 'In-chat translation',
+					blurb:
+						'Stay in one bilingual group. The bot quote-replies with the other language in the same thread.',
+					href: '/products#in-chat'
+				},
+				{
+					id: 'transcription',
+					title: 'Voice transcription',
+					blurb: 'Turn voice notes into text in-group. Pairs with either translation mode.',
+					href: '/products#transcription'
+				}
+			],
+			diagramHeading: 'See Language Threads',
+			diagramLead:
+				'Diagrams first — so organizers can picture fan-out before learning commands.'
+		},
 		products: {
 			title: 'Products',
 			lead: 'Pick the shape that fits your Signal group. Language Threads keep a multilingual hub with per-language lanes; In-chat Translation stays in one bilingual chat with quote-replies; Transcription turns voice notes into text. Threads and In-chat auto cannot run at the same time—choose one translation mode—while voice can compose with either.',
@@ -59,7 +91,33 @@ export const en: SiteContent = {
 				}
 			]
 		},
-		getStarted: { title: 'Getting started', lead: stubLead },
+		getStarted: {
+			title: 'Getting started',
+			lead: 'Organizer checklist — the commands people actually type in Signal.',
+			eyebrow: 'Organizers',
+			steps: [
+				{
+					title: 'Add CipherSlate',
+					body: 'Invite the bot to your Signal group. It auto-accepts group invites.'
+				},
+				{
+					title: 'Open the hub',
+					body: 'Send !help for product menus: Language Threads, in-chat, and transcription.'
+				},
+				{
+					title: 'Pick a path',
+					body: 'Start Language Threads with !translate-me-thread <lang>, or in-chat with !translate-all-on <lang1> <lang2>, and opt into voice with !transcribe-on.'
+				}
+			],
+			hubCommandsHeading: 'Hub commands',
+			hubCommands: [
+				{ command: '!help / !info', where: 'Any', effect: 'CipherSlate hub menus' },
+				{ command: '!privacy', where: 'Any', effect: 'Privacy, TEE, and !verify in one reply' },
+				{ command: '!translation-threads', where: 'Any', effect: 'Language Threads menu' },
+				{ command: '!translation-in-chat', where: 'Any', effect: 'In-chat translation menu' },
+				{ command: '!transcription', where: 'Any', effect: 'Voice product menu' }
+			]
+		},
 		plans: { title: 'Plans', lead: stubLead }
 	},
 	legalPrivacy: {

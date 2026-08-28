@@ -9,12 +9,23 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
 }
 
 test.describe('smoke', () => {
-	test('home loads with brand stub and CTAs', async ({ page }) => {
+	test('home loads with brand, path chooser, and CTAs', async ({ page }) => {
 		await page.goto('./');
 		await expect(page.getByRole('heading', { level: 1, name: 'CipherSlate' })).toBeVisible();
-		await expect(page.getByText('Placeholder — redesign pending.')).toBeVisible();
+		await expect(
+			page.getByText('One Signal bot for multilingual groups', { exact: false })
+		).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'Which mode do you want?' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Products' }).first()).toBeVisible();
+	});
+
+	test('get started shows organizer steps and hub commands', async ({ page }) => {
+		await page.goto('./get-started/');
+		await expect(page.getByRole('heading', { level: 1, name: 'Getting started' })).toBeVisible();
+		await expect(page.getByText('Add CipherSlate')).toBeVisible();
+		await expect(page.getByText('!help / !info')).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Language Threads' }).first()).toBeVisible();
 	});
 
 	test('products dropdown pins language threads section', async ({ page }) => {

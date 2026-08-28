@@ -6,6 +6,11 @@ describe('getContent', () => {
 		const c = getContent('en');
 		expect(c.meta.siteName).toBe('CipherSlate');
 		expect(c.pages.home.title).toBe('CipherSlate');
+		expect(c.pages.home.lead).not.toContain('Placeholder');
+		expect(c.pages.home.paths).toHaveLength(3);
+		expect(c.pages.home.paths[0]?.href).toBe('/products#language-threads');
+		expect(c.pages.getStarted.steps).toHaveLength(3);
+		expect(c.pages.getStarted.hubCommands.length).toBeGreaterThan(0);
 		expect(c.pages.products.sections).toHaveLength(3);
 		expect(c.legalLicense.title).toBe('Apache License 2.0');
 		expect(c.legalLicense.fullText).toContain('Apache License');

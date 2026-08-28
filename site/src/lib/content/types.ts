@@ -1,3 +1,15 @@
+export type CommandRow = { command: string; where: string; effect: string };
+
+export type Step = { title: string; body: string };
+
+export type PathCard = {
+	id: string;
+	title: string;
+	blurb: string;
+	href: string;
+	primary?: boolean;
+};
+
 export type SiteContent = {
 	meta: {
 		siteName: string;
@@ -5,7 +17,15 @@ export type SiteContent = {
 		description: string;
 	};
 	pages: {
-		home: { title: string; lead: string };
+		home: {
+			title: string;
+			lead: string;
+			notChat: string;
+			pathsHeading: string;
+			paths: PathCard[];
+			diagramHeading: string;
+			diagramLead: string;
+		};
 		products: {
 			title: string;
 			lead: string;
@@ -17,7 +37,14 @@ export type SiteContent = {
 			lead: string;
 			sections: { id: string; title: string; lead: string }[];
 		};
-		getStarted: { title: string; lead: string };
+		getStarted: {
+			title: string;
+			lead: string;
+			eyebrow: string;
+			steps: Step[];
+			hubCommandsHeading: string;
+			hubCommands: CommandRow[];
+		};
 		plans: { title: string; lead: string };
 	};
 	legalPrivacy: {

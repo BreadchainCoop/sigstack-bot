@@ -40,7 +40,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!commands` | Sidecar only | Compact Language Thread command list |
 | `!list-langs` | Any | Language codes |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
-| `!help` / `!privacy` | Any | Hub menus (`!help` is always the Bread Bot hub; `!privacy` and `!verify` on this bot) |
+| `!help` / `!privacy` | Any | Hub menus (`!help` is always the CipherSlate hub; `!privacy` and `!verify` on this bot) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 

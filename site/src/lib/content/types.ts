@@ -1,5 +1,3 @@
-export type FaqItem = { q: string; a: string };
-
 export type CommandRow = { command: string; where: string; effect: string };
 
 export type Step = { title: string; body: string };
@@ -9,7 +7,29 @@ export type PathCard = {
 	title: string;
 	blurb: string;
 	href: string;
+	teaserHeading: string;
+	teaserLead: string;
 	primary?: boolean;
+};
+
+export type PlanScope = 'individual' | 'group';
+
+export type PlanOffer = {
+	id: string;
+	name: string;
+	scope: PlanScope;
+	blurb: string;
+	priceLabel: string;
+	period: string;
+	ctaHref: string;
+	ctaLabel: string;
+};
+
+export type PlanProduct = {
+	id: string;
+	title: string;
+	lead: string;
+	offers: PlanOffer[];
 };
 
 export type SiteContent = {
@@ -18,69 +38,48 @@ export type SiteContent = {
 		tagline: string;
 		description: string;
 	};
-	landing: {
-		eyebrow: string;
-		title: string;
-		lead: string;
-		notChat: string;
-		pathsHeading: string;
-		paths: PathCard[];
-	};
-	suite: {
-		title: string;
-		lead: string;
-		products: { title: string; body: string; href: string }[];
-	};
-	howItWorks: {
-		title: string;
-		lead: string;
-		oneBot: string;
-		sections: { title: string; steps: Step[] }[];
-	};
-	languageThreads: {
-		title: string;
-		lead: string;
-		when: string;
-		flow: string[];
-		commands: CommandRow[];
-		diagramCaption: string;
-	};
-	inChat: {
-		title: string;
-		lead: string;
-		when: string;
-		flow: string[];
-		commands: CommandRow[];
-		diagramCaption: string;
-	};
-	transcription: {
-		title: string;
-		lead: string;
-		when: string;
-		flow: string[];
-		commands: CommandRow[];
-		diagramCaption: string;
-	};
-	privacy: {
-		title: string;
-		lead: string;
-		points: { title: string; body: string }[];
-		honest: string;
-	};
-	faq: {
-		title: string;
-		items: FaqItem[];
-	};
-	getStarted: {
-		title: string;
-		lead: string;
-		steps: Step[];
-		hubCommands: CommandRow[];
-	};
-	plans: {
-		title: string;
-		lead: string;
-		body: string;
+	pages: {
+		home: {
+			title: string;
+			lead: string;
+			notChat: string;
+			pathsHeading: string;
+			paths: PathCard[];
+		};
+		products: {
+			title: string;
+			lead: string;
+			sections: { id: string; title: string; lead: string }[];
+		};
+		privacy: {
+			title: string;
+			lead: string;
+			sections: { id: string; title: string; lead: string }[];
+		};
+		getStarted: {
+			title: string;
+			lead: string;
+			eyebrow: string;
+			steps: Step[];
+			hubCommandsHeading: string;
+			hubCommands: CommandRow[];
+		};
+		plans: {
+			title: string;
+			lead: string;
+			bundle: {
+				eyebrow: string;
+				title: string;
+				lead: string;
+				note: string;
+				offers: PlanOffer[];
+			};
+			aLaCarteHeading: string;
+			aLaCarteLead: string;
+			products: PlanProduct[];
+			scopeLabels: Record<PlanScope, string>;
+			footnote: string;
+		};
 	};
 	legalPrivacy: {
 		title: string;
@@ -91,5 +90,12 @@ export type SiteContent = {
 		title: string;
 		updated: string;
 		sections: { title: string; body: string }[];
+	};
+	legalLicense: {
+		title: string;
+		updated: string;
+		copyright: string;
+		overview: string;
+		fullText: string;
 	};
 };

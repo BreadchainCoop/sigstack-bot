@@ -1,26 +1,47 @@
 <script lang="ts">
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
+	import { m } from '$lib/paraglide/messages.js';
+	import PrivacyTeeDiagram from '$lib/components/PrivacyTeeDiagram.svelte';
+	import PrivacyTrustDiagram from '$lib/components/PrivacyTrustDiagram.svelte';
+	import PrivacyPromiseDiagram from '$lib/components/PrivacyPromiseDiagram.svelte';
+	import Button from '$lib/components/Button.svelte';
 
-	const { privacy: page, meta } = $derived(getContent(getLocale()));
+	const { pages, meta } = $derived(getContent(getLocale()));
+	const page = $derived(pages.privacy);
 </script>
 
 <svelte:head>
 	<title>{page.title} — {meta.siteName}</title>
-	<meta name="description" content={page.lead} />
 </svelte:head>
 
-<p class="eyebrow">Trust</p>
-<h1>{page.title}</h1>
-<p class="lead">{page.lead}</p>
+<section class="page-stub">
+	<h1>{page.title}</h1>
+	<p class="lead">{page.lead}</p>
+</section>
 
-<div class="grid-2" style="margin-top: var(--space-6)">
-	{#each page.points as point (point.title)}
-		<article class="panel">
-			<h2>{point.title}</h2>
-			<p>{point.body}</p>
-		</article>
-	{/each}
+{#each page.sections as section (section.id)}
+	<section class="section" id={section.id}>
+		<h2>{section.title}</h2>
+		<p class="lead">{section.lead}</p>
+		{#if section.id === 'what-is-a-tee'}
+			<PrivacyTeeDiagram />
+		{:else if section.id === 'how-cipherslate'}
+			<PrivacyTrustDiagram />
+		{:else if section.id === 'promise-vs-proof'}
+			<PrivacyPromiseDiagram />
+		{/if}
+	</section>
+{/each}
+
+<div class="cta-row privacy-cta">
+	<Button href="/privacy-policy">{m.footer_privacy_policy()}</Button>
+	<Button href="/products" variant="ghost">{m.nav_products()}</Button>
 </div>
 
-<p class="panel" style="margin-top: var(--space-6)">{page.honest}</p>
+<style>
+	.privacy-cta {
+		margin-top: var(--space-8);
+		margin-bottom: var(--space-4);
+	}
+</style>

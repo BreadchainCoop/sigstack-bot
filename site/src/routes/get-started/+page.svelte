@@ -4,7 +4,8 @@
 	import CommandTable from '$lib/components/CommandTable.svelte';
 	import Button from '$lib/components/Button.svelte';
 
-	const { getStarted: page, meta } = $derived(getContent(getLocale()));
+	const { pages, meta } = $derived(getContent(getLocale()));
+	const page = $derived(pages.getStarted);
 </script>
 
 <svelte:head>
@@ -12,7 +13,7 @@
 	<meta name="description" content={page.lead} />
 </svelte:head>
 
-<p class="eyebrow">Organizers</p>
+<p class="eyebrow">{page.eyebrow}</p>
 <h1>{page.title}</h1>
 <p class="lead">{page.lead}</p>
 
@@ -25,15 +26,13 @@
 	{/each}
 </ol>
 
-<h2 style="margin-top: var(--space-7)">Hub commands</h2>
+<h2 style="margin-top: var(--space-7)">{page.hubCommandsHeading}</h2>
 <CommandTable rows={page.hubCommands} />
 
 <div class="cta-row">
-	<Button href="/language-threads">Language Threads</Button>
-	<Button href="/plans" variant="secondary">Plans (coming soon)</Button>
-	<Button
-		href="https://github.com/BreadchainCoop/sigstack-bot/issues"
-		variant="ghost"
-		external>GitHub issues</Button
+	<Button href="/products#language-threads">Language Threads</Button>
+	<Button href="/privacy" variant="ghost">Privacy</Button>
+	<Button href="https://github.com/BreadchainCoop/sigstack-bot/issues" variant="ghost" external
+		>GitHub issues</Button
 	>
 </div>

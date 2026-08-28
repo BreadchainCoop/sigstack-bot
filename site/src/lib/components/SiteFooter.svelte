@@ -7,11 +7,11 @@
 <footer class="footer">
 	<div class="shell grid">
 		<div>
-			<p class="brand">Bread Bot</p>
+			<p class="brand">CipherSlate</p>
 			<p class="muted">{m.footer_tagline()}</p>
 		</div>
 		<div>
-			<p class="label">{m.footer_legal()}</p>
+			<a class="label" href={resolve('/license' as Pathname)}>{m.footer_legal()}</a>
 			<ul>
 				<li>
 					<a href={resolve('/privacy-policy' as Pathname)}>{m.footer_privacy_policy()}</a>
@@ -31,8 +31,8 @@
 
 <style>
 	.footer {
-		border-top: 1px solid var(--color-paper-1);
-		background: var(--color-paper-2);
+		border-top: 1px solid var(--border);
+		background: var(--surface);
 		padding: var(--space-7) 0;
 	}
 
@@ -41,24 +41,31 @@
 		gap: var(--space-5);
 	}
 
-	@media (min-width: 720px) {
+	/* Sync with --bp-md (640px) in app.css */
+	@media (min-width: 640px) {
 		.grid {
 			grid-template-columns: 1.4fr 1fr;
 		}
 	}
 
 	.brand {
-		font-family: var(--font-display);
-		font-weight: 800;
+		font-family: var(--font-sans);
+		font-weight: 700;
 		font-size: 1.1rem;
 		margin: 0 0 var(--space-2);
-		color: var(--color-ink);
+		color: var(--fg);
 	}
 
 	.label {
+		display: inline-block;
 		font-weight: 700;
 		margin: 0 0 var(--space-2);
-		color: var(--color-ink);
+		color: var(--fg);
+		text-decoration: none;
+	}
+
+	a.label:hover {
+		color: var(--accent-text);
 	}
 
 	ul {
@@ -70,12 +77,12 @@
 	}
 
 	a {
-		color: var(--color-brown);
+		color: var(--muted);
 		text-decoration: none;
 		font-weight: 600;
 	}
 
 	a:hover {
-		color: var(--color-primary-jade);
+		color: var(--accent-text);
 	}
 </style>

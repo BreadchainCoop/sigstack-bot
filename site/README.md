@@ -1,10 +1,10 @@
-# Bread Bot site
+# CipherSlate site
 
-Educational / marketing site for Bread Bot (issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23)).
+Educational / marketing site for CipherSlate (issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23)).
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
 **Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/`  
-**Design:** [Bread Cooperative design system](https://github.com/BreadchainCoop/bread-design-system) tokens · follow-up [bread-design-system#1](https://github.com/BreadchainCoop/bread-design-system/issues/1)
+**Design:** Small token system inspired by [Octant](https://octant.build/) accent language and [Golem Foundation](https://golem.foundation/)-like typography (DM Sans). Not affiliated with either. Products live on one `/products` page; the nav Products dropdown pins section anchors (`#language-threads`, `#in-chat`, `#transcription`).
 
 ## Local
 
@@ -22,12 +22,12 @@ BASE_PATH= npm run build && BASE_PATH= npm run preview
 
 ## Scripts
 
-| Script | Purpose |
-|--------|---------|
-| `npm run check` | `svelte-check` |
+| Script              | Purpose                   |
+| ------------------- | ------------------------- |
+| `npm run check`     | `svelte-check`            |
 | `npm run test:unit` | Vitest (unit + component) |
-| `npm run test:e2e` | Playwright smoke + axe |
-| `npm run build` | Static build → `build/` |
+| `npm run test:e2e`  | Playwright smoke + axe    |
+| `npm run build`     | Static build → `build/`   |
 
 ## Enable GitHub Pages
 

@@ -753,7 +753,7 @@ mod tests {
         let msg = BotMessage {
             source: "+15550001111".into(),
             source_number: Some("+15550001111".into()),
-            source_name: Some("Bread Bot".into()),
+            source_name: Some("CipherSlate".into()),
             text: "📝 Transcript:\nHola amigos".into(),
             timestamp: 0,
             message_timestamp: 0,
@@ -851,7 +851,7 @@ mod tests {
         let msg = BotMessage {
             source: "+15550001111".into(),
             source_number: Some("+15550001111".into()),
-            source_name: Some("Bread Bot".into()),
+            source_name: Some("CipherSlate".into()),
             text: "Hello friends".into(),
             timestamp: 0,
             message_timestamp: 0,

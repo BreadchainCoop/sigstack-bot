@@ -16,7 +16,7 @@
 		<tbody>
 			{#each rows as row (row.command)}
 				<tr>
-					<td><code class="cmd">{row.command}</code></td>
+					<td><code>{row.command}</code></td>
 					<td>{row.where}</td>
 					<td>{row.effect}</td>
 				</tr>

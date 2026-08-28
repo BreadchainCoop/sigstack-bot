@@ -1,7 +1,5 @@
 import type { SiteContent } from './types';
 
-const stubLead = 'Placeholder — redesign pending.';
-
 export const en: SiteContent = {
 	meta: {
 		siteName: 'CipherSlate',
@@ -70,7 +68,6 @@ export const en: SiteContent = {
 				}
 			]
 		},
-		howItWorks: { title: 'How it works', lead: stubLead },
 		privacy: {
 			title: 'Privacy and trust',
 			lead: 'CipherSlate runs in a Phala Trusted Execution Environment (TEE)—sealed hardware the host cannot read. Privacy is enforced by the chip, not by a policy alone.',

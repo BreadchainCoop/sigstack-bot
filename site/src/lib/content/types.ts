@@ -51,7 +51,6 @@ export type SiteContent = {
 			lead: string;
 			sections: { id: string; title: string; lead: string }[];
 		};
-		howItWorks: { title: string; lead: string };
 		privacy: {
 			title: string;
 			lead: string;

@@ -76,6 +76,6 @@
 	}
 
 	a:hover {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 </style>

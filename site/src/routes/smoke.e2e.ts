@@ -2,21 +2,22 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 test.describe('smoke', () => {
-	test('home loads with brand stub', async ({ page }) => {
+	test('home loads with brand stub and CTAs', async ({ page }) => {
 		await page.goto('./');
 		await expect(page.getByRole('heading', { level: 1, name: 'Bread Bot' })).toBeVisible();
 		await expect(page.getByText('Placeholder — redesign pending.')).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Products' }).first()).toBeVisible();
 	});
 
-	test('primary nav reaches product stubs', async ({ page }) => {
+	test('products dropdown pins language threads section', async ({ page }) => {
 		await page.goto('./');
 		await page.setViewportSize({ width: 1200, height: 800 });
 		const nav = page.getByRole('navigation', { name: 'Primary' });
-		await nav.getByRole('link', { name: 'Suite' }).click();
-		await expect(page.getByRole('heading', { level: 1, name: 'Product suite' })).toBeVisible();
+		await nav.getByRole('button', { name: 'Products menu' }).click();
 		await nav.getByRole('link', { name: 'Language Threads' }).click();
-		await expect(page.getByRole('heading', { level: 1, name: 'Language Threads' })).toBeVisible();
-		await expect(nav.getByRole('link', { name: 'FAQ' })).toHaveCount(0);
+		await expect(page.getByRole('heading', { level: 2, name: 'Language Threads' })).toBeVisible();
+		await expect(page).toHaveURL(/#language-threads/);
 	});
 
 	test('theme toggle flips data-theme', async ({ page }) => {
@@ -43,8 +44,8 @@ test.describe('smoke', () => {
 		expect(serious).toEqual([]);
 	});
 
-	test('language-threads has no serious a11y violations', async ({ page }) => {
-		await page.goto('./language-threads/');
+	test('products page has no serious a11y violations', async ({ page }) => {
+		await page.goto('./products/');
 		const results = await new AxeBuilder({ page }).analyze();
 		const serious = results.violations.filter((v) =>
 			['serious', 'critical'].includes(v.impact ?? '')

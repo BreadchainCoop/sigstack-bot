@@ -1,9 +1,10 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"nav_suite": "Suite",
+	"nav_products": "Products",
+	"nav_products_menu": "Products menu",
 	"nav_how": "How it works",
 	"nav_threads": "Language Threads",
-	"nav_in_chat": "In-chat",
+	"nav_in_chat": "In-chat Translation",
 	"nav_transcription": "Transcription",
 	"nav_privacy": "Privacy",
 	"nav_start": "Get started",

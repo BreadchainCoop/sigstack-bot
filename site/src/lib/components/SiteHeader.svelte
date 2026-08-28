@@ -4,26 +4,32 @@
 	import { page } from '$app/state';
 	import { locales, getLocale, setLocale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
-	import { List, X, Sun, Moon } from 'phosphor-svelte';
+	import { List, X, Sun, Moon, CaretDown, Translate } from 'phosphor-svelte';
 	import { onMount } from 'svelte';
 	import { appPathname } from '$lib/appPathname';
 	import { toggleTheme, type Theme } from '$lib/theme';
 
 	let open = $state(false);
+	let productsOpen = $state(false);
+	let langOpen = $state(false);
 	let theme = $state<Theme>('light');
 
-	const links = $derived([
-		{ href: '/suite', label: m.nav_suite() },
+	const productsBase = $derived(resolve('/products' as Pathname));
+
+	const flatLinks = $derived([
 		{ href: '/how-it-works', label: m.nav_how() },
-		{ href: '/language-threads', label: m.nav_threads() },
-		{ href: '/in-chat', label: m.nav_in_chat() },
-		{ href: '/transcription', label: m.nav_transcription() },
 		{ href: '/privacy', label: m.nav_privacy() },
-		{ href: '/get-started', label: m.nav_start() },
 		{ href: '/plans', label: m.nav_plans() }
 	]);
 
+	const productItems = $derived([
+		{ hash: 'language-threads', label: m.nav_threads() },
+		{ hash: 'in-chat', label: m.nav_in_chat() },
+		{ hash: 'transcription', label: m.nav_transcription() }
+	]);
+
 	const pathWithoutLocale = $derived(appPathname(page.url));
+	const onProducts = $derived(pathWithoutLocale.replace(/\/$/, '') === '/products');
 	const themeLabel = $derived(theme === 'dark' ? m.theme_to_light() : m.theme_to_dark());
 
 	onMount(() => {
@@ -33,6 +39,8 @@
 
 	function close() {
 		open = false;
+		productsOpen = false;
+		langOpen = false;
 	}
 
 	function switchLocale(locale: (typeof locales)[number]) {
@@ -44,6 +52,20 @@
 		theme = toggleTheme();
 	}
 </script>
+
+<svelte:window
+	onclick={(e) => {
+		const el = e.target as Element | null;
+		if (el && !el.closest?.('.products-menu')) productsOpen = false;
+		if (el && !el.closest?.('.lang-menu')) langOpen = false;
+	}}
+	onkeydown={(e) => {
+		if (e.key === 'Escape') {
+			productsOpen = false;
+			langOpen = false;
+		}
+	}}
+/>
 
 <a class="skip-link" href="#main">Skip to content</a>
 
@@ -69,7 +91,54 @@
 
 		<nav id="site-nav" class="nav" class:open aria-label="Primary">
 			<ul>
-				{#each links as link (link.href)}
+				<li class="products-menu">
+					<div class="products-wrap">
+						<div class="products-trigger">
+							<a
+								class="products-link"
+								href={productsBase}
+								aria-current={onProducts ? 'page' : undefined}
+								onclick={close}>{m.nav_products()}</a
+							>
+							<button
+								type="button"
+								class="products-caret"
+								aria-expanded={productsOpen}
+								aria-controls="products-dropdown"
+								aria-label={m.nav_products_menu()}
+								onclick={(e) => {
+									e.stopPropagation();
+									productsOpen = !productsOpen;
+								}}
+							>
+								<CaretDown size={14} aria-hidden="true" />
+							</button>
+						</div>
+
+						<ul
+							id="products-dropdown"
+							class="nav-dropdown products-panel"
+							class:show={productsOpen}
+							role="list"
+						>
+							{#each productItems as item (item.hash)}
+								<li>
+									<a href="{productsBase}#{item.hash}" onclick={close}>{item.label}</a>
+								</li>
+							{/each}
+						</ul>
+
+						<ul class="products-mobile">
+							{#each productItems as item (item.hash)}
+								<li>
+									<a href="{productsBase}#{item.hash}" onclick={close}>{item.label}</a>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</li>
+
+				{#each flatLinks as link (link.href)}
 					<li>
 						<a
 							href={resolve(link.href as Pathname)}
@@ -83,7 +152,7 @@
 			<div class="controls">
 				<button
 					type="button"
-					class="theme-btn"
+					class="icon-btn"
 					aria-label={themeLabel}
 					aria-pressed={theme === 'dark'}
 					onclick={onToggleTheme}
@@ -95,15 +164,41 @@
 					{/if}
 				</button>
 
-				<div class="lang" aria-label={m.lang_label()}>
-					{#each locales as locale (locale)}
+				<div class="lang-menu">
+					<div class="lang-wrap">
 						<button
 							type="button"
-							class="lang-btn"
-							aria-current={getLocale() === locale ? 'true' : undefined}
-							onclick={() => switchLocale(locale)}>{locale.toUpperCase()}</button
+							class="icon-btn"
+							aria-label={m.lang_label()}
+							aria-expanded={langOpen}
+							aria-controls="lang-dropdown"
+							onclick={(e) => {
+								e.stopPropagation();
+								langOpen = !langOpen;
+								productsOpen = false;
+							}}
 						>
-					{/each}
+							<Translate size={20} aria-hidden="true" />
+						</button>
+
+						<ul
+							id="lang-dropdown"
+							class="nav-dropdown lang-panel"
+							class:show={langOpen}
+							role="list"
+						>
+							{#each locales as locale (locale)}
+								<li>
+									<button
+										type="button"
+										class="lang-option"
+										aria-current={getLocale() === locale ? 'true' : undefined}
+										onclick={() => switchLocale(locale)}>{locale.toUpperCase()}</button
+									>
+								</li>
+							{/each}
+						</ul>
+					</div>
 				</div>
 			</div>
 		</nav>
@@ -115,8 +210,8 @@
 		position: sticky;
 		top: 0;
 		z-index: 40;
-		background: color-mix(in srgb, var(--surface) 92%, transparent);
-		backdrop-filter: blur(8px);
+		background: color-mix(in srgb, var(--surface) 88%, transparent);
+		backdrop-filter: blur(10px);
 		border-bottom: 1px solid var(--border);
 		min-height: var(--header-height);
 	}
@@ -139,7 +234,7 @@
 	}
 
 	.brand:hover {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.menu-toggle {
@@ -166,7 +261,7 @@
 		display: block;
 	}
 
-	.nav ul {
+	.nav > ul {
 		list-style: none;
 		margin: 0;
 		padding: 0;
@@ -181,9 +276,88 @@
 		font-size: 0.95rem;
 	}
 
-	.nav a:hover,
+	.nav a:hover {
+		color: var(--accent-text);
+	}
+
 	.nav a[aria-current='page'] {
-		color: var(--accent);
+		color: var(--fg);
+		box-shadow: inset 0 -2px 0 var(--accent);
+	}
+
+	.products-menu {
+		position: relative;
+	}
+
+	.products-wrap {
+		position: relative;
+	}
+
+	.products-trigger {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+
+	.products-caret {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		border: 0;
+		padding: 0.2rem;
+		color: var(--muted);
+		cursor: pointer;
+	}
+
+	.products-caret:hover,
+	.products-caret[aria-expanded='true'] {
+		color: var(--accent-text);
+	}
+
+	.products-panel {
+		display: none;
+		list-style: none;
+		margin: var(--space-2) 0 0;
+		gap: 0.15rem;
+	}
+
+	.products-panel.show {
+		display: grid;
+	}
+
+	.products-panel a {
+		display: block;
+		padding: var(--space-2) var(--space-3);
+		border-radius: calc(var(--radius) - 2px);
+		font-weight: 500;
+	}
+
+	.products-panel a:hover {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+	}
+
+	/* Mobile drawer: always list product anchors; hide desktop panel + caret */
+	.products-panel {
+		display: none !important;
+	}
+
+	.products-caret {
+		display: none;
+	}
+
+	.products-mobile {
+		list-style: none;
+		margin: var(--space-2) 0 0;
+		padding: 0 0 0 var(--space-4);
+		display: grid;
+		gap: var(--space-2);
+	}
+
+	.products-mobile a {
+		font-weight: 500;
+		font-size: 0.9rem;
+		color: var(--muted);
 	}
 
 	.controls {
@@ -195,41 +369,69 @@
 		border-top: 1px solid var(--border);
 	}
 
-	.theme-btn {
+	.icon-btn {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
 		background: transparent;
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
-		padding: 0.3rem;
+		padding: 0;
 		color: var(--fg);
 		cursor: pointer;
 	}
 
-	.theme-btn:hover {
-		color: var(--accent);
+	.icon-btn:hover,
+	.icon-btn[aria-expanded='true'] {
+		color: var(--accent-text);
 		border-color: var(--accent);
 	}
 
-	.lang {
-		display: flex;
-		gap: var(--space-3);
+	.lang-menu {
+		position: relative;
 	}
 
-	.lang-btn {
-		font-size: 0.85rem;
-		font-weight: 700;
-		color: var(--muted);
-		background: transparent;
+	.lang-wrap {
+		position: relative;
+	}
+
+	.lang-panel {
+		display: none;
+		list-style: none;
+		margin: var(--space-2) 0 0;
+		gap: 0.15rem;
+		min-width: 5.5rem;
+	}
+
+	.lang-panel.show {
+		display: grid;
+	}
+
+	.lang-option {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: var(--space-2) var(--space-3);
 		border: 0;
-		padding: 0;
-		cursor: pointer;
+		border-radius: calc(var(--radius) - 2px);
+		background: transparent;
+		color: var(--fg);
 		font-family: inherit;
+		font-weight: 600;
+		font-size: 0.9rem;
+		cursor: pointer;
 	}
 
-	.lang-btn[aria-current='true'] {
-		color: var(--accent);
+	.lang-option:hover {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		color: var(--accent-text);
+	}
+
+	.lang-option[aria-current='true'] {
+		color: var(--fg);
+		box-shadow: inset 3px 0 0 var(--accent);
 	}
 
 	.sr-only {
@@ -258,11 +460,60 @@
 			padding: 0;
 		}
 
-		.nav ul {
+		.nav > ul {
 			display: flex;
 			flex-wrap: wrap;
-			gap: var(--space-3);
+			align-items: center;
+			gap: var(--space-4);
 			justify-content: flex-end;
+		}
+
+		.products-caret {
+			display: inline-flex;
+		}
+
+		/* Hoverable bridge between trigger and panel (avoids dead gap) */
+		.products-wrap {
+			padding-bottom: 0.5rem;
+		}
+
+		.products-panel {
+			position: absolute;
+			top: 100%;
+			left: 0;
+			z-index: 50;
+			margin: 0;
+			display: none !important;
+		}
+
+		.products-panel.show,
+		.products-wrap:hover .products-panel,
+		.products-wrap:focus-within .products-panel {
+			display: grid !important;
+		}
+
+		.products-mobile {
+			display: none;
+		}
+
+		.lang-wrap {
+			padding-bottom: 0.5rem;
+		}
+
+		.lang-panel {
+			position: absolute;
+			top: 100%;
+			right: 0;
+			left: auto;
+			z-index: 50;
+			margin: 0;
+			display: none;
+		}
+
+		.lang-panel.show,
+		.lang-wrap:hover .lang-panel,
+		.lang-wrap:focus-within .lang-panel {
+			display: grid;
 		}
 
 		.controls {

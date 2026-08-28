@@ -6,11 +6,12 @@ export type SiteContent = {
 	};
 	pages: {
 		home: { title: string; lead: string };
-		suite: { title: string; lead: string };
+		products: {
+			title: string;
+			lead: string;
+			sections: { id: string; title: string; lead: string }[];
+		};
 		howItWorks: { title: string; lead: string };
-		languageThreads: { title: string; lead: string };
-		inChat: { title: string; lead: string };
-		transcription: { title: string; lead: string };
 		privacy: { title: string; lead: string };
 		getStarted: { title: string; lead: string };
 		plans: { title: string; lead: string };

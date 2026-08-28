@@ -4,7 +4,7 @@ Educational / marketing site for Bread Bot (issue [#23](https://github.com/Bread
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
 **Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/`  
-**Design:** Neutral starter shell (Bread design system removed). Full visual rebuild is a follow-up (Octant-inspired).
+**Design:** Small token system inspired by [Octant](https://octant.build/) accent language and [Golem Foundation](https://golem.foundation/)-like typography (DM Sans). Not affiliated with either. Products live on one `/products` page; the nav Products dropdown pins section anchors (`#language-threads`, `#in-chat`, `#transcription`).
 
 ## Local
 

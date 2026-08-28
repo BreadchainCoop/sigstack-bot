@@ -11,11 +11,16 @@ export const en: SiteContent = {
 	},
 	pages: {
 		home: { title: 'Bread Bot', lead: stubLead },
-		suite: { title: 'Product suite', lead: stubLead },
+		products: {
+			title: 'Products',
+			lead: stubLead,
+			sections: [
+				{ id: 'language-threads', title: 'Language Threads', lead: stubLead },
+				{ id: 'in-chat', title: 'In-chat Translation', lead: stubLead },
+				{ id: 'transcription', title: 'Transcription', lead: stubLead }
+			]
+		},
 		howItWorks: { title: 'How it works', lead: stubLead },
-		languageThreads: { title: 'Language Threads', lead: stubLead },
-		inChat: { title: 'In-chat translation', lead: stubLead },
-		transcription: { title: 'Voice transcription', lead: stubLead },
 		privacy: { title: 'Privacy and trust', lead: stubLead },
 		getStarted: { title: 'Getting started', lead: stubLead },
 		plans: { title: 'Plans', lead: stubLead }

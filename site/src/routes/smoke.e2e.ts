@@ -83,11 +83,15 @@ test.describe('smoke', () => {
 		await page.goto('./plans/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
 		await expect(page.getByRole('heading', { level: 2, name: 'CipherSlate Bundle' })).toBeVisible();
-		await expect(page.getByText('$10.49')).toBeVisible();
-		await expect(page.getByText('$13.99')).toBeVisible();
+		await expect(page.getByText('$5')).toBeVisible();
+		await expect(page.getByText('$17')).toBeVisible();
 		await expect(page.getByText('Individual').first()).toBeVisible();
 		await expect(page.getByText('Group').first()).toBeVisible();
 		await expect(page.getByRole('heading', { level: 2, name: 'À la carte' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 3, name: 'Language Threads' })).toBeVisible();
+		await expect(page.getByText('Language Threads · me')).toBeVisible();
+		await expect(page.getByText('Language Threads · group')).toBeVisible();
+		await expect(page.getByText('$11').first()).toBeVisible();
 		await expect(page.getByRole('heading', { level: 3, name: 'In-chat Translation' })).toBeVisible();
 		await expect(page.getByText('In-chat · me')).toBeVisible();
 		await expect(page.getByText('In-chat · all')).toBeVisible();

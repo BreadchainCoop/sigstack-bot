@@ -136,7 +136,7 @@ export const en: SiteContent = {
 						scope: 'individual',
 						blurb:
 							'Language Threads, In-chat me, and Transcription for one person. Self-subscribe in any group where the bot is present.',
-						priceLabel: '$10.49',
+						priceLabel: '$5',
 						period: '/mo',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
@@ -147,7 +147,7 @@ export const en: SiteContent = {
 						scope: 'group',
 						blurb:
 							'Everything in Individual, plus In-chat all for one Signal group—bilingual quote-replies for every member.',
-						priceLabel: '$13.99',
+						priceLabel: '$17',
 						period: '/mo',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
@@ -160,14 +160,25 @@ export const en: SiteContent = {
 				{
 					id: 'language-threads',
 					title: 'Language Threads',
-					lead: 'Self-subscribe to a monolingual sidecar lane off a multilingual main.',
+					lead: 'Self-subscribe to a monolingual sidecar lane, or cover the whole multilingual main with a Group plan.',
 					offers: [
 						{
 							id: 'threads-individual',
-							name: 'Language Threads',
+							name: 'Language Threads · me',
 							scope: 'individual',
 							blurb: 'You join or create a Language Thread for yourself (`!translate-me-thread`).',
-							priceLabel: '$5.49',
+							priceLabel: '$2',
+							period: '/mo',
+							ctaHref: '/products#language-threads',
+							ctaLabel: 'Learn more'
+						},
+						{
+							id: 'threads-group',
+							name: 'Language Threads · group',
+							scope: 'group',
+							blurb:
+								'Language Threads for one multilingual main—sidecars for every language lane the group needs.',
+							priceLabel: '$11',
 							period: '/mo',
 							ctaHref: '/products#language-threads',
 							ctaLabel: 'Learn more'
@@ -184,7 +195,7 @@ export const en: SiteContent = {
 							name: 'In-chat · me',
 							scope: 'individual',
 							blurb: 'Auto-translate your messages only (`!translate-me-on`).',
-							priceLabel: '$3.49',
+							priceLabel: '$2',
 							period: '/mo',
 							ctaHref: '/products#in-chat',
 							ctaLabel: 'Learn more'
@@ -194,7 +205,7 @@ export const en: SiteContent = {
 							name: 'In-chat · all',
 							scope: 'group',
 							blurb: 'Group-wide bilingual quote-replies (`!translate-all-on`).',
-							priceLabel: '$8.99',
+							priceLabel: '$11',
 							period: '/mo',
 							ctaHref: '/products#in-chat',
 							ctaLabel: 'Learn more'
@@ -211,7 +222,7 @@ export const en: SiteContent = {
 							name: 'Transcription',
 							scope: 'individual',
 							blurb: 'Per-person auto transcription (`!transcribe-on`).',
-							priceLabel: '$3.99',
+							priceLabel: '$2',
 							period: '/mo',
 							ctaHref: '/products#transcription',
 							ctaLabel: 'Learn more'

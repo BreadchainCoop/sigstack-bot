@@ -3,7 +3,7 @@
 Educational / marketing site for CipherSlate (issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23)).
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
-**Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/`  
+**Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/cypherslate/`  
 **Design:** Small token system inspired by [Octant](https://octant.build/) accent language and [Golem Foundation](https://golem.foundation/)-like typography (DM Sans). Not affiliated with either. Products live on one `/products` page; the nav Products dropdown pins section anchors (`#language-threads`, `#in-chat`, `#transcription`).
 
 ## Local
@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Production base path defaults to `/sigstack-bot`. For root-local preview:
+Production base path defaults to `/sigstack-bot/cypherslate`. For root-local preview:
 
 ```bash
 BASE_PATH= npm run build && BASE_PATH= npm run preview
@@ -33,6 +33,6 @@ BASE_PATH= npm run build && BASE_PATH= npm run preview
 
 1. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**
 2. Merge to `main` (or run **Pages** workflow manually)
-3. Site URL: https://breadchaincoop.github.io/sigstack-bot/
+3. Site URL: https://breadchaincoop.github.io/sigstack-bot/cypherslate/
 
 Legacy `web/` (Private AI) is unrelated — do not use it as the product storefront.

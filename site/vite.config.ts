@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
-const base = (process.env.BASE_PATH ?? '/sigstack-bot') as `/${string}` | '';
+const base = (process.env.BASE_PATH ?? '/sigstack-bot/cypherslate') as `/${string}` | '';
 
 export default defineConfig({
 	plugins: [

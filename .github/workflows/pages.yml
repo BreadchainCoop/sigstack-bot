@@ -40,23 +40,16 @@ jobs:
           set -euo pipefail
 
           # The GitHub Pages project site mounts the artifact at `/<repo>/`.
-          # To support an extra `/cypherslate/` segment, we relocate the built output
-          # under `build/cypherslate/` and leave a root redirect at `build/index.html`.
-          mkdir -p build/cypherslate
-
-          shopt -s dotglob nullglob
-          for item in build/* build/.[!.]* build/..?*; do
-            base_name="$(basename "$item")"
-            if [[ "$base_name" == "cypherslate" ]]; then
-              continue
-            fi
-            mv "$item" "build/cypherslate/"
-          done
-
-          cat > build/index.html <<'EOF'
-          <!doctype html>
-          <meta http-equiv="refresh" content="0; url=/sigstack-bot/cypherslate/">
-          EOF
+          # Nest the SvelteKit output under `cypherslate/` so /sigstack-bot/cypherslate/
+          # resolves. Move the whole build dir (avoids overlapping hidden-file globs).
+          tmp="$(mktemp -d)"
+          mv build "$tmp/cypherslate"
+          mkdir -p build
+          mv "$tmp/cypherslate" build/cypherslate
+          printf '%s\n' '<!doctype html>' \
+            '<meta http-equiv="refresh" content="0; url=/sigstack-bot/cypherslate/">' \
+            > build/index.html
+          touch build/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/build

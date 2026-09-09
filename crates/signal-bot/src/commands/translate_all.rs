@@ -1,7 +1,9 @@
 //! In-chat auto-translate: `!translate-all-on/off`, `!translate-me-on/off`, `!enable-threads`.
 
 use crate::bot_identity::BotIdentity;
-use crate::commands::translate_lang::resolve_language;
+use crate::commands::translate_lang::{
+    in_chat_auto_reject_message, resolve_in_chat_auto_language, resolve_language,
+};
 use crate::commands::translate_me::TranslateMeHandler;
 use crate::commands::translate_service::{
     format_text_auto_translation, near_ai_translate, strip_transcript_prefix,
@@ -227,11 +229,21 @@ impl TranslateAllHandler {
         token_b: &str,
         example: &str,
     ) -> Result<GroupTranslateMode, String> {
-        let lang_a = resolve_language(token_a).ok_or_else(|| {
-            format!("Unknown language: {token_a}. Use !list-langs for supported codes.")
+        let lang_a = resolve_in_chat_auto_language(token_a).ok_or_else(|| {
+            if let Some(lang) = resolve_language(token_a) {
+                return in_chat_auto_reject_message(lang);
+            }
+            format!(
+                "Unknown language: {token_a}. Use !list-langs-in-chat for in-chat auto-translate codes."
+            )
         })?;
-        let lang_b = resolve_language(token_b).ok_or_else(|| {
-            format!("Unknown language: {token_b}. Use !list-langs for supported codes.")
+        let lang_b = resolve_in_chat_auto_language(token_b).ok_or_else(|| {
+            if let Some(lang) = resolve_language(token_b) {
+                return in_chat_auto_reject_message(lang);
+            }
+            format!(
+                "Unknown language: {token_b}. Use !list-langs-in-chat for in-chat auto-translate codes."
+            )
         })?;
         if lang_a.code == lang_b.code {
             return Err(format!(
@@ -584,6 +596,22 @@ mod tests {
             ),
             Arc::new(SignalClient::new("http://localhost").unwrap()),
         )
+    }
+
+    #[test]
+    fn resolve_pair_rejects_basque_for_in_chat_auto() {
+        let err = TranslateAllHandler::resolve_pair_tokens("eu", "en", "!translate-all-on es en")
+            .unwrap_err();
+        assert!(err.contains("Basque"));
+        assert!(err.contains("!list-langs-in-chat"));
+    }
+
+    #[test]
+    fn resolve_pair_accepts_spanish_english() {
+        let mode = TranslateAllHandler::resolve_pair_tokens("es", "en", "!translate-all-on es en")
+            .unwrap();
+        assert_eq!(mode.lang_a, "es");
+        assert_eq!(mode.lang_b, "en");
     }
 
     #[test]

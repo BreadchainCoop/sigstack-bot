@@ -38,6 +38,19 @@ test.describe('smoke', () => {
 		await expect(page).toHaveURL(/#language-threads/);
 	});
 
+	test('products language catalogs differ between threads and in-chat', async ({ page }) => {
+		await page.goto('./products/');
+		await expect(
+			page.getByText('Different products, different language lists', { exact: false })
+		).toHaveCount(2);
+		await expect(page.locator('#lt-langs-feature')).toHaveValue('threads');
+		await expect(page.locator('#lt-langs-title')).toBeVisible();
+		await expect(page.getByText('32 languages').first()).toBeVisible();
+
+		await expect(page.locator('#ic-langs-feature')).toHaveValue('inChatAuto');
+		await expect(page.getByText('30 languages').first()).toBeVisible();
+	});
+
 	test('theme toggle flips data-theme', async ({ page }) => {
 		await page.goto('./');
 		await page.setViewportSize({ width: 1200, height: 800 });

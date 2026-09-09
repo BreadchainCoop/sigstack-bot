@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProductCommandList from '$lib/components/ProductCommandList.svelte';
+	import LanguageCatalog from '$lib/components/LanguageCatalog.svelte';
 	import { inChatMenu } from '$lib/content/productMenus';
 </script>
 
@@ -37,6 +38,7 @@
 			</ul>
 		</div>
 		<ProductCommandList id="ic-commands" menu={inChatMenu} />
+		<LanguageCatalog id="ic-langs" defaultFeature="inChatAuto" />
 	</figcaption>
 </figure>
 

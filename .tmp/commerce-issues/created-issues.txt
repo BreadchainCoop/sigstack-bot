@@ -1,0 +1,14 @@
+hosting=
+entitlement=
+stripe_catalog=
+checkout=
+webhooks=
+link_cmds=
+gating=
+alpha=
+alpha_ops=
+site_checkout=
+site_pages=
+comms=
+cvm_deploy=
+e2e=

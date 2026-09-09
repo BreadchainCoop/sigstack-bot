@@ -1,6 +1,7 @@
 <script lang="ts">
 	/** Language Threads: main→sidecars, then sidecar reply→main + other sidecars. */
 	import ProductCommandList from '$lib/components/ProductCommandList.svelte';
+	import LanguageCatalog from '$lib/components/LanguageCatalog.svelte';
 	import { threadsMenu } from '$lib/content/productMenus';
 </script>
 
@@ -208,6 +209,7 @@
 			</ul>
 		</div>
 		<ProductCommandList id="lt-commands" menu={threadsMenu} />
+		<LanguageCatalog id="lt-langs" defaultFeature="threads" />
 	</figcaption>
 </figure>
 

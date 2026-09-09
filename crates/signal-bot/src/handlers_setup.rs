@@ -155,6 +155,7 @@ pub async fn build_handlers(
         "📝 Transcript:",
     )));
     handlers.push(Box::new(TranslateLangsHandler::new()));
+    handlers.push(Box::new(TranslateLangsInChatHandler::new()));
     handlers.push(Box::new(RenameHandler::new(
         group_prefs.clone(),
         signal.clone(),
@@ -249,7 +250,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 21);
+        assert_eq!(handlers.len(), 22);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"voice"));
@@ -270,6 +271,7 @@ mod tests {
         assert!(!got.contains(&"models"));
         assert!(got.contains(&"translate"));
         assert!(got.contains(&"translate_langs"));
+        assert!(got.contains(&"translate_langs_in_chat"));
         assert!(got.contains(&"rename"));
         assert!(got.contains(&"commands"));
         assert!(!got.contains(&"set_language"));
@@ -295,7 +297,7 @@ mod tests {
             .await
             .expect("translation handlers");
 
-        assert_eq!(handlers.len(), 20);
+        assert_eq!(handlers.len(), 21);
         let got = labels(&handlers);
         assert!(!got.contains(&"translate_all"));
         assert!(got.contains(&"translate_me"));

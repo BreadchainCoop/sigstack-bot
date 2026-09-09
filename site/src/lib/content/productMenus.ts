@@ -23,7 +23,7 @@ Bilingual Threads: exactly two languages, one sidecar; each room is assigned a l
 
 export const inChatMenu = `In-chat Translation
 
-!list-langs
+!list-langs-in-chat
 !translate-all-on <lang1> <lang2>
 !translate-all-off
 !translate-me-on <lang1> <lang2>
@@ -36,6 +36,7 @@ examples:
    !translate-me-on ru ar
    !translate es
 
+Quote !translate accepts any Language Threads language (!list-langs).
 !enable-threads (disable in-chat)
 !help`;
 

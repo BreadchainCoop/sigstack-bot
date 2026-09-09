@@ -219,6 +219,30 @@ fn new_record_id() -> String {
     hex::encode(bytes)
 }
 
+/// Temporary reusable friend code for alpha (each linker gets their own 90-day grant).
+pub const REUSABLE_ALPHA_CODE: &str = "bread-friend";
+
+/// True when `code` matches the reusable friend alpha code (trim + case-insensitive).
+pub fn is_reusable_alpha_code(code: &str) -> bool {
+    code.trim().eq_ignore_ascii_case(REUSABLE_ALPHA_CODE)
+}
+
+/// Error from [`EntitlementsStore::redeem_reusable_alpha`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RedeemReuseError {
+    AlreadyActive,
+    EmptyOwner,
+}
+
+impl std::fmt::Display for RedeemReuseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AlreadyActive => write!(f, "owner already has an active alpha entitlement"),
+            Self::EmptyOwner => write!(f, "owner_uuid must be non-empty"),
+        }
+    }
+}
+
 /// Resolve effective feature → winning source after alpha/paid composition.
 ///
 /// Paid (`stripe`) wins on overlap; alpha covers remaining bundle features.
@@ -848,6 +872,46 @@ impl EntitlementsStore {
         }
         Ok(codes)
     }
+
+    /// Redeem the reusable friend code for `owner_uuid` (does not touch pending tokens).
+    ///
+    /// Grants a fresh `bundle-all-alpha` for 90 days. Fails if the owner already has an
+    /// active alpha bundle grant.
+    pub fn redeem_reusable_alpha(
+        self: &Arc<Self>,
+        owner_uuid: String,
+    ) -> Result<EntitlementRecord, RedeemReuseError> {
+        if owner_uuid.trim().is_empty() {
+            return Err(RedeemReuseError::EmptyOwner);
+        }
+        let now = Utc::now();
+        let owned = self.get_individual(&owner_uuid);
+        if owned.iter().any(|r| {
+            r.plan_sku == PlanSku::BundleAllAlpha
+                && r.source == EntitlementSource::Alpha
+                && r.is_granting_at(now)
+        }) {
+            return Err(RedeemReuseError::AlreadyActive);
+        }
+
+        let record = EntitlementRecord {
+            id: new_record_id(),
+            plan_sku: PlanSku::BundleAllAlpha,
+            source: EntitlementSource::Alpha,
+            status: EntitlementStatus::Active,
+            expires_at: Some(now + chrono::Duration::days(90)),
+            stripe_customer_id: None,
+            stripe_subscription_id: None,
+            owner_uuid: Some(owner_uuid),
+            link_token: None,
+            claimed_group_id: None,
+            created_at: now,
+            updated_at: now,
+        };
+        self.upsert(record.clone())
+            .map_err(|_| RedeemReuseError::EmptyOwner)?;
+        Ok(record)
+    }
 }
 
 #[cfg(test)]
@@ -1029,6 +1093,50 @@ mod tests {
             assert_eq!(pending.source, EntitlementSource::Alpha);
             assert!(pending.expires_at.is_some());
         }
+    }
+
+    #[test]
+    fn reusable_alpha_code_match_is_case_insensitive() {
+        assert!(is_reusable_alpha_code("bread-friend"));
+        assert!(is_reusable_alpha_code("Bread-Friend"));
+        assert!(is_reusable_alpha_code("  BREAD-FRIEND  "));
+        assert!(!is_reusable_alpha_code("bread-fiend"));
+    }
+
+    #[test]
+    fn redeem_reusable_alpha_allows_two_owners() {
+        let store = EntitlementsStore::new_in_memory();
+        let a = store.redeem_reusable_alpha("uuid-a".into()).unwrap();
+        let b = store.redeem_reusable_alpha("uuid-b".into()).unwrap();
+        assert_eq!(a.plan_sku, PlanSku::BundleAllAlpha);
+        assert_eq!(b.source, EntitlementSource::Alpha);
+        assert_eq!(store.get_individual("uuid-a").len(), 1);
+        assert_eq!(store.get_individual("uuid-b").len(), 1);
+        assert!(store.pending_by_token.read().unwrap().is_empty());
+    }
+
+    #[test]
+    fn redeem_reusable_alpha_rejects_while_active() {
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("uuid-a".into()).unwrap();
+        assert_eq!(
+            store.redeem_reusable_alpha("uuid-a".into()).unwrap_err(),
+            RedeemReuseError::AlreadyActive
+        );
+    }
+
+    #[test]
+    fn redeem_reusable_alpha_allows_again_after_expiry() {
+        let store = EntitlementsStore::new_in_memory();
+        let first = store.redeem_reusable_alpha("uuid-a".into()).unwrap();
+        // Force expiry on the active row.
+        store
+            .set_status(&first.id, EntitlementStatus::Expired)
+            .unwrap();
+        let again = store.redeem_reusable_alpha("uuid-a".into()).unwrap();
+        assert_ne!(first.id, again.id);
+        assert_eq!(again.status, EntitlementStatus::Active);
+        assert_eq!(store.get_individual("uuid-a").len(), 2);
     }
 
     #[test]

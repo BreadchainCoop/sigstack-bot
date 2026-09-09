@@ -20,13 +20,21 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 
 ## Commerce / Stripe / entitlements
 
-Parent: [Website + Stripe: product suite checkout and subscriptions](https://github.com/BreadchainCoop/sigstack-bot/issues/13)
+**Current epic:** [Epic: CipherSlate commerce — Stripe, entitlements, alpha](https://github.com/BreadchainCoop/sigstack-bot/issues/68) (children #53, #55–#65)  
+**Superseded:** [#13](https://github.com/BreadchainCoop/sigstack-bot/issues/13) (closed — education / early site scope done)
+
+### Related (not epic children)
 
 | # | Title | Notes |
 |---|--------|--------|
 | [52](https://github.com/BreadchainCoop/sigstack-bot/issues/52) | decision: stripe checkout and webhook hosting architecture | Decision |
-| [53](https://github.com/BreadchainCoop/sigstack-bot/issues/53) | feat: entitlement model and encrypted store on cvm | `entitlements.enc` / `EntitlementsStore` |
 | [54](https://github.com/BreadchainCoop/sigstack-bot/issues/54) | ops: stripe products and prices for cipherslate plans | Catalog; SKUs follow `site/src/lib/content/en.ts` |
+
+### Epic children (#68)
+
+| # | Title | Notes |
+|---|--------|--------|
+| [53](https://github.com/BreadchainCoop/sigstack-bot/issues/53) | feat: entitlement model and encrypted store on cvm | Shipped; `entitlements.enc` / composition architecture |
 | [55](https://github.com/BreadchainCoop/sigstack-bot/issues/55) | feat: stripe checkout session api from plan sku | Checkout session + success redirect query shape |
 | [56](https://github.com/BreadchainCoop/sigstack-bot/issues/56) | feat: stripe webhooks and subscription lifecycle sync | |
 | [57](https://github.com/BreadchainCoop/sigstack-bot/issues/57) | feat: !link and !claim-group for subscription binding | |
@@ -38,6 +46,8 @@ Parent: [Website + Stripe: product suite checkout and subscriptions](https://git
 | [63](https://github.com/BreadchainCoop/sigstack-bot/issues/63) | feat: revise get-started flow and entitlement user comms | |
 | [64](https://github.com/BreadchainCoop/sigstack-bot/issues/64) | feat: deploy commerce service and entitlements on phala cvm | |
 | [65](https://github.com/BreadchainCoop/sigstack-bot/issues/65) | test: commerce and entitlement e2e test plan | |
+
+**Recommended order (epic [#68](https://github.com/BreadchainCoop/sigstack-bot/issues/68)):** foundation #53+#62 (done) → parallel #63/#65 + related #52/#54 → #54→#55→#56 → #57 → #58 → #59+#60 → #61 → #64 → finish #65 before prod enforce. Full write-up on the epic issue.
 
 ## Product suite / architecture
 

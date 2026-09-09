@@ -109,6 +109,67 @@ test.describe('smoke', () => {
 		await expect(page.getByText('In-chat · me')).toBeVisible();
 		await expect(page.getByText('In-chat · all')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Have an alpha code?' })).toBeVisible();
+	});
+
+	test('checkout success shows link code and plan label', async ({ page }) => {
+		await page.goto('./checkout/success/?code=test-code-1&plan=bundle-individual');
+		await expect(page.getByRole('heading', { level: 1, name: 'You are subscribed' })).toBeVisible();
+		await expect(page.getByText('Plan purchased: Bundle · Individual.')).toBeVisible();
+		await expect(page.getByText('!link test-code-1')).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
+	});
+
+	test('checkout success without code shows receipt fallback', async ({ page }) => {
+		await page.goto('./checkout/success/');
+		await expect(page.getByRole('heading', { level: 1, name: 'You are subscribed' })).toBeVisible();
+		await expect(page.getByText('Stripe receipt email', { exact: false })).toBeVisible();
+		await expect(page.getByText('!link', { exact: false })).toBeVisible();
+		await expect(page.locator('.link-cmd')).toHaveCount(0);
+	});
+
+	test('checkout cancel returns to plans', async ({ page }) => {
+		await page.goto('./checkout/cancel/');
+		await expect(page.getByRole('heading', { level: 1, name: 'Checkout canceled' })).toBeVisible();
+		await expect(page.getByText('No charge was made', { exact: false })).toBeVisible();
+		await page.getByRole('link', { name: 'Back to Plans' }).click();
+		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
+	});
+
+	test('alpha claim page accepts code and shows link instructions', async ({ page }) => {
+		await page.goto('./alpha/');
+		await expect(page.getByRole('heading', { level: 1, name: 'Alpha access' })).toBeVisible();
+		await expect(page.getByText('90 days', { exact: false }).first()).toBeVisible();
+		await page.getByLabel('Alpha code').fill('alpha-demo-9');
+		await page.getByRole('button', { name: 'Continue' }).click();
+		await expect(page).toHaveURL(/code=alpha-demo-9/);
+		await expect(page.getByText('!link alpha-demo-9')).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
+	});
+
+	test('alpha empty submit shows validation without navigating', async ({ page }) => {
+		await page.goto('./alpha/');
+		await page.getByRole('button', { name: 'Continue' }).click();
+		await expect(page.getByRole('alert')).toContainText('Enter an alpha code');
+		await expect(page).toHaveURL(/\/alpha\/?$/);
+	});
+
+	test('checkout success has no serious a11y violations', async ({ page }) => {
+		await page.goto('./checkout/success/?code=a11y-code&plan=bundle-group');
+		const results = await new AxeBuilder({ page }).analyze();
+		const serious = results.violations.filter((v) =>
+			['serious', 'critical'].includes(v.impact ?? '')
+		);
+		expect(serious).toEqual([]);
+	});
+
+	test('alpha page has no serious a11y violations', async ({ page }) => {
+		await page.goto('./alpha/');
+		const results = await new AxeBuilder({ page }).analyze();
+		const serious = results.violations.filter((v) =>
+			['serious', 'critical'].includes(v.impact ?? '')
+		);
+		expect(serious).toEqual([]);
 	});
 
 	test('footer Legal links to Apache license page', async ({ page }) => {

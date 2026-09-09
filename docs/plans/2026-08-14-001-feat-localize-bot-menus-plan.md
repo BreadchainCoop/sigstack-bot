@@ -2,7 +2,6 @@
 title: Localize Bot Menus - Plan
 type: feat
 date: 2026-08-14
-origin: https://github.com/BreadchainCoop/sigstack-bot/issues/27
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 product_contract_source: ce-plan-bootstrap
@@ -14,7 +13,7 @@ execution: code
 ## Goal Capsule
 
 - **Objective:** Users pick a menu language with `!set-lang`. Every `ALL_LANGUAGES` code is a valid choice. Menus render in that language when a bundle exists, otherwise English. Mobile stacked layout stays intact.
-- **Authority:** This plan. Product behavior lives on R-IDs. Mechanism lives on KTDs. Issue 27 is origin, not a second spec.
+- **Authority:** This plan. Product behavior lives on R-IDs. Mechanism lives on KTDs. The originating work request is not a second spec.
 - **Stop if:** The work would wipe or replace CVM volumes, call NEAR to translate menus at runtime, grow `MenuLanguage` with one variant per language, or localize command tokens.
 - **Execution profile:** Test-first on storage, resolver, and `!set-lang`. Spanish copy lands after the English fallback path is proven.
 - **Tail:** Docs in U6. In-place Phala deploy only. Compound a solutions note after ship.
@@ -131,7 +130,7 @@ A Spanish speaker in a mixed group still gets English `!help`. The leftover `Men
 
 ### Product Contract preservation
 
-Product Contract authored in this plan (`ce-plan-bootstrap`). Issue 27 open questions are closed here. Sidecar compact menu is `!commands`, not hub `!help`. Pairing messages are out because they are gone. `!privacy` is one-bot copy, not two roles.
+Product Contract authored in this plan (`ce-plan-bootstrap`). Open questions from the originating work request are closed here. Sidecar compact menu is `!commands`, not hub `!help`. Pairing messages are out because they are gone. `!privacy` is one-bot copy, not two roles.
 
 ---
 
@@ -341,7 +340,7 @@ External research was skipped. Local patterns cover persistence, commands, and l
 ### U6. Docs for i18n approach and CVM prefs
 
 - **Goal:** Document structure, fallback, how a new `ALL_LANGUAGES` code gets a menu, and storage shape.
-- **Requirements:** R14, R15 (documentation of the approach is an issue 27 acceptance line).
+- **Requirements:** R14, R15 (documentation of the approach is an acceptance line for the originating work).
 - **Dependencies:** U1–U5
 - **Files:**
   - `docs/solutions/signal-mobile-menus.md`
@@ -376,7 +375,7 @@ Do not treat decrypt-failure empty-start as success.
 
 **Global**
 
-- R1–R15 satisfied. Issue 27 acceptance boxes can be checked from this work.
+- R1–R15 satisfied. Originating acceptance boxes can be checked from this work.
 - No abandoned locale-crate or LLM-menu spike left in the tree.
 - `npm run ci` green.
 - Docs match shipped behavior.

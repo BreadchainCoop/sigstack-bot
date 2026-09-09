@@ -79,6 +79,43 @@ export type SiteContent = {
 			products: PlanProduct[];
 			scopeLabels: Record<PlanScope, string>;
 			footnote: string;
+			alphaPrompt: string;
+		};
+		checkoutSuccess: {
+			title: string;
+			lead: string;
+			eyebrow: string;
+			planPurchased: string;
+			planPurchasedGeneric: string;
+			linkHeading: string;
+			linkBody: string;
+			missingCode: string;
+			portalCta: string;
+			portalComingSoon: string;
+			getStartedCta: string;
+		};
+		checkoutCancel: {
+			title: string;
+			lead: string;
+			eyebrow: string;
+			plansCta: string;
+			getStartedCta: string;
+		};
+		alpha: {
+			title: string;
+			lead: string;
+			eyebrow: string;
+			benefitsHeading: string;
+			benefits: string[];
+			codeLabel: string;
+			codePlaceholder: string;
+			submitLabel: string;
+			errorEmpty: string;
+			errorTooLong: string;
+			linkHeading: string;
+			linkBody: string;
+			getStartedCta: string;
+			plansCta: string;
 		};
 	};
 	legalPrivacy: {

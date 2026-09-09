@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Pathname } from '$app/types';
+	import { resolve } from '$app/paths';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
 	import type { PlanOffer } from '$lib/content/types';
@@ -68,7 +70,11 @@
 	{/each}
 </section>
 
-<p class="footnote muted">{page.footnote}</p>
+<p class="footnote muted">
+	{page.footnote}
+	{' '}
+	<a href={resolve('/alpha' as Pathname)}>{page.alphaPrompt}</a>
+</p>
 
 <div class="cta-row plans-cta">
 	<Button href="/get-started">{m.cta_start()}</Button>

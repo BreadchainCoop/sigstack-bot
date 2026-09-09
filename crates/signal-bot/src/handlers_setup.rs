@@ -3,6 +3,7 @@
 use crate::bot_identity::BotIdentity;
 use crate::commands::*;
 use crate::config::Config;
+use crate::entitlements_store::EntitlementsStore;
 use crate::error::AppResult;
 use crate::group_preferences_store::GroupPreferencesStore;
 use crate::transcribe_prefs::GroupTranscribePrefs;
@@ -17,13 +18,21 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use whisper_client::WhisperClient;
 
+/// Result of wiring the unified bot: handlers plus long-lived stores.
+pub struct BuiltHandlers {
+    pub handlers: Vec<Box<dyn CommandHandler>>,
+    /// Encrypted entitlements store. Held for process lifetime; CRUD for
+    /// future webhook / `!link` / gating — not consumed by commands yet.
+    pub entitlements: Arc<EntitlementsStore>,
+}
+
 /// Unified bot: Language Threads → voice → in-chat → hub menus → quote translate → verify/help.
 pub async fn build_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
     dstack: Arc<DstackClient>,
     bot_identity: Arc<BotIdentity>,
-) -> AppResult<Vec<Box<dyn CommandHandler>>> {
+) -> AppResult<BuiltHandlers> {
     let near_cfg = config
         .near_ai
         .as_ref()
@@ -80,6 +89,21 @@ pub async fn build_handlers(
         info!(
             "Group preferences persistence enabled: {}",
             config.group_preferences.storage_path
+        );
+    }
+
+    let entitlements = EntitlementsStore::open(
+        dstack.clone(),
+        PathBuf::from(&config.entitlements.storage_path),
+        config.entitlements.persist,
+        config.entitlements.legacy_compose_hashes(),
+    )
+    .await;
+
+    if config.entitlements.persist {
+        info!(
+            "Entitlements persistence enabled: {}",
+            config.entitlements.storage_path
         );
     }
 
@@ -167,15 +191,18 @@ pub async fn build_handlers(
     handlers.push(Box::new(PrivacyHandler::new()));
 
     info!("Unified bot: hub menus + voice + in-chat + Language Threads");
-    Ok(handlers)
+    Ok(BuiltHandlers {
+        handlers,
+        entitlements,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{
-        BotConfig, DstackConfig, GroupPreferencesConfig, NearAiConfig, SignalConfig,
-        TranslateAllConfig, WhisperConfig,
+        BotConfig, DstackConfig, EntitlementsConfig, GroupPreferencesConfig, NearAiConfig,
+        SignalConfig, TranslateAllConfig, WhisperConfig,
     };
     use std::time::Duration;
     use wiremock::matchers::{method, path};
@@ -201,6 +228,11 @@ mod tests {
             group_preferences: GroupPreferencesConfig {
                 persist: false,
                 storage_path: "/tmp/sigstack-bot-test-prefs.enc".into(),
+                ..Default::default()
+            },
+            entitlements: EntitlementsConfig {
+                persist: false,
+                storage_path: "/tmp/sigstack-bot-test-entitlements.enc".into(),
                 ..Default::default()
             },
         }
@@ -246,9 +278,10 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let handlers = build_handlers(&config, signal, dstack, identity)
+        let built = build_handlers(&config, signal, dstack, identity)
             .await
             .expect("translation handlers");
+        let handlers = built.handlers;
 
         assert_eq!(handlers.len(), 22);
         let got = labels(&handlers);
@@ -293,9 +326,10 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let handlers = build_handlers(&config, signal, dstack, identity)
+        let built = build_handlers(&config, signal, dstack, identity)
             .await
             .expect("translation handlers");
+        let handlers = built.handlers;
 
         assert_eq!(handlers.len(), 21);
         let got = labels(&handlers);

@@ -2,7 +2,7 @@
 
 Prod runs hub, translation, and voice on **one** Phala CVM as **one** Signal member (the surviving translation number, phone B). Users add **one** bot to a group. STT is remote **NEAR AI Whisper Large V3**; after a transcript, in-chat and Language Threads fan out **in-process** (Signal does not echo this bot’s own posts).
 
-See also: [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10) and the architecture learning [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
+See also: the architecture learning [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 
 ## Bot
 
@@ -67,10 +67,10 @@ The suite stays cohesive only if the live CVM keeps disk state. **TEE RAM is wip
 | Volume | Compose | What it holds | If wiped |
 |--------|---------|---------------|----------|
 | `signal-config-translation` | `signal-api` (phone B) | Bot **registered Signal phone** | Bot disappears from Signal until ops re-register |
-| `group-prefs-translation` | `signal-bot` → `/data/group_prefs.enc` | Encrypted prefs: `!translate-me-on`, `!translate-all-on`, Language Threads bridges, menu language | Users must re-enable features |
+| `group-prefs-translation` | `signal-bot` → `/data/group_prefs.enc` and `/data/entitlements.enc` | Encrypted feature prefs (`!translate-me-on`, `!translate-all-on`, Language Threads, menu language) **and** encrypted entitlements (paid/alpha plans, pending link tokens) | Users must re-enable features; paid/alpha access is lost until Stripe backfill / re-link |
 | `registry-data` | registration proxy | Ops registration helper state | Re-register via proxy; does not by itself drop Signal CLI |
 
-Do **not** rename `signal-config-translation` / `group-prefs-translation` / `registry-data`. Do not migrate `group-prefs-transcription` (`!transcribe-on` default off is the product). Unused transcription volumes from the old two-phone compose may remain on disk; they are not attached.
+Do **not** rename `signal-config-translation` / `group-prefs-translation` / `registry-data`. Do not migrate `group-prefs-transcription` (`!transcribe-on` default off is the product). Unused transcription volumes from the old two-phone compose may remain on disk; they are not attached. Do **not** add a separate entitlements volume — both encrypted files share `group-prefs-translation` → `/data`.
 
 **Upgrade the live CVM in place** (`phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` or the dashboard compose update). Do **not** create a replacement CVM or `down -v` for a routine image bump. First bring-up of a **new** CVM is the exception (empty volumes; register the phone there).
 
@@ -81,7 +81,11 @@ Do **not** rename `signal-config-translation` / `group-prefs-translation` / `reg
 | New CVM / `phala cvms delete` / volume rename | Empty | Yes | Yes |
 | Prefs decrypt fail (key mismatch) | File present, unreadable | Yes (bot starts empty) | No (Signal volume is separate) |
 
-Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. If DeriveKey is unavailable the AppInfo fallback is **app-id-only** (stable across compose bumps). Blobs encrypted with the old `compose_hash` mix still decrypt when `GROUP_PREFERENCES_LEGACY_COMPOSE_HASH` is set; the bot then re-saves with the stable key. After upgrade, logs should show `Loaded group preferences for N groups`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on `signal-api`.
+Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`), bound to the CVM **app id**, so a compose/image change should still decrypt. Entitlements use the same pattern at path `signal-bot/entitlements` (`/data/entitlements.enc`). If DeriveKey is unavailable the AppInfo fallback is **app-id-only** (stable across compose bumps). Blobs encrypted with the old `compose_hash` mix still decrypt when `GROUP_PREFERENCES_LEGACY_COMPOSE_HASH` / `ENTITLEMENTS_LEGACY_COMPOSE_HASH` is set; the bot then re-saves with the stable key. After upgrade, logs should show `Loaded group preferences for N groups` and `Loaded N entitlement records`, not `starting fresh` or `TEE deployment may have changed`. Confirm Signal accounts still listed on `signal-api`.
+
+#### Entitlement plan composition
+
+Alpha `bundle-all-alpha` grants full Bundle-all feature coverage while active/past_due and unexpired. A **paid** (`stripe`) entitlement that overlaps a feature **replaces** alpha for that feature only; non-overlapping alpha coverage remains. Feature prefs (`group_prefs.enc`) stay separate from access records (`entitlements.enc`).
 
 Do not change volume names in [`docker/phala.yaml`](../docker/phala.yaml) without a deliberate migration.
 

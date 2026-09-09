@@ -8,6 +8,5 @@ Current product direction:
 - [language-threads.md](language-threads.md)
 - [../.agents/docs/DEVELOPMENT.md](../.agents/docs/DEVELOPMENT.md)
 - [../README.md](../README.md)
-- [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)
 
 

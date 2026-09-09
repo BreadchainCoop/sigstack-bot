@@ -54,6 +54,9 @@ services:
       - GROUP_PREFERENCES__PERSIST=true
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
       - GROUP_PREFERENCES__LEGACY_COMPOSE_HASH=${GROUP_PREFERENCES_LEGACY_COMPOSE_HASH:-}
+      - ENTITLEMENTS__PERSIST=true
+      - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
+      - ENTITLEMENTS__LEGACY_COMPOSE_HASH=${ENTITLEMENTS_LEGACY_COMPOSE_HASH:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-translation:/data

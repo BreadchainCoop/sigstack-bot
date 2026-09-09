@@ -50,7 +50,7 @@ async fn main() -> AppResult<()> {
 
     let bot_identity = BotIdentity::new();
 
-    let handlers = build_handlers(
+    let built = build_handlers(
         &config,
         signal.clone(),
         dstack.clone(),
@@ -58,7 +58,8 @@ async fn main() -> AppResult<()> {
     )
     .await?;
 
-    let handlers = Arc::new(handlers);
+    let handlers = Arc::new(built.handlers);
+    let _entitlements = built.entitlements;
     info!("Registered {} command handlers", handlers.len());
 
     {

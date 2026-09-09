@@ -235,7 +235,51 @@ export const en: SiteContent = {
 				group: 'Group'
 			},
 			footnote:
-				'Prices are illustrative placeholders. Checkout is not live yet—start in Signal with the organizer checklist.'
+				'Prices are illustrative placeholders. Checkout is not live yet—start in Signal with the organizer checklist.',
+			alphaPrompt: 'Have an alpha code?'
+		},
+		checkoutSuccess: {
+			title: 'You are subscribed',
+			lead: 'Next, link CipherSlate to your Signal account so your plan unlocks in chat.',
+			eyebrow: 'Checkout',
+			planPurchased: 'Plan purchased: {plan}.',
+			planPurchasedGeneric: 'Your plan is ready.',
+			linkHeading: 'Link in Signal',
+			linkBody:
+				'Open a DM with CipherSlate (preferred — avoid pasting link codes in a group) and send:',
+			missingCode:
+				'We could not find a link code in this page URL. Check your Stripe receipt email for `!link <code>`, then send that command in a DM with CipherSlate.',
+			portalCta: 'Manage billing',
+			portalComingSoon: 'Manage billing (coming soon)',
+			getStartedCta: 'Organizer checklist'
+		},
+		checkoutCancel: {
+			title: 'Checkout canceled',
+			lead: 'No charge was made and no entitlement was created. You can pick a plan whenever you are ready.',
+			eyebrow: 'Checkout',
+			plansCta: 'Back to Plans',
+			getStartedCta: 'Organizer checklist'
+		},
+		alpha: {
+			title: 'Alpha access',
+			lead: 'Redeem an alpha code for the full CipherSlate Bundle — Language Threads, in-chat translation, and transcription — for 90 days, no Stripe checkout.',
+			eyebrow: 'Alpha',
+			benefitsHeading: 'What you get',
+			benefits: [
+				'Full Bundle access (individual and group scopes) for 90 days',
+				'Same Signal linking flow as paid plans (`!link <code>`)',
+				'After expiry, subscribe on Plans to keep using products'
+			],
+			codeLabel: 'Alpha code',
+			codePlaceholder: 'Enter your code',
+			submitLabel: 'Continue',
+			errorEmpty: 'Enter an alpha code to continue.',
+			errorTooLong: 'That code is too long. Check the code you were given and try again.',
+			linkHeading: 'Link in Signal',
+			linkBody:
+				'Open a DM with CipherSlate (preferred — avoid pasting link codes in a group) and send:',
+			getStartedCta: 'Organizer checklist',
+			plansCta: 'See paid plans'
 		}
 	},
 	legalPrivacy: {

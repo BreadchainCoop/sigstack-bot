@@ -1,0 +1,42 @@
+---
+description: Never put GitHub issue or PR numbers in repo content
+alwaysApply: true
+---
+
+# No issue / PR numbers outside the work index
+
+Do **not** cite GitHub issues, pull requests, or tracker IDs in committed content—except in the single index:
+
+**[`.agents/docs/github-work-index.md`](../../.agents/docs/github-work-index.md)**
+
+That file is the navigation map (topic → issue/PR URL). Product docs, READMEs, code, and plans stay free of `#N`.
+
+## Forbidden everywhere else
+
+- Source code (comments, rustdoc, docstrings)
+- Product/architecture docs under `docs/` (do not duplicate this index there)
+- READMEs, compose/env examples, AGENTS.md body text (AGENTS may **link to the index**)
+- Plans, brainstorms, solutions — describe work by name; link the index if a ticket must be found
+
+Forbidden forms: `issue #62`, `#62`, `Issue 27`, `…/issues/62`, `…/pull/12`, “for #55”, “parent #13”, headings like `## Commerce landings (issue #62)`.
+
+## Allowed
+
+- Describe work without a number (“encrypted entitlements store”, “commerce landings”)
+- Link durable repo docs (`docs/one-cvm-architecture.md`, `site/README.md`)
+- Link **only** [`.agents/docs/github-work-index.md`](../../.agents/docs/github-work-index.md) when a tracker ID is needed
+- Upstream library docs that are not issue/PR pages
+- Tracker refs in **GitHub** issue/PR bodies (not in the tree)
+
+```text
+# BAD
+/// Encrypted entitlements (issue #53).
+## Commerce landings (issue #62)
+
+# GOOD
+/// Encrypted entitlements store; CRUD for future webhook / !link / gating.
+## Commerce landings
+# Need the ticket? → .agents/docs/github-work-index.md
+```
+
+When adding or renaming tracked work, **update the index**—do not scatter new `#N` citations. Strip leftovers in other files when you touch them.

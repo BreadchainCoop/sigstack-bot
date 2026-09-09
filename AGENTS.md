@@ -61,6 +61,7 @@ docker compose -f docker/compose.yaml --env-file docker/.env up -d
 | Doc | Why |
 |-----|-----|
 | [`.agents/docs/DEVELOPMENT.md`](.agents/docs/DEVELOPMENT.md) | TEE trust model, Phala one-CVM ops, **CVM volume / Signal identity** |
+| [`.agents/docs/github-work-index.md`](.agents/docs/github-work-index.md) | **Only** in-repo map of GitHub issues/PRs (do not scatter `#N` elsewhere) |
 | [`docs/one-cvm-architecture.md`](docs/one-cvm-architecture.md) | One CVM / one phone, **CVM storage (keep intact)** |
 | [`docs/voice-transcription.md`](docs/voice-transcription.md) | Voice transcription product (NEAR Whisper; in-process fan-out) |
 | [`docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md`](docs/solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md) | Why STT is remote; never re-home Whisper in a CPU TEE |
@@ -69,7 +70,7 @@ docker compose -f docker/compose.yaml --env-file docker/.env up -d
 | [`docs/solutions/`](docs/solutions/) | Compounded learnings from prior work |
 | [`docs/plans/`](docs/plans/) | CE implementation plans |
 | [`.agents/skills/`](.agents/skills/) | Domain skills (Rust, Docker, Stripe) |
-| [`.cursor/rules/`](.cursor/rules/) | Cursor project rules (commits, compound loop, **CVM storage**) |
+| [`.cursor/rules/`](.cursor/rules/) | Cursor project rules (commits, compound loop, **CVM storage**, **no scattered issue/PR refs**) |
 
 ## CVM storage (do not wipe)
 

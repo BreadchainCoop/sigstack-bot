@@ -67,6 +67,12 @@ export type SiteContent = {
 		plans: {
 			title: string;
 			lead: string;
+			alphaBand: {
+				eyebrow: string;
+				title: string;
+				lead: string;
+				ctaLabel: string;
+			};
 			bundle: {
 				eyebrow: string;
 				title: string;
@@ -79,7 +85,6 @@ export type SiteContent = {
 			products: PlanProduct[];
 			scopeLabels: Record<PlanScope, string>;
 			footnote: string;
-			alphaPrompt: string;
 		};
 		checkoutSuccess: {
 			title: string;
@@ -89,6 +94,11 @@ export type SiteContent = {
 			planPurchasedGeneric: string;
 			linkHeading: string;
 			linkBody: string;
+			linkSteps: string[];
+			copyLabel: string;
+			copyDoneLabel: string;
+			messageCta: string;
+			signalLinkMissing: string;
 			missingCode: string;
 			portalCta: string;
 			portalComingSoon: string;
@@ -114,6 +124,11 @@ export type SiteContent = {
 			errorTooLong: string;
 			linkHeading: string;
 			linkBody: string;
+			linkSteps: string[];
+			copyLabel: string;
+			copyDoneLabel: string;
+			messageCta: string;
+			signalLinkMissing: string;
 			getStartedCta: string;
 			plansCta: string;
 		};

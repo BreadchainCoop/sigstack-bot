@@ -3,8 +3,9 @@
 	import { page } from '$app/state';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
-	import { linkCommand, planLabelFromSku, readLinkCode } from '$lib/checkoutLanding';
+	import { planLabelFromSku, readLinkCode } from '$lib/checkoutLanding';
 	import Button from '$lib/components/Button.svelte';
+	import LinkInSignal from '$lib/components/LinkInSignal.svelte';
 	import { env } from '$env/dynamic/public';
 
 	// Stripe Checkout should redirect here as:
@@ -23,6 +24,7 @@
 			: copy.planPurchasedGeneric
 	);
 	const portalUrl = $derived(env.PUBLIC_STRIPE_PORTAL_URL?.trim() || '');
+	const signalUsernameLink = $derived(env.PUBLIC_SIGNAL_USERNAME_LINK?.trim() || '');
 </script>
 
 <svelte:head>
@@ -37,11 +39,17 @@
 
 {#if browser}
 	{#if code}
-		<section class="panel link-panel" aria-labelledby="link-heading">
-			<h2 id="link-heading">{copy.linkHeading}</h2>
-			<p>{copy.linkBody}</p>
-			<p class="link-cmd"><code>{linkCommand(code)}</code></p>
-		</section>
+		<LinkInSignal
+			{code}
+			heading={copy.linkHeading}
+			body={copy.linkBody}
+			steps={copy.linkSteps}
+			copyLabel={copy.copyLabel}
+			copyDoneLabel={copy.copyDoneLabel}
+			messageCta={copy.messageCta}
+			signalLinkMissing={copy.signalLinkMissing}
+			{signalUsernameLink}
+		/>
 	{:else}
 		<p class="missing muted" role="status">{copy.missingCode}</p>
 	{/if}
@@ -62,29 +70,12 @@
 		margin-bottom: var(--space-5);
 	}
 
-	.link-panel h2 {
-		margin-top: 0;
-		font-size: 1.15rem;
-	}
-
-	.link-cmd {
-		margin: var(--space-4) 0 0;
-	}
-
-	.link-cmd code {
-		font-size: 1.05rem;
-		padding: 0.35em 0.55em;
-	}
-
 	.missing {
 		max-width: 40rem;
 		margin-bottom: var(--space-5);
 	}
 
 	.portal-stub {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.7rem 0;
-		font-size: 0.95rem;
+		align-self: center;
 	}
 </style>

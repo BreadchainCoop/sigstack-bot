@@ -75,8 +75,9 @@ pub struct NearAiConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BotConfig {
-    /// Signal username (e.g., "nearai.54")
-    #[serde(default)]
+    /// Signal username nickname (e.g. `cipherslate`; Signal adds `.NN`).
+    /// Empty string disables startup username ensure.
+    #[serde(default = "default_signal_username_opt")]
     pub signal_username: Option<String>,
 
     /// GitHub repository URL
@@ -181,7 +182,7 @@ impl Default for SignalConfig {
 impl Default for BotConfig {
     fn default() -> Self {
         Self {
-            signal_username: None,
+            signal_username: Some(default_signal_username()),
             github_repo: None,
             log_level: default_log_level(),
         }
@@ -282,6 +283,14 @@ fn default_timeout() -> Duration {
 
 fn default_log_level() -> String {
     "info".into()
+}
+
+fn default_signal_username() -> String {
+    "cipherslate".into()
+}
+
+fn default_signal_username_opt() -> Option<String> {
+    Some(default_signal_username())
 }
 
 fn default_dstack_socket() -> String {

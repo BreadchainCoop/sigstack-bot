@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getContent } from '$lib/content';
 import {
 	LINK_CODE_MAX_LENGTH,
+	copyLinkCommand,
 	linkCommand,
 	planLabelFromSku,
 	readLinkCode
@@ -53,5 +54,30 @@ describe('planLabelFromSku', () => {
 describe('linkCommand', () => {
 	it('prefixes !link', () => {
 		expect(linkCommand('abc')).toBe('!link abc');
+	});
+});
+
+describe('copyLinkCommand', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('writes the link command and returns true', async () => {
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		vi.stubGlobal('navigator', { clipboard: { writeText } });
+		await expect(copyLinkCommand('abc')).resolves.toBe(true);
+		expect(writeText).toHaveBeenCalledWith('!link abc');
+	});
+
+	it('returns false when clipboard write fails', async () => {
+		vi.stubGlobal('navigator', {
+			clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) }
+		});
+		await expect(copyLinkCommand('abc')).resolves.toBe(false);
+	});
+
+	it('returns false when clipboard API is missing', async () => {
+		vi.stubGlobal('navigator', {});
+		await expect(copyLinkCommand('abc')).resolves.toBe(false);
 	});
 });

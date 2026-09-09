@@ -649,6 +649,50 @@ mod tests {
         assert!(err.to_string().contains("bad members"));
     }
 
+    #[tokio::test]
+    async fn test_set_username() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/accounts/%2B15555555555/username"))
+            .and(body_json(serde_json::json!({ "username": "cipherslate" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "username": "cipherslate.54",
+                "username_link": "https://signal.me/#eu/abc"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let info = client
+            .set_username("+15555555555", "cipherslate")
+            .await
+            .unwrap();
+        assert_eq!(info.username.as_deref(), Some("cipherslate.54"));
+        assert_eq!(
+            info.username_link.as_deref(),
+            Some("https://signal.me/#eu/abc")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_set_username_error() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/accounts/%2B15555555555/username"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("taken"))
+            .mount(&mock_server)
+            .await;
+
+        let client = create_test_client(&mock_server).await;
+        let err = client
+            .set_username("+15555555555", "cipherslate")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("taken"));
+    }
+
     #[test]
     fn test_bot_message_source_fields() {
         let incoming = IncomingMessage {

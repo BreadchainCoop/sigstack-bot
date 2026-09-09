@@ -246,6 +246,13 @@ pub struct Account {
     pub registered: bool,
 }
 
+/// Response from `POST /v1/accounts/{number}/username`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct UsernameInfo {
+    pub username: Option<String>,
+    pub username_link: Option<String>,
+}
+
 /// Parsed message for bot processing.
 #[derive(Debug, Clone)]
 pub struct BotMessage {

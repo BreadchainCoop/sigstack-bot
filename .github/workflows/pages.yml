@@ -34,6 +34,8 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /sigstack-bot/cypherslate
+          PUBLIC_SIGNAL_USERNAME_LINK: ${{ vars.PUBLIC_SIGNAL_USERNAME_LINK }}
+          PUBLIC_STRIPE_PORTAL_URL: ${{ vars.PUBLIC_STRIPE_PORTAL_URL }}
       - name: Prepare Pages artifact for /sigstack-bot/cypherslate
         shell: bash
         run: |

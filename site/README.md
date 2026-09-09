@@ -42,6 +42,9 @@ Optional public env (GitHub Pages-safe; never put secret keys here):
 | Variable | Effect |
 | -------- | ------ |
 | `PUBLIC_STRIPE_PORTAL_URL` | Success page “Manage billing” link; if unset, shows “coming soon” stub |
+| `PUBLIC_SIGNAL_USERNAME_LINK` | Alpha / checkout success “Message CipherSlate” button (`signal.me/#eu/…` username share link; never put the bot E.164 here) |
+
+After the bot claims its Signal username (startup `BOT__SIGNAL_USERNAME=cipherslate`), copy the logged `username_link` into the GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK` and redeploy Pages.
 
 ## Scripts
 

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import type { Pathname } from '$app/types';
-	import { resolve } from '$app/paths';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
 	import type { PlanOffer } from '$lib/content/types';
@@ -25,6 +23,13 @@
 	<p class="lead">{page.lead}</p>
 </section>
 
+<section class="section alpha-band panel" aria-labelledby="alpha-band-heading">
+	<p class="eyebrow accent-eyebrow">{page.alphaBand.eyebrow}</p>
+	<h2 id="alpha-band-heading">{page.alphaBand.title}</h2>
+	<p class="lead alpha-lead">{page.alphaBand.lead}</p>
+	<Button href="/alpha">{page.alphaBand.ctaLabel}</Button>
+</section>
+
 <section class="section bundle" aria-labelledby="bundle-heading">
 	<p class="eyebrow accent-eyebrow">{page.bundle.eyebrow}</p>
 	<h2 id="bundle-heading">{page.bundle.title}</h2>
@@ -37,7 +42,9 @@
 				<h3>{offer.name}</h3>
 				<p class="offer-blurb">{offer.blurb}</p>
 				<p class="price">
-					<span class="amount">{offer.priceLabel}</span><span class="period">{offer.period}</span>
+					<span class="amount">{offer.priceLabel}</span>{#if offer.period}<span class="period"
+							>{offer.period}</span
+						>{/if}
 				</p>
 				<Button href={offer.ctaHref}>{offer.ctaLabel}</Button>
 			</article>
@@ -60,7 +67,9 @@
 						<h4 class="offer-name">{offer.name}</h4>
 						<p class="offer-blurb">{offer.blurb}</p>
 						<p class="price">
-							<span class="amount">{offer.priceLabel}</span><span class="period">{offer.period}</span>
+							<span class="amount">{offer.priceLabel}</span>{#if offer.period}<span class="period"
+									>{offer.period}</span
+								>{/if}
 						</p>
 						<Button href={offer.ctaHref} variant="ghost">{offer.ctaLabel}</Button>
 					</article>
@@ -70,11 +79,7 @@
 	{/each}
 </section>
 
-<p class="footnote muted">
-	{page.footnote}
-	{' '}
-	<a href={resolve('/alpha' as Pathname)}>{page.alphaPrompt}</a>
-</p>
+<p class="footnote muted">{page.footnote}</p>
 
 <div class="cta-row plans-cta">
 	<Button href="/get-started">{m.cta_start()}</Button>
@@ -86,6 +91,22 @@
 		padding-bottom: var(--space-6);
 		border-bottom: 1px solid var(--border);
 		margin-bottom: 0;
+	}
+
+	.alpha-band {
+		margin: var(--space-6) 0 0;
+		border-color: var(--accent);
+		box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 25%, transparent);
+	}
+
+	.alpha-band h2 {
+		margin: 0 0 var(--space-3);
+		font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+	}
+
+	.alpha-lead {
+		margin-bottom: var(--space-4);
+		max-width: 40rem;
 	}
 
 	.accent-eyebrow {

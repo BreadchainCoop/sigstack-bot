@@ -95,21 +95,23 @@ test.describe('smoke', () => {
 	test('plans page shows Bundle and Individual/Group scopes', async ({ page }) => {
 		await page.goto('./plans/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
+		await expect(
+			page.getByRole('heading', { level: 2, name: 'Try CipherSlate free with an alpha code' })
+		).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Redeem alpha code' })).toBeVisible();
 		await expect(page.getByRole('heading', { level: 2, name: 'CipherSlate Bundle' })).toBeVisible();
-		await expect(page.getByText('$5')).toBeVisible();
-		await expect(page.getByText('$17')).toBeVisible();
+		await expect(page.getByText('TBD').first()).toBeVisible();
 		await expect(page.getByText('Individual').first()).toBeVisible();
 		await expect(page.getByText('Group').first()).toBeVisible();
 		await expect(page.getByRole('heading', { level: 2, name: 'À la carte' })).toBeVisible();
 		await expect(page.getByRole('heading', { level: 3, name: 'Language Threads' })).toBeVisible();
 		await expect(page.getByText('Language Threads · me')).toBeVisible();
 		await expect(page.getByText('Language Threads · group')).toBeVisible();
-		await expect(page.getByText('$11').first()).toBeVisible();
 		await expect(page.getByRole('heading', { level: 3, name: 'In-chat Translation' })).toBeVisible();
 		await expect(page.getByText('In-chat · me')).toBeVisible();
 		await expect(page.getByText('In-chat · all')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Have an alpha code?' })).toBeVisible();
+		await expect(page.getByText('Paid pricing is not finalized', { exact: false })).toBeVisible();
 	});
 
 	test('checkout success shows link code and plan label', async ({ page }) => {
@@ -117,6 +119,8 @@ test.describe('smoke', () => {
 		await expect(page.getByRole('heading', { level: 1, name: 'You are subscribed' })).toBeVisible();
 		await expect(page.getByText('Plan purchased: Bundle · Individual.')).toBeVisible();
 		await expect(page.getByText('!link test-code-1')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message CipherSlate' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 
@@ -144,6 +148,8 @@ test.describe('smoke', () => {
 		await page.getByRole('button', { name: 'Continue' }).click();
 		await expect(page).toHaveURL(/code=alpha-demo-9/);
 		await expect(page.getByText('!link alpha-demo-9')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message CipherSlate' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 

@@ -539,6 +539,35 @@ impl SignalClient {
         })
         .await
     }
+
+    /// Set (or refresh) a Signal username for an account.
+    ///
+    /// Pass a nickname (e.g. `cipherslate`); Signal assigns a discriminator
+    /// (`cipherslate.54`) and returns a shareable `username_link`.
+    #[instrument(skip(self))]
+    pub async fn set_username(
+        &self,
+        phone_number: &str,
+        nickname: &str,
+    ) -> Result<UsernameInfo, SignalError> {
+        let encoded_number = encode(phone_number);
+        let response = self
+            .client
+            .post(format!(
+                "{}/v1/accounts/{}/username",
+                self.base_url, encoded_number
+            ))
+            .json(&serde_json::json!({ "username": nickname }))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let msg = response.text().await.unwrap_or_default();
+            return Err(SignalError::Api(format!("Set username failed: {msg}")));
+        }
+
+        Ok(response.json().await?)
+    }
 }
 
 /// Map incoming `groupInfo.groupId` (`internal_id`) to list-groups `id` for send.

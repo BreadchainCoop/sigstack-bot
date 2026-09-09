@@ -2,6 +2,7 @@ pub mod bot_identity;
 pub mod commands;
 pub mod config;
 pub mod dispatch;
+pub mod entitlements_store;
 pub mod error;
 pub mod group_invite_acceptor;
 pub mod group_preferences_store;

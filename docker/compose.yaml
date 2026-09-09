@@ -48,6 +48,8 @@ services:
       - DSTACK__SOCKET_PATH=/var/run/dstack.sock
       - GROUP_PREFERENCES__PERSIST=${GROUP_PREFERENCES_PERSIST:-true}
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
+      - ENTITLEMENTS__PERSIST=${ENTITLEMENTS_PERSIST:-true}
+      - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-translation:/data

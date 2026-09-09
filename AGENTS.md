@@ -76,7 +76,7 @@ docker compose -f docker/compose.yaml --env-file docker/.env up -d
 **Never destroy live Phala volumes or replace the registered translation CVM for a routine upgrade.** Prod is **one** CVM (`0e82fa77-8b15-4dbd-89c4-9045ab911353`). Keep:
 
 1. **Registered Signal phone** (`signal-config-translation` = phone B) — losing the volume unlinks the bot until ops re-registers (and takes over the number).
-2. **Encrypted user prefs** (`group-prefs-translation` → `/data/group_prefs.enc`) — `!translate-me-on`, `!translate-all-on`, Language Threads bridges. Losing this forces every user to turn features back on.
+2. **Encrypted user prefs + entitlements** (`group-prefs-translation` → `/data/group_prefs.enc` and `/data/entitlements.enc`) — `!translate-me-on`, `!translate-all-on`, Language Threads bridges, paid/alpha entitlements. Losing this forces every user to turn features back on and re-link commerce access.
 
 Upgrade with `phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353`. Do not create a new CVM, rename those volumes, or `down -v`. Do not recreate a transcription CVM or re-register phone A. TEE RAM wipe on reboot is expected; disk volumes are the identity. Details: [docs/one-cvm-architecture.md — CVM storage](docs/one-cvm-architecture.md#cvm-storage-keep-intact).
 

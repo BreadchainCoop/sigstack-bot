@@ -34,6 +34,10 @@ pub struct Config {
     /// Encrypted persistence for per-group bot preferences
     #[serde(default)]
     pub group_preferences: GroupPreferencesConfig,
+
+    /// Encrypted persistence for paid/alpha entitlements (separate from feature prefs)
+    #[serde(default)]
+    pub entitlements: EntitlementsConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -146,6 +150,23 @@ pub struct GroupPreferencesConfig {
     pub legacy_compose_hash: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct EntitlementsConfig {
+    /// Persist entitlements snapshot (TEE-encrypted)
+    #[serde(default = "default_true")]
+    pub persist: bool,
+
+    /// Encrypted entitlements file path (same `/data` volume as group prefs)
+    #[serde(default = "default_entitlements_path")]
+    pub storage_path: String,
+
+    /// Previous dstack `compose_hash` values (comma-separated). Used only when
+    /// DeriveKey is missing so AppInfo-encrypted `entitlements.enc` still decrypts
+    /// after a compose/image bump; the bot then re-saves with an app-id-only key.
+    #[serde(default)]
+    pub legacy_compose_hash: String,
+}
+
 // Default implementations
 impl Default for SignalConfig {
     fn default() -> Self {
@@ -218,6 +239,27 @@ impl GroupPreferencesConfig {
     }
 }
 
+impl Default for EntitlementsConfig {
+    fn default() -> Self {
+        Self {
+            persist: default_true(),
+            storage_path: default_entitlements_path(),
+            legacy_compose_hash: String::new(),
+        }
+    }
+}
+
+impl EntitlementsConfig {
+    pub fn legacy_compose_hashes(&self) -> Vec<String> {
+        self.legacy_compose_hash
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+}
+
 fn default_signal_service() -> String {
     "http://signal-api:8080".into()
 }
@@ -279,6 +321,10 @@ fn default_group_preferences_path() -> String {
     "/data/group_prefs.enc".into()
 }
 
+fn default_entitlements_path() -> String {
+    "/data/entitlements.enc".into()
+}
+
 impl Config {
     /// Load configuration from environment variables.
     pub fn load() -> Result<Self> {
@@ -331,6 +377,7 @@ mod tests {
             whisper: WhisperConfig::default(),
             translate_all: TranslateAllConfig::default(),
             group_preferences: GroupPreferencesConfig::default(),
+            entitlements: EntitlementsConfig::default(),
         }
     }
 
@@ -373,6 +420,11 @@ mod tests {
         assert!(GroupPreferencesConfig::default()
             .legacy_compose_hash
             .is_empty());
+        assert!(EntitlementsConfig::default().persist);
+        assert_eq!(
+            EntitlementsConfig::default().storage_path,
+            "/data/entitlements.enc"
+        );
     }
 
     #[test]

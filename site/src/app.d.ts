@@ -10,4 +10,8 @@ declare global {
 	}
 }
 
+interface ImportMetaEnv {
+	readonly PUBLIC_STRIPE_PORTAL_URL?: string;
+}
+
 export {};

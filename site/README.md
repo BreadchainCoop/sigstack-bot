@@ -20,6 +20,29 @@ Production base path defaults to `/sigstack-bot/cypherslate`. For root-local pre
 BASE_PATH= npm run build && BASE_PATH= npm run preview
 ```
 
+## Commerce landings (issue #62)
+
+Static post-checkout and alpha routes (no checkout API required yet):
+
+| Route | Purpose |
+| ----- | ------- |
+| `/checkout/success/` | After Stripe Checkout — show `!link` from `?code=` and plan from `?plan=` |
+| `/checkout/cancel/` | Canceled checkout — return to Plans |
+| `/alpha/` | Alpha program explainer + optional code entry |
+
+Expected Stripe redirect shapes (for #55):
+
+```text
+…/checkout/success/?code=<link_token>&plan=<plan_sku>
+…/checkout/cancel/
+```
+
+Optional public env (GitHub Pages-safe; never put secret keys here):
+
+| Variable | Effect |
+| -------- | ------ |
+| `PUBLIC_STRIPE_PORTAL_URL` | Success page “Manage billing” link; if unset, shows “coming soon” stub |
+
 ## Scripts
 
 | Script              | Purpose                   |

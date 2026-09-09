@@ -2,7 +2,7 @@
 
 Status: **implemented** on the unified CipherSlate on the surviving Phala CVM.
 
-Speech → text via **NEAR AI Whisper Large V3** (GPU TEE). Audio is decrypted in this CVM, stripped of Signal metadata, and uploaded as a generic file. See [one-CVM architecture](one-cvm-architecture.md), [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md), and [issue #8](https://github.com/BreadchainCoop/sigstack-bot/issues/8) under umbrella [#10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
+Speech → text via **NEAR AI Whisper Large V3** (GPU TEE). Audio is decrypted in this CVM, stripped of Signal metadata, and uploaded as a generic file. See [one-CVM architecture](one-cvm-architecture.md) and [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 
 Users add **one** bot to a group. `!transcription` is the **voice command menu** only (no invite, no pairing). Voice is **default off** (`!transcribe-on` / quote `!transcribe`).
 

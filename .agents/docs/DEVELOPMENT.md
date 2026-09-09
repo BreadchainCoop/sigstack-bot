@@ -2,7 +2,7 @@
 
 ## Product direction
 
-Interoperable Signal products (see [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)):
+Interoperable Signal products:
 
 1. **Voice transcription** — same process (NEAR AI Whisper Large V3, not an in-CVM sidecar)
 2. **In-chat group translation** — see [`docs/in-chat-translation.md`](../../docs/in-chat-translation.md)
@@ -136,9 +136,9 @@ Before finishing Rust work: `npm run ci` / `pnpm run ci` (never bare `pnpm ci`).
 
 ## Registration proxy
 
-Ops helper on the one CVM: **:8081** (phone B). Multi-tenant “create your personal AI bot” web UX is out of scope; Stripe client site is issue #10 follow-up.
+Ops helper on the one CVM: **:8081** (phone B). Multi-tenant “create your personal AI bot” web UX is out of scope; Stripe checkout for the product storefront is a separate workstream.
 
 ## Website
 
-- **`site/`** — product educational storefront (SvelteKit static, GitHub Pages). Live URL after Pages is enabled: https://breadchaincoop.github.io/sigstack-bot/ · see [`site/README.md`](../../site/README.md) and issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23). Stripe checkout remains issue [#13](https://github.com/BreadchainCoop/sigstack-bot/issues/13).
+- **`site/`** — product educational storefront (SvelteKit static, GitHub Pages). Live URL after Pages is enabled: https://breadchaincoop.github.io/sigstack-bot/ · see [`site/README.md`](../../site/README.md). Stripe checkout is not live yet.
 - **`web/`** — legacy personal-AI framing. Do **not** treat it as the product suite storefront.

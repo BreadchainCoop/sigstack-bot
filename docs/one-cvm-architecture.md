@@ -2,7 +2,7 @@
 
 Prod runs hub, translation, and voice on **one** Phala CVM as **one** Signal member (the surviving translation number, phone B). Users add **one** bot to a group. STT is remote **NEAR AI Whisper Large V3**; after a transcript, in-chat and Language Threads fan out **in-process** (Signal does not echo this bot’s own posts).
 
-See also: [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10) and the architecture learning [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
+See also: the architecture learning [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 
 ## Bot
 

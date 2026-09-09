@@ -1,6 +1,6 @@
 # CipherSlate site
 
-Educational / marketing site for CipherSlate (issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23)).
+Educational / marketing site for CipherSlate.
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
 **Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/cypherslate/`  
@@ -20,7 +20,7 @@ Production base path defaults to `/sigstack-bot/cypherslate`. For root-local pre
 BASE_PATH= npm run build && BASE_PATH= npm run preview
 ```
 
-## Commerce landings (issue #62)
+## Commerce landings
 
 Static post-checkout and alpha routes (no checkout API required yet):
 
@@ -30,7 +30,7 @@ Static post-checkout and alpha routes (no checkout API required yet):
 | `/checkout/cancel/` | Canceled checkout — return to Plans |
 | `/alpha/` | Alpha program explainer + optional code entry |
 
-Expected Stripe redirect shapes (for #55):
+Expected Stripe redirect shapes:
 
 ```text
 …/checkout/success/?code=<link_token>&plan=<plan_sku>

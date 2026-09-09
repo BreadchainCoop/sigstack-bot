@@ -43,7 +43,7 @@ See fixtures:
 - `docs/spikes/fixtures/voice-note-dm.json`
 - `docs/spikes/fixtures/voice-note-group.json`
 
-**Source:** [signal-cli-rest-api swagger](https://bbernhard.github.io/signal-cli-rest-api/) (`receive.Attachment`, `receive.DataMessage`), [issue #52](https://github.com/bbernhard/signal-cli-rest-api/issues/52).
+**Source:** [signal-cli-rest-api swagger](https://bbernhard.github.io/signal-cli-rest-api/) (`receive.Attachment`, `receive.DataMessage`).
 
 ### Live capture (needs user)
 

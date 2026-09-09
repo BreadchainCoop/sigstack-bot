@@ -21,7 +21,7 @@ use whisper_client::WhisperClient;
 /// Result of wiring the unified bot: handlers plus long-lived stores.
 pub struct BuiltHandlers {
     pub handlers: Vec<Box<dyn CommandHandler>>,
-    /// Encrypted entitlements (issue #53). Held for process lifetime; CRUD for
+    /// Encrypted entitlements store. Held for process lifetime; CRUD for
     /// future webhook / `!link` / gating — not consumed by commands yet.
     pub entitlements: Arc<EntitlementsStore>,
 }

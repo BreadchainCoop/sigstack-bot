@@ -1,0 +1,44 @@
+---
+description: Never put GitHub issue or PR numbers in repo content
+alwaysApply: true
+---
+
+# No issue / PR numbers in the repo
+
+Do **not** cite GitHub issues, pull requests, or tracker IDs in committed content.
+
+## Forbidden in
+
+- Source code (comments, rustdoc, docstrings, string literals used as docs)
+- Docs (`docs/`, `.agents/docs/`, plan/solution/brainstorm artifacts)
+- READMEs and other markdown at any path
+- Compose/env examples, AGENTS.md, cursor rules (except this rule)
+
+## Forbidden forms
+
+- `issue #62`, `#62`, `Issue 27`, `(issue #53)`
+- Links like `https://github.com/.../issues/62` or `.../pull/12`
+- Headings such as `## Commerce landings (issue #62)`
+- “See #10”, “for #55”, “parent #13”, “closes #8”, “umbrella #10”
+
+Tracker IDs belong in GitHub (issue bodies, PR descriptions, project boards)—not in the tree.
+
+## Allowed
+
+- Describe the **product/work** without a number (“encrypted entitlements store”, “commerce landings”)
+- Link to **durable repo docs** (`docs/one-cvm-architecture.md`, `site/README.md`)
+- Upstream library docs that are not issue/PR pages (API swagger, crates.io, etc.)
+
+```text
+# BAD
+/// Encrypted entitlements (issue #53).
+## Commerce landings (issue #62)
+See [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10).
+
+# GOOD
+/// Encrypted entitlements store; CRUD for future webhook / !link / gating.
+## Commerce landings
+See [docs/one-cvm-architecture.md](docs/one-cvm-architecture.md).
+```
+
+When editing existing files, strip leftover issue/PR citations rather than leaving them.

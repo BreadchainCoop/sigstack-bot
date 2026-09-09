@@ -1,6 +1,6 @@
 # CipherSlate
 
-TEE-hosted Signal bot for **voice transcription** and **group translation**, designed as an interoperable product suite (see [issue #10](https://github.com/BreadchainCoop/sigstack-bot/issues/10)).
+TEE-hosted Signal bot for **voice transcription** and **group translation**, designed as an interoperable product suite.
 
 Not a general AI chat assistant. Conversation history, tool-calling, and x402 credits have been removed from this fork.
 
@@ -15,7 +15,7 @@ Not a general AI chat assistant. Conversation history, tool-calling, and x402 cr
 
 Add **one** bot to a Signal group.
 
-**Organizer website:** [`site/`](site/) (SvelteKit → GitHub Pages) — https://breadchaincoop.github.io/sigstack-bot/ after Pages is enabled. See [site/README.md](site/README.md) and issue [#23](https://github.com/BreadchainCoop/sigstack-bot/issues/23). Legacy [`web/`](web/) is not the product storefront.
+**Organizer website:** [`site/`](site/) (SvelteKit → GitHub Pages) — https://breadchaincoop.github.io/sigstack-bot/ after Pages is enabled. See [site/README.md](site/README.md). Legacy [`web/`](web/) is not the product storefront.
 
 Details: [docs/one-cvm-architecture.md](docs/one-cvm-architecture.md) · [docs/voice-transcription.md](docs/voice-transcription.md) · [docs/in-chat-translation.md](docs/in-chat-translation.md) · [docs/language-threads.md](docs/language-threads.md) · [docs/bilingual-threads.md](docs/bilingual-threads.md)
 

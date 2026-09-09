@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod command_aliases;
 mod help;
+mod link;
 mod menu_locale;
 mod privacy;
 mod product_menus;
@@ -16,6 +17,7 @@ mod translate_service;
 mod verify;
 
 pub use help::{CommandsHandler, HelpHandler, InfoHandler};
+pub use link::LinkHandler;
 pub use privacy::PrivacyHandler;
 pub use product_menus::{
     HelpInChatHandler, HelpThreadsHandler, HelpTranscriptionHandler, InChatMenuHandler,

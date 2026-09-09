@@ -20,8 +20,14 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 
 ## Commerce / Stripe / entitlements
 
-**Current epic:** [Epic: CipherSlate commerce — Stripe, entitlements, alpha](https://github.com/BreadchainCoop/sigstack-bot/issues/68) (children #53, #55–#65)  
+**Current epic:** [Epic: CipherSlate commerce — Stripe, entitlements, alpha](https://github.com/BreadchainCoop/sigstack-bot/issues/68) (children #53, #55–#65, #70)  
 **Superseded:** [#13](https://github.com/BreadchainCoop/sigstack-bot/issues/13) (closed — education / early site scope done)
+
+### Fast alpha (outside epic)
+
+| # | Title | Notes |
+|---|--------|--------|
+| [69](https://github.com/BreadchainCoop/sigstack-bot/issues/69) | feat: alpha code redeem via !link (static site path) | Tonight MVP; not a child of #68 |
 
 ### Related (not epic children)
 
@@ -37,17 +43,18 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | [53](https://github.com/BreadchainCoop/sigstack-bot/issues/53) | feat: entitlement model and encrypted store on cvm | Shipped; `entitlements.enc` / composition architecture |
 | [55](https://github.com/BreadchainCoop/sigstack-bot/issues/55) | feat: stripe checkout session api from plan sku | Checkout session + success redirect query shape |
 | [56](https://github.com/BreadchainCoop/sigstack-bot/issues/56) | feat: stripe webhooks and subscription lifecycle sync | |
-| [57](https://github.com/BreadchainCoop/sigstack-bot/issues/57) | feat: !link and !claim-group for subscription binding | |
+| [57](https://github.com/BreadchainCoop/sigstack-bot/issues/57) | feat: !link and !claim-group for subscription binding | Stripe `link_token` bind (alpha-only is #69) |
 | [58](https://github.com/BreadchainCoop/sigstack-bot/issues/58) | feat: gate product commands on entitlements | |
-| [59](https://github.com/BreadchainCoop/sigstack-bot/issues/59) | feat: alpha promo codes — 3-month bundle-all free path | `bundle-all-alpha` |
-| [60](https://github.com/BreadchainCoop/sigstack-bot/issues/60) | ops: alpha code generation and revocation tooling | |
+| [59](https://github.com/BreadchainCoop/sigstack-bot/issues/59) | feat: alpha promo codes — 3-month bundle-all free path | Superseded by #69 + #70 |
+| [60](https://github.com/BreadchainCoop/sigstack-bot/issues/60) | ops: alpha code generation and revocation tooling | Minimal mint in #69; fuller ops later |
 | [61](https://github.com/BreadchainCoop/sigstack-bot/issues/61) | feat: wire plans ctas to stripe checkout | |
 | [62](https://github.com/BreadchainCoop/sigstack-bot/issues/62) | feat: checkout success cancel and alpha claim pages | `site/` commerce landings |
 | [63](https://github.com/BreadchainCoop/sigstack-bot/issues/63) | feat: revise get-started flow and entitlement user comms | |
 | [64](https://github.com/BreadchainCoop/sigstack-bot/issues/64) | feat: deploy commerce service and entitlements on phala cvm | |
 | [65](https://github.com/BreadchainCoop/sigstack-bot/issues/65) | test: commerce and entitlement e2e test plan | |
+| [70](https://github.com/BreadchainCoop/sigstack-bot/issues/70) | feat: alpha coexistence with Stripe link and paid gating | After Stripe `!link` spine |
 
-**Recommended order (epic [#68](https://github.com/BreadchainCoop/sigstack-bot/issues/68)):** foundation #53+#62 (done) → parallel #63/#65 + related #52/#54 → #54→#55→#56 → #57 → #58 → #59+#60 → #61 → #64 → finish #65 before prod enforce. Full write-up on the epic issue.
+**Recommended order (epic [#68](https://github.com/BreadchainCoop/sigstack-bot/issues/68)):** foundation #53+#62 (done) → parallel #63/#65 + related #52/#54 → #54→#55→#56 → #57 → #58 → #70 → #61 → #64 → finish #65 before prod enforce. Fast alpha #69 is **outside** this epic. Full write-up on the epic issue.
 
 ## Product suite / architecture
 

@@ -7,6 +7,10 @@ edition.workspace = true
 name = "signal-bot"
 path = "src/main.rs"
 
+[[bin]]
+name = "mint-alpha"
+path = "src/bin/mint-alpha.rs"
+
 [dependencies]
 # Workspace crates
 signal-bot-core = { path = "../signal-bot-core" }

@@ -811,6 +811,43 @@ impl EntitlementsStore {
     pub async fn persist_now(&self) -> Result<(), String> {
         self.persist().await
     }
+
+    /// Flush encrypted snapshot to disk (ops CLIs after minting).
+    pub async fn flush(&self) -> Result<(), String> {
+        self.persist().await
+    }
+
+    /// Mint `count` single-use pending alpha codes (`bundle-all-alpha`, +`days` expiry).
+    /// Returns plaintext tokens (show once for `/alpha?code=` distribution).
+    pub fn mint_alpha_codes(
+        self: &Arc<Self>,
+        count: usize,
+        days: i64,
+    ) -> Result<Vec<String>, String> {
+        if count == 0 {
+            return Err("count must be >= 1".into());
+        }
+        if days <= 0 {
+            return Err("days must be >= 1".into());
+        }
+        let expires_at = Utc::now() + chrono::Duration::days(days);
+        let mut codes = Vec::with_capacity(count);
+        for _ in 0..count {
+            let mut bytes = [0u8; 16];
+            rand::thread_rng().fill_bytes(&mut bytes);
+            let token = hex::encode(bytes);
+            self.create_pending(
+                token.clone(),
+                PlanSku::BundleAllAlpha,
+                EntitlementSource::Alpha,
+                Some(expires_at),
+                None,
+                None,
+            )?;
+            codes.push(token);
+        }
+        Ok(codes)
+    }
 }
 
 #[cfg(test)]
@@ -979,6 +1016,19 @@ mod tests {
         assert!(decrypt_entitlements_blob(&blob, &stable).is_err());
         let loaded = decrypt_entitlements_blob(&blob, &legacy).unwrap();
         assert_eq!(loaded.individuals["u1"].len(), 1);
+    }
+
+    #[test]
+    fn mint_alpha_codes_creates_pending() {
+        let store = EntitlementsStore::new_in_memory();
+        let codes = store.mint_alpha_codes(3, 90).unwrap();
+        assert_eq!(codes.len(), 3);
+        for code in &codes {
+            let pending = store.get_pending(code).unwrap();
+            assert_eq!(pending.plan_sku, PlanSku::BundleAllAlpha);
+            assert_eq!(pending.source, EntitlementSource::Alpha);
+            assert!(pending.expires_at.is_some());
+        }
     }
 
     #[test]

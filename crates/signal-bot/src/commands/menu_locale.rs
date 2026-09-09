@@ -244,7 +244,7 @@ Bilingual Threads: exactly two languages, one sidecar; each room is assigned a l
 
 const TRANSLATION_IN_CHAT_MENU: &str = r#"In-chat Translation
 
-!list-langs
+!list-langs-in-chat
 !translate-all-on <lang1> <lang2>
 !translate-all-off
 !translate-me-on <lang1> <lang2>
@@ -257,6 +257,7 @@ examples:
    !translate-me-on ru ar
    !translate es
 
+Quote !translate accepts any Language Threads language (!list-langs).
 !enable-threads (disable in-chat)
 !help"#;
 
@@ -308,7 +309,7 @@ How it works:
 - One-off: reply to a message with !translate <lang>
 
 Typical use:
-1. Pick two languages (!list-langs)
+1. Pick two in-chat auto languages (!list-langs-in-chat)
 2. !translate-all-on es en (or !translate-me-on for just you)
 3. Chat normally; the bot quote-replies translations
 4. !translate-all-off / !translate-me-off to stop

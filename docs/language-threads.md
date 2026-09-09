@@ -28,6 +28,8 @@ Default title is English `{Language} · {disambiguator}` (main group name when a
 
 N=1 (one sidecar) uses the same relay rules as N=3 — add another language later with no reconfiguration.
 
+**Language catalog:** `!list-langs` lists every code valid for `!translate-me-thread` and quote `!translate`. This list is **larger** than in-chat auto-translate (`!list-langs-in-chat`). Basque (`eu`) and Swahili (`sw`) are Language Threads languages; they are not available for `!translate-all-on` / `!translate-me-on` because the bot detects message language locally with `whatlang`.
+
 ## Commands
 
 | Command | Where | Effect |
@@ -38,7 +40,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!enable-in-chat` | Main | Tear down Language Threads for the group (best-effort remove members); apply pending in-chat enable if any |
 | `!rename <name>` | Sidecar only | Change this Language Thread’s group name |
 | `!commands` | Sidecar only | Compact Language Thread command list |
-| `!list-langs` | Any | Language codes |
+| `!list-langs` | Any | Full Language Threads / manual `!translate` catalog (includes Basque, Swahili, and 30 other codes) |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
 | `!help` / `!privacy` | Any | Hub menus (`!help` is always the CipherSlate hub; `!privacy` and `!verify` on this bot) |
 

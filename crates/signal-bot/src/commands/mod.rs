@@ -26,7 +26,7 @@ pub use rename::RenameHandler;
 pub use signal_bot_core::CommandHandler;
 pub use translate::TranslateHandler;
 pub use translate_all::TranslateAllHandler;
-pub use translate_langs::TranslateLangsHandler;
+pub use translate_langs::{TranslateLangsHandler, TranslateLangsInChatHandler};
 pub use translate_me::TranslateMeHandler;
 pub use translate_service::DEFAULT_TRANSCRIPT_PREFIX;
 pub use verify::VerifyHandler;

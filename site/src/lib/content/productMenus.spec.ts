@@ -9,6 +9,7 @@ describe('productMenus', () => {
 	});
 
 	it('mirrors key In-chat commands', () => {
+		expect(inChatMenu).toContain('!list-langs-in-chat');
 		expect(inChatMenu).toContain('!translate-all-on <lang1> <lang2>');
 		expect(inChatMenu).toContain('!translate <lang> (as reply)');
 		expect(inChatMenu).toContain('!enable-threads');

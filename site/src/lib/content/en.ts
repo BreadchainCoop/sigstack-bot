@@ -54,12 +54,12 @@ export const en: SiteContent = {
 				{
 					id: 'language-threads',
 					title: 'Language Threads',
-					lead: 'Keep one multilingual Signal group as the hub for your campaign or mutual-aid circle, and give each language its own lane. Organizers and bilingual members post in main; people who prefer Spanish, English, or another language join a Language Thread and read and reply in that language—without anyone dual-posting by hand.'
+					lead: 'Keep one multilingual Signal group as the hub for your campaign or mutual-aid circle, and give each language its own lane. Organizers and bilingual members post in main; people who prefer Spanish, English, Basque, Swahili, or another language join a Language Thread and read and reply in that language—without anyone dual-posting by hand. Language Threads supports 32 languages (!list-langs)—more than in-chat auto-translate.'
 				},
 				{
 					id: 'in-chat',
 					title: 'In-chat Translation',
-					lead: 'For a bilingual campaign or mutual-aid group that wants to stay in one Signal chat, the bot quote-replies each message in the other language. Monolingual members keep up in-thread—no sidecar groups, no dual-posting by organizers.'
+					lead: 'For a bilingual campaign or mutual-aid group that wants to stay in one Signal chat, the bot quote-replies each message in the other language. Monolingual members keep up in-thread—no sidecar groups, no dual-posting by organizers. Auto-translate supports 30 detectable languages (!list-langs-in-chat); quote !translate can target any Language Threads language (!list-langs).'
 				},
 				{
 					id: 'transcription',

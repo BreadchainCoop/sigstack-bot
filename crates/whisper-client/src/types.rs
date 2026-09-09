@@ -66,6 +66,8 @@ pub fn whisper_language_to_iso(lang: &str) -> Option<&'static str> {
         "da" | "danish" => Some("da"),
         "no" | "norwegian" => Some("no"),
         "fa" | "persian" => Some("fa"),
+        "eu" | "basque" => Some("eu"),
+        "sw" | "swahili" => Some("sw"),
         "ca" | "catalan" => Some("ca"),
         _ => None,
     }

@@ -10,6 +10,8 @@ Distinct from [Language Threads](language-threads.md) (multilingual main + N sid
 
 Menus: `!help` → `!translation-in-chat` (or legacy `!in-chat` / `!translation` redirect). Feature guide: `!help-in-chat`.
 
+**Language catalog:** In-chat **auto** (`!translate-all-on`, `!translate-me-on`) accepts only codes from `!list-langs-in-chat` (30 languages the bot can detect locally). Quote-reply `!translate <lang>` accepts any `!list-langs` code, including Basque and Swahili. Attempting auto-translate with a non-detectable code is rejected with guidance to use Language Threads or manual `!translate`.
+
 ### Group-wide
 
 ```text
@@ -54,7 +56,7 @@ Clear **all** in-chat auto (group-wide + every personal), and apply a pending La
 |------|-----|--------|
 | **Group auto** | `!translate-all-on` active | Every non-command group text: detect → if in pair → NEAR translate → quote-reply `{flag} {translation}`. Used for **every** author while group-wide is on. |
 | **Personal auto** | `!translate-me-on` for author | Same as group auto, but only for that author’s messages, and **only while group-wide is off**. `!translate-me-on` is refused until `!translate-all-off`. A leftover personal pair applies again after group-wide is turned off. |
-| **Manual** | Reply with `!translate <lang>` | Translate only that quoted message (always allowed; ignores stored pairs) |
+| **Manual** | Reply with `!translate <lang>` | Translate only that quoted message (always allowed; any `!list-langs` code) |
 
 Not dual-post: the original stays as the human message; the bot only quote-replies the translation.
 

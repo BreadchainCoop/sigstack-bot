@@ -6,7 +6,7 @@ use crate::commands::menu_locale::{
 };
 use crate::commands::translate_all::is_translate_on_or_off_command;
 use crate::commands::translate_lang::{resolve_language, Language};
-use crate::commands::translate_langs::is_list_langs_command;
+use crate::commands::translate_langs::{is_list_langs_command, is_list_langs_in_chat_command};
 use crate::commands::translate_me::{TranslateMeHandler, ENABLE_IN_CHAT_CMDS};
 use crate::commands::translate_service::{strip_transcript_prefix, truncate_snippet};
 use crate::commands::CommandHandler;
@@ -127,6 +127,7 @@ pub(crate) fn is_non_quote_translate_command(text: &str) -> bool {
         || TranslateMeHandler::is_on_command(text)
         || is_exact_command_any(text, ENABLE_IN_CHAT_CMDS)
         || is_list_langs_command(text)
+        || is_list_langs_in_chat_command(text)
         || is_transcription_menu_command(text)
 }
 

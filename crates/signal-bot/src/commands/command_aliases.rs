@@ -9,7 +9,7 @@ use crate::commands::menu_locale::{
 use crate::commands::translate_all::{
     ALL_OFF_COMMANDS, ALL_ON_PREFIXES, ENABLE_THREADS, ME_OFF_COMMANDS, ME_ON_PREFIXES,
 };
-use crate::commands::translate_langs::LIST_LANGS_COMMANDS;
+use crate::commands::translate_langs::{LIST_LANGS_COMMANDS, LIST_LANGS_IN_CHAT_COMMANDS};
 use crate::commands::translate_me::{ENABLE_IN_CHAT_CMDS, LEAVE_CMDS, THREAD_ON_PREFIXES};
 use signal_bot_core::normalize_exact;
 use signal_bot_voice::{TRANSCRIBE_COMMANDS, TRANSCRIBE_OFF_COMMANDS, TRANSCRIBE_ON_COMMANDS};
@@ -55,6 +55,7 @@ fn all_families() -> &'static [(&'static str, &'static [&'static str])] {
         ("enable_in_chat", ENABLE_IN_CHAT_CMDS),
         ("leave", LEAVE_CMDS),
         ("list_langs", LIST_LANGS_COMMANDS),
+        ("list_langs_in_chat", LIST_LANGS_IN_CHAT_COMMANDS),
         ("transcribe_on", TRANSCRIBE_ON_COMMANDS),
         ("transcribe_off", TRANSCRIBE_OFF_COMMANDS),
         ("transcribe", TRANSCRIBE_COMMANDS),

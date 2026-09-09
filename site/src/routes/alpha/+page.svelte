@@ -4,16 +4,19 @@
 	import { resolve } from '$app/paths';
 	import type { Pathname } from '$app/types';
 	import { page } from '$app/state';
+	import { env } from '$env/dynamic/public';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
-	import { LINK_CODE_MAX_LENGTH, linkCommand, readLinkCode } from '$lib/checkoutLanding';
+	import { LINK_CODE_MAX_LENGTH, readLinkCode } from '$lib/checkoutLanding';
 	import Button from '$lib/components/Button.svelte';
+	import LinkInSignal from '$lib/components/LinkInSignal.svelte';
 
 	const { pages, meta } = $derived(getContent(getLocale()));
 	const copy = $derived(pages.alpha);
 
 	// Query params are client-only (static prerender cannot vary by searchParams).
 	const codeFromUrl = $derived(browser ? readLinkCode(page.url) : null);
+	const signalUsernameLink = $derived(env.PUBLIC_SIGNAL_USERNAME_LINK?.trim() || '');
 	let draft = $state('');
 	let error = $state<string | null>(null);
 
@@ -54,11 +57,17 @@
 </section>
 
 {#if browser && codeFromUrl}
-	<section class="panel link-panel" aria-labelledby="alpha-link-heading">
-		<h2 id="alpha-link-heading">{copy.linkHeading}</h2>
-		<p>{copy.linkBody}</p>
-		<p class="link-cmd"><code>{linkCommand(codeFromUrl)}</code></p>
-	</section>
+	<LinkInSignal
+		code={codeFromUrl}
+		heading={copy.linkHeading}
+		body={copy.linkBody}
+		steps={copy.linkSteps}
+		copyLabel={copy.copyLabel}
+		copyDoneLabel={copy.copyDoneLabel}
+		messageCta={copy.messageCta}
+		signalLinkMissing={copy.signalLinkMissing}
+		{signalUsernameLink}
+	/>
 	<div class="cta-row">
 		<Button href="/get-started">{copy.getStartedCta}</Button>
 		<Button href="/plans" variant="ghost">{copy.plansCta}</Button>
@@ -141,23 +150,5 @@
 
 	.form-actions {
 		margin-top: var(--space-4);
-	}
-
-	.link-panel {
-		margin-top: var(--space-5);
-	}
-
-	.link-panel h2 {
-		margin-top: 0;
-		font-size: 1.15rem;
-	}
-
-	.link-cmd {
-		margin: var(--space-4) 0 0;
-	}
-
-	.link-cmd code {
-		font-size: 1.05rem;
-		padding: 0.35em 0.55em;
 	}
 </style>

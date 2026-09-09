@@ -39,3 +39,19 @@ export function planLabelFromSku(sku: string | null, content: SiteContent): stri
 export function linkCommand(code: string): string {
 	return `!link ${code}`;
 }
+
+/**
+ * Copy `!link <code>` to the clipboard.
+ * Returns false when Clipboard API is unavailable or write fails.
+ */
+export async function copyLinkCommand(code: string): Promise<boolean> {
+	if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+		return false;
+	}
+	try {
+		await navigator.clipboard.writeText(linkCommand(code));
+		return true;
+	} catch {
+		return false;
+	}
+}

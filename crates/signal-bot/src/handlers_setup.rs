@@ -21,8 +21,8 @@ use whisper_client::WhisperClient;
 /// Result of wiring the unified bot: handlers plus long-lived stores.
 pub struct BuiltHandlers {
     pub handlers: Vec<Box<dyn CommandHandler>>,
-    /// Encrypted entitlements store. Held for process lifetime; CRUD for
-    /// future webhook / `!link` / gating — not consumed by commands yet.
+    /// Encrypted entitlements store. Held for process lifetime; consumed by
+    /// `!link` / `!claim-group` (and future webhook / gating).
     pub entitlements: Arc<EntitlementsStore>,
 }
 
@@ -184,6 +184,7 @@ pub async fn build_handlers(
         group_prefs.clone(),
         signal.clone(),
     )));
+    handlers.push(Box::new(LinkHandler::new(entitlements.clone())));
     handlers.push(Box::new(CommandsHandler::new(group_prefs.clone())));
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(HelpHandler::new()));
@@ -283,7 +284,7 @@ mod tests {
             .expect("translation handlers");
         let handlers = built.handlers;
 
-        assert_eq!(handlers.len(), 22);
+        assert_eq!(handlers.len(), 23);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"voice"));
@@ -306,6 +307,7 @@ mod tests {
         assert!(got.contains(&"translate_langs"));
         assert!(got.contains(&"translate_langs_in_chat"));
         assert!(got.contains(&"rename"));
+        assert!(got.contains(&"link"));
         assert!(got.contains(&"commands"));
         assert!(!got.contains(&"set_language"));
         assert!(got.contains(&"help"));
@@ -331,7 +333,7 @@ mod tests {
             .expect("translation handlers");
         let handlers = built.handlers;
 
-        assert_eq!(handlers.len(), 21);
+        assert_eq!(handlers.len(), 22);
         let got = labels(&handlers);
         assert!(!got.contains(&"translate_all"));
         assert!(got.contains(&"translate_me"));

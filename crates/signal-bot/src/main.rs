@@ -5,6 +5,7 @@ use dstack_client::DstackClient;
 use signal_bot::bot_identity::BotIdentity;
 use signal_bot::config::Config;
 use signal_bot::dispatch::dispatch_message;
+use signal_bot::ensure_username::ensure_signal_username;
 use signal_bot::error::AppResult;
 use signal_bot::group_invite_acceptor::{
     run_invite_acceptor, InvitePolicy, DEFAULT_INVITE_POLL_INTERVAL,
@@ -47,6 +48,24 @@ async fn main() -> AppResult<()> {
         return Err(anyhow::anyhow!("Signal API not reachable").into());
     }
     info!("Signal API healthy");
+
+    if let Some(phone) = config
+        .signal
+        .phone_number
+        .as_deref()
+        .filter(|p| !p.trim().is_empty())
+    {
+        let nickname = config
+            .bot
+            .signal_username
+            .as_deref()
+            .unwrap_or("cipherslate");
+        ensure_signal_username(&signal, phone, nickname).await;
+    } else {
+        warn!(
+            "SIGNAL__PHONE_NUMBER unset — skipping Signal username ensure (needed for site Message link)"
+        );
+    }
 
     let bot_identity = BotIdentity::new();
 

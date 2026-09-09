@@ -101,7 +101,7 @@ export const en: SiteContent = {
 			steps: [
 				{
 					title: 'Add CipherSlate',
-					body: 'Invite the bot to your Signal group. It auto-accepts group invites.'
+					body: 'Organizers: invite CipherSlate to your Signal group (it auto-accepts). Alpha or paid users: open a DM first via the Message CipherSlate button on the alpha or checkout pages, then link with `!link <code>`.'
 				},
 				{
 					title: 'Open the hub',
@@ -124,6 +124,12 @@ export const en: SiteContent = {
 		plans: {
 			title: 'Plans',
 			lead: 'Pick a Bundle for all three products, or pay à la carte. Individual plans cover you; Group plans cover a whole Signal chat where the product works that way.',
+			alphaBand: {
+				eyebrow: 'Alpha',
+				title: 'Try CipherSlate free with an alpha code',
+				lead: 'Full Bundle access for 90 days—no checkout. Redeem your code, open a Signal DM, and send `!link`.',
+				ctaLabel: 'Redeem alpha code'
+			},
 			bundle: {
 				eyebrow: 'Package',
 				title: 'CipherSlate Bundle',
@@ -136,8 +142,8 @@ export const en: SiteContent = {
 						scope: 'individual',
 						blurb:
 							'Language Threads, In-chat me, and Transcription for one person. Self-subscribe in any group where the bot is present.',
-						priceLabel: '$5',
-						period: '/mo',
+						priceLabel: 'TBD',
+						period: '',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
 					},
@@ -147,8 +153,8 @@ export const en: SiteContent = {
 						scope: 'group',
 						blurb:
 							'Everything in Individual, plus In-chat all for one Signal group—bilingual quote-replies for every member.',
-						priceLabel: '$17',
-						period: '/mo',
+						priceLabel: 'TBD',
+						period: '',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
 					}
@@ -167,8 +173,8 @@ export const en: SiteContent = {
 							name: 'Language Threads · me',
 							scope: 'individual',
 							blurb: 'You join or create a Language Thread for yourself (`!translate-me-thread`).',
-							priceLabel: '$2',
-							period: '/mo',
+							priceLabel: 'TBD',
+							period: '',
 							ctaHref: '/products#language-threads',
 							ctaLabel: 'Learn more'
 						},
@@ -178,8 +184,8 @@ export const en: SiteContent = {
 							scope: 'group',
 							blurb:
 								'Language Threads for one multilingual main—sidecars for every language lane the group needs.',
-							priceLabel: '$11',
-							period: '/mo',
+							priceLabel: 'TBD',
+							period: '',
 							ctaHref: '/products#language-threads',
 							ctaLabel: 'Learn more'
 						}
@@ -195,8 +201,8 @@ export const en: SiteContent = {
 							name: 'In-chat · me',
 							scope: 'individual',
 							blurb: 'Auto-translate your messages only (`!translate-me-on`).',
-							priceLabel: '$2',
-							period: '/mo',
+							priceLabel: 'TBD',
+							period: '',
 							ctaHref: '/products#in-chat',
 							ctaLabel: 'Learn more'
 						},
@@ -205,8 +211,8 @@ export const en: SiteContent = {
 							name: 'In-chat · all',
 							scope: 'group',
 							blurb: 'Group-wide bilingual quote-replies (`!translate-all-on`).',
-							priceLabel: '$11',
-							period: '/mo',
+							priceLabel: 'TBD',
+							period: '',
 							ctaHref: '/products#in-chat',
 							ctaLabel: 'Learn more'
 						}
@@ -222,8 +228,8 @@ export const en: SiteContent = {
 							name: 'Transcription',
 							scope: 'individual',
 							blurb: 'Per-person auto transcription (`!transcribe-on`).',
-							priceLabel: '$2',
-							period: '/mo',
+							priceLabel: 'TBD',
+							period: '',
 							ctaHref: '/products#transcription',
 							ctaLabel: 'Learn more'
 						}
@@ -235,8 +241,7 @@ export const en: SiteContent = {
 				group: 'Group'
 			},
 			footnote:
-				'Prices are illustrative placeholders. Checkout is not live yet—start in Signal with the organizer checklist.',
-			alphaPrompt: 'Have an alpha code?'
+				'Paid pricing is not finalized yet. Alpha access is free with a code; checkout is not live.'
 		},
 		checkoutSuccess: {
 			title: 'You are subscribed',
@@ -246,7 +251,16 @@ export const en: SiteContent = {
 			planPurchasedGeneric: 'Your plan is ready.',
 			linkHeading: 'Link in Signal',
 			linkBody:
-				'Open a DM with CipherSlate (preferred — avoid pasting link codes in a group) and send:',
+				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open CipherSlate in Signal, paste, and send:',
+			linkSteps: [
+				'Copy the `!link` command below',
+				'Open a DM with CipherSlate (Message button)',
+				'Paste the command and send'
+			],
+			copyLabel: 'Copy command',
+			copyDoneLabel: 'Copied',
+			messageCta: 'Message CipherSlate',
+			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM CipherSlate.',
 			missingCode:
 				'We could not find a link code in this page URL. Check your Stripe receipt email for `!link <code>`, then send that command in a DM with CipherSlate.',
 			portalCta: 'Manage billing',
@@ -277,7 +291,16 @@ export const en: SiteContent = {
 			errorTooLong: 'That code is too long. Check the code you were given and try again.',
 			linkHeading: 'Link in Signal',
 			linkBody:
-				'Open a DM with CipherSlate (preferred — avoid pasting link codes in a group) and send:',
+				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open CipherSlate in Signal, paste, and send:',
+			linkSteps: [
+				'Copy the `!link` command below',
+				'Open a DM with CipherSlate (Message button)',
+				'Paste the command and send'
+			],
+			copyLabel: 'Copy command',
+			copyDoneLabel: 'Copied',
+			messageCta: 'Message CipherSlate',
+			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM CipherSlate.',
 			getStartedCta: 'Organizer checklist',
 			plansCta: 'See paid plans'
 		}

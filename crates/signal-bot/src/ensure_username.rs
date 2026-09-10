@@ -60,16 +60,16 @@ mod tests {
         let mock_server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/v1/accounts/%2B15555555555/username"))
-            .and(body_json(serde_json::json!({ "username": "cipherslate" })))
+            .and(body_json(serde_json::json!({ "username": "sigstack" })))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "username": "cipherslate.01",
+                "username": "sigstack.01",
                 "username_link": "https://signal.me/#eu/x"
             })))
             .mount(&mock_server)
             .await;
 
         let client = SignalClient::new(mock_server.uri()).unwrap();
-        ensure_signal_username(&client, "+15555555555", "cipherslate.99").await;
+        ensure_signal_username(&client, "+15555555555", "sigstack.99").await;
     }
 
     #[tokio::test]
@@ -90,6 +90,6 @@ mod tests {
             .await;
 
         let client = SignalClient::new(mock_server.uri()).unwrap();
-        ensure_signal_username(&client, "+15555555555", "cipherslate").await;
+        ensure_signal_username(&client, "+15555555555", "sigstack").await;
     }
 }

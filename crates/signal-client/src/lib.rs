@@ -655,9 +655,9 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/v1/accounts/%2B15555555555/username"))
-            .and(body_json(serde_json::json!({ "username": "cipherslate" })))
+            .and(body_json(serde_json::json!({ "username": "sigstack" })))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "username": "cipherslate.54",
+                "username": "sigstack.54",
                 "username_link": "https://signal.me/#eu/abc"
             })))
             .mount(&mock_server)
@@ -665,10 +665,10 @@ mod tests {
 
         let client = create_test_client(&mock_server).await;
         let info = client
-            .set_username("+15555555555", "cipherslate")
+            .set_username("+15555555555", "sigstack")
             .await
             .unwrap();
-        assert_eq!(info.username.as_deref(), Some("cipherslate.54"));
+        assert_eq!(info.username.as_deref(), Some("sigstack.54"));
         assert_eq!(
             info.username_link.as_deref(),
             Some("https://signal.me/#eu/abc")
@@ -687,7 +687,7 @@ mod tests {
 
         let client = create_test_client(&mock_server).await;
         let err = client
-            .set_username("+15555555555", "cipherslate")
+            .set_username("+15555555555", "sigstack")
             .await
             .unwrap_err();
         assert!(err.to_string().contains("taken"));

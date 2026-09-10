@@ -11,7 +11,7 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
 test.describe('smoke', () => {
 	test('home loads with brand, path chooser, and CTAs', async ({ page }) => {
 		await page.goto('./');
-		await expect(page.getByRole('heading', { level: 1, name: 'CipherSlate' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Sigstack' })).toBeVisible();
 		await expect(
 			page.getByText('One Signal bot for multilingual groups', { exact: false })
 		).toBeVisible();
@@ -23,7 +23,7 @@ test.describe('smoke', () => {
 	test('get started shows organizer steps and hub commands', async ({ page }) => {
 		await page.goto('./get-started/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Getting started' })).toBeVisible();
-		await expect(page.getByText('Add CipherSlate')).toBeVisible();
+		await expect(page.getByText('Add Sigstack')).toBeVisible();
 		await expect(page.getByText('!help / !info')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Language Threads' }).first()).toBeVisible();
 	});
@@ -96,10 +96,10 @@ test.describe('smoke', () => {
 		await page.goto('./plans/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
 		await expect(
-			page.getByRole('heading', { level: 2, name: 'Try CipherSlate free with an alpha code' })
+			page.getByRole('heading', { level: 2, name: 'Try Sigstack free with an alpha code' })
 		).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Redeem alpha code' })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 2, name: 'CipherSlate Bundle' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'Sigstack Bundle' })).toBeVisible();
 		await expect(page.getByText('TBD').first()).toBeVisible();
 		await expect(page.getByText('Individual').first()).toBeVisible();
 		await expect(page.getByText('Group').first()).toBeVisible();
@@ -120,7 +120,7 @@ test.describe('smoke', () => {
 		await expect(page.getByText('Plan purchased: Bundle · Individual.')).toBeVisible();
 		await expect(page.getByText('!link test-code-1')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Message CipherSlate' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 
@@ -149,7 +149,7 @@ test.describe('smoke', () => {
 		await expect(page).toHaveURL(/code=alpha-demo-9/);
 		await expect(page.getByText('!link alpha-demo-9')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Message CipherSlate' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 
@@ -213,7 +213,7 @@ test.describe('smoke mobile', () => {
 
 	test('drawer opens and products anchors navigate', async ({ page }) => {
 		await page.goto('./');
-		await expect(page.getByRole('heading', { level: 1, name: 'CipherSlate' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Sigstack' })).toBeVisible();
 		await expectNoHorizontalOverflow(page);
 
 		await page.getByRole('button', { name: 'Open menu' }).click();

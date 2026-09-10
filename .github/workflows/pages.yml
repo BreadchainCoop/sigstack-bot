@@ -33,24 +33,29 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          BASE_PATH: /sigstack-bot/cypherslate
+          BASE_PATH: /sigstack-bot/sigstack
           PUBLIC_SIGNAL_USERNAME_LINK: ${{ vars.PUBLIC_SIGNAL_USERNAME_LINK }}
           PUBLIC_STRIPE_PORTAL_URL: ${{ vars.PUBLIC_STRIPE_PORTAL_URL }}
-      - name: Prepare Pages artifact for /sigstack-bot/cypherslate
+      - name: Prepare Pages artifact for /sigstack-bot/sigstack
         shell: bash
         run: |
           set -euo pipefail
 
           # The GitHub Pages project site mounts the artifact at `/<repo>/`.
-          # Nest the SvelteKit output under `cypherslate/` so /sigstack-bot/cypherslate/
+          # Nest the SvelteKit output under `sigstack/` so /sigstack-bot/sigstack/
           # resolves. Move the whole build dir (avoids overlapping hidden-file globs).
           tmp="$(mktemp -d)"
-          mv build "$tmp/cypherslate"
+          mv build "$tmp/sigstack"
           mkdir -p build
-          mv "$tmp/cypherslate" build/cypherslate
+          mv "$tmp/sigstack" build/sigstack
           printf '%s\n' '<!doctype html>' \
-            '<meta http-equiv="refresh" content="0; url=/sigstack-bot/cypherslate/">' \
+            '<meta http-equiv="refresh" content="0; url=/sigstack-bot/sigstack/">' \
             > build/index.html
+          # Keep old /cypherslate/ bookmarks working.
+          mkdir -p build/cypherslate
+          printf '%s\n' '<!doctype html>' \
+            '<meta http-equiv="refresh" content="0; url=/sigstack-bot/sigstack/">' \
+            > build/cypherslate/index.html
           touch build/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

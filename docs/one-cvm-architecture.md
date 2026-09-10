@@ -8,7 +8,7 @@ See also: the architecture learning [CPU TEE Whisper does not scale](solutions/a
 
 | Bot | Phone | Duty |
 |-----|-------|------|
-| **CipherSlate** | Registered number on this CVM | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, Bilingual Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
+| **Sigstack** | Registered number on this CVM | Hub menus (`!help`, `!info`, `!privacy`), Language Threads, Bilingual Threads, in-chat translation, voice (`!transcription` menu, `!transcribe*`), `!verify` (one reply) |
 
 Voice crate [`crates/signal-bot-voice`](../crates/signal-bot-voice); pairing / `PEER_PHONE` / a second Signal number do not exist.
 

@@ -70,7 +70,7 @@
 
 <header class="header">
 	<div class="shell bar">
-		<a class="brand" href={resolve('/' as Pathname)} onclick={close}>CipherSlate</a>
+		<a class="brand" href={resolve('/' as Pathname)} onclick={close}>Sigstack</a>
 
 		<button
 			type="button"

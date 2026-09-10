@@ -75,7 +75,7 @@ pub struct NearAiConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BotConfig {
-    /// Signal username nickname (e.g. `cipherslate`; Signal adds `.NN`).
+    /// Signal username nickname (e.g. `sigstack`; Signal adds `.NN`).
     /// Empty string disables startup username ensure.
     #[serde(default = "default_signal_username_opt")]
     pub signal_username: Option<String>,
@@ -286,7 +286,7 @@ fn default_log_level() -> String {
 }
 
 fn default_signal_username() -> String {
-    "cipherslate".into()
+    "sigstack".into()
 }
 
 fn default_signal_username_opt() -> Option<String> {

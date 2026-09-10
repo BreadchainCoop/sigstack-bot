@@ -542,8 +542,8 @@ impl SignalClient {
 
     /// Set (or refresh) a Signal username for an account.
     ///
-    /// Pass a nickname (e.g. `cipherslate`); Signal assigns a discriminator
-    /// (`cipherslate.54`) and returns a shareable `username_link`.
+    /// Pass a nickname (e.g. `sigstack`); Signal assigns a discriminator
+    /// (`sigstack.54`) and returns a shareable `username_link`.
     #[instrument(skip(self))]
     pub async fn set_username(
         &self,

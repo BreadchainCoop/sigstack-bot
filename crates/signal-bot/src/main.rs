@@ -55,11 +55,7 @@ async fn main() -> AppResult<()> {
         .as_deref()
         .filter(|p| !p.trim().is_empty())
     {
-        let nickname = config
-            .bot
-            .signal_username
-            .as_deref()
-            .unwrap_or("cipherslate");
+        let nickname = config.bot.signal_username.as_deref().unwrap_or("sigstack");
         ensure_signal_username(&signal, phone, nickname).await;
     } else {
         warn!(

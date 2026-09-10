@@ -1,9 +1,9 @@
-# CipherSlate site
+# Sigstack site
 
-Educational / marketing site for CipherSlate.
+Educational / marketing site for Sigstack.
 
 **Stack:** SvelteKit (static) + Paraglide (en/es/fr via cookie) + Vitest + Playwright  
-**Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/cypherslate/`  
+**Host:** GitHub Pages at `https://breadchaincoop.github.io/sigstack-bot/sigstack/`  
 **Design:** Small token system inspired by [Octant](https://octant.build/) accent language and [Golem Foundation](https://golem.foundation/)-like typography (DM Sans). Not affiliated with either. Products live on one `/products` page; the nav Products dropdown pins section anchors (`#language-threads`, `#in-chat`, `#transcription`).
 
 ## Local
@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Production base path defaults to `/sigstack-bot/cypherslate`. For root-local preview:
+Production base path defaults to `/sigstack-bot/sigstack`. For root-local preview:
 
 ```bash
 BASE_PATH= npm run build && BASE_PATH= npm run preview
@@ -42,9 +42,9 @@ Optional public env (GitHub Pages-safe; never put secret keys here):
 | Variable | Effect |
 | -------- | ------ |
 | `PUBLIC_STRIPE_PORTAL_URL` | Success page “Manage billing” link; if unset, shows “coming soon” stub |
-| `PUBLIC_SIGNAL_USERNAME_LINK` | Alpha / checkout success “Message CipherSlate” button (`signal.me/#eu/…` username share link; never put the bot E.164 here) |
+| `PUBLIC_SIGNAL_USERNAME_LINK` | Alpha / checkout success “Message Sigstack” button (`signal.me/#eu/…` username share link; never put the bot E.164 here) |
 
-After the bot claims its Signal username (startup `BOT__SIGNAL_USERNAME=cipherslate`), copy the logged `username_link` into the GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK` and redeploy Pages.
+After the bot claims its Signal username (startup `BOT__SIGNAL_USERNAME=sigstack`), copy the logged `username_link` into the GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK` and redeploy Pages.
 
 ## Scripts
 
@@ -59,6 +59,6 @@ After the bot claims its Signal username (startup `BOT__SIGNAL_USERNAME=ciphersl
 
 1. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**
 2. Merge to `main` (or run **Pages** workflow manually)
-3. Site URL: https://breadchaincoop.github.io/sigstack-bot/cypherslate/
+3. Site URL: https://breadchaincoop.github.io/sigstack-bot/sigstack/
 
 Legacy `web/` (Private AI) is unrelated — do not use it as the product storefront.

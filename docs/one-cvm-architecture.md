@@ -60,6 +60,10 @@ phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
 
 [`scripts/deploy_phala.sh`](../scripts/deploy_phala.sh) defaults to that `--cvm-id`. Do not `phala deploy -n` against the live CVM.
 
+### Signal username → site Message button
+
+After deploy (or re-register), read CVM logs for `Signal username ready` / `username_link`, set GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK`, and redeploy Pages so alpha / checkout **Message Sigstack** works. Discriminator and link can change after re-register; routine in-place upgrades that keep `signal-config-translation` usually keep the username. Full checklist: [`.agents/docs/DEVELOPMENT.md` — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
+
 ### CVM storage (keep intact)
 
 The suite stays cohesive only if the live CVM keeps disk state. **TEE RAM is wiped** on every restart or upgrade; that is expected. User prefs and Signal identity are **not** in RAM — they live on named Docker volumes that Phala reattaches on an in-place upgrade.

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { E2E_SIGNAL_USERNAME_LINK } from '../lib/signalUsernameLink';
 
 async function expectNoHorizontalOverflow(page: import('@playwright/test').Page) {
 	const overflow = await page.evaluate(
@@ -120,7 +121,10 @@ test.describe('smoke', () => {
 		await expect(page.getByText('Plan purchased: Bundle · Individual.')).toBeVisible();
 		await expect(page.getByText('!link test-code-1')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toHaveAttribute(
+			'href',
+			E2E_SIGNAL_USERNAME_LINK
+		);
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 
@@ -149,7 +153,10 @@ test.describe('smoke', () => {
 		await expect(page).toHaveURL(/code=alpha-demo-9/);
 		await expect(page.getByText('!link alpha-demo-9')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toHaveAttribute(
+			'href',
+			E2E_SIGNAL_USERNAME_LINK
+		);
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 

@@ -8,6 +8,7 @@
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
 	import { LINK_CODE_MAX_LENGTH, readLinkCode } from '$lib/checkoutLanding';
+	import { resolveSignalUsernameLink } from '$lib/signalUsernameLink';
 	import Button from '$lib/components/Button.svelte';
 	import LinkInSignal from '$lib/components/LinkInSignal.svelte';
 
@@ -16,7 +17,7 @@
 
 	// Query params are client-only (static prerender cannot vary by searchParams).
 	const codeFromUrl = $derived(browser ? readLinkCode(page.url) : null);
-	const signalUsernameLink = $derived(env.PUBLIC_SIGNAL_USERNAME_LINK?.trim() || '');
+	const signalUsernameLink = $derived(resolveSignalUsernameLink(env.PUBLIC_SIGNAL_USERNAME_LINK));
 	let draft = $state('');
 	let error = $state<string | null>(null);
 

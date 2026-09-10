@@ -44,7 +44,7 @@ Optional public env (GitHub Pages-safe; never put secret keys here):
 | `PUBLIC_STRIPE_PORTAL_URL` | Success page “Manage billing” link; if unset, shows “coming soon” stub |
 | `PUBLIC_SIGNAL_USERNAME_LINK` | Alpha / checkout success “Message Sigstack” button (`signal.me/#eu/…` username share link; never put the bot E.164 here) |
 
-After the bot claims its Signal username (startup `BOT__SIGNAL_USERNAME=sigstack`), copy the logged `username_link` into the GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK` and redeploy Pages. For TEE / Phala log capture and when to refresh after re-register, see [DEVELOPMENT.md — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
+Set via `site/.env` (gitignored; copy from [`.env.example`](.env.example)) or the GitHub Actions variable for Pages. Empty env hides the Message CTA (missing-link copy). After the bot claims or re-claims its username, paste the logged `username_link` into env / the Actions var and redeploy Pages — do not commit real links. TEE capture: [DEVELOPMENT.md — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
 
 ## Scripts
 

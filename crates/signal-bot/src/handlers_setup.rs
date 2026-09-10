@@ -22,16 +22,20 @@ use whisper_client::WhisperClient;
 pub struct BuiltHandlers {
     pub handlers: Vec<Box<dyn CommandHandler>>,
     /// Encrypted entitlements store. Held for process lifetime; consumed by
-    /// `!link` / `!claim-group` (and future webhook / gating).
+    /// `!link` / `!enable-sigstack` and entitlement gating when enforce is on.
     pub entitlements: Arc<EntitlementsStore>,
 }
 
 /// Unified bot: Language Threads → voice → in-chat → hub menus → quote translate → verify/help.
+///
+/// `bot_username` is the live Signal handle when known (e.g. `sigstack.01`), else the
+/// configured nickname — used in `!link` / `!enable-sigstack` organizer copy.
 pub async fn build_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
     dstack: Arc<DstackClient>,
     bot_identity: Arc<BotIdentity>,
+    bot_username: String,
 ) -> AppResult<BuiltHandlers> {
     let near_cfg = config
         .near_ai
@@ -184,7 +188,19 @@ pub async fn build_handlers(
         group_prefs.clone(),
         signal.clone(),
     )));
-    handlers.push(Box::new(LinkHandler::new(entitlements.clone())));
+    handlers.push(Box::new(BotUsernameHandler::new(
+        signal.clone(),
+        config.signal.phone_number.clone(),
+        config
+            .bot
+            .signal_username
+            .clone()
+            .unwrap_or_else(|| "sigstack".into()),
+    )));
+    handlers.push(Box::new(LinkHandler::new(
+        entitlements.clone(),
+        bot_username,
+    )));
     handlers.push(Box::new(CommandsHandler::new(group_prefs.clone())));
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(HelpHandler::new()));
@@ -279,12 +295,12 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let built = build_handlers(&config, signal, dstack, identity)
+        let built = build_handlers(&config, signal, dstack, identity, "sigstack.test".into())
             .await
             .expect("translation handlers");
         let handlers = built.handlers;
 
-        assert_eq!(handlers.len(), 23);
+        assert_eq!(handlers.len(), 24);
         let got = labels(&handlers);
         assert!(got.contains(&"translate_me"));
         assert!(got.contains(&"voice"));
@@ -307,6 +323,7 @@ mod tests {
         assert!(got.contains(&"translate_langs"));
         assert!(got.contains(&"translate_langs_in_chat"));
         assert!(got.contains(&"rename"));
+        assert!(got.contains(&"bot_username"));
         assert!(got.contains(&"link"));
         assert!(got.contains(&"commands"));
         assert!(!got.contains(&"set_language"));
@@ -328,12 +345,12 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let built = build_handlers(&config, signal, dstack, identity)
+        let built = build_handlers(&config, signal, dstack, identity, "sigstack.test".into())
             .await
             .expect("translation handlers");
         let handlers = built.handlers;
 
-        assert_eq!(handlers.len(), 22);
+        assert_eq!(handlers.len(), 23);
         let got = labels(&handlers);
         assert!(!got.contains(&"translate_all"));
         assert!(got.contains(&"translate_me"));
@@ -347,6 +364,7 @@ mod tests {
         assert!(got.contains(&"help_threads"));
         assert!(got.contains(&"help_in_chat"));
         assert!(got.contains(&"help_transcription"));
+        assert!(got.contains(&"bot_username"));
         assert!(got.contains(&"info"));
     }
 
@@ -357,7 +375,8 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let result = build_handlers(&config, signal, dstack, identity).await;
+        let result =
+            build_handlers(&config, signal, dstack, identity, "sigstack.test".into()).await;
         assert!(result.is_err(), "missing NEAR AI should fail");
         assert!(
             result.err().unwrap().to_string().contains("NEAR AI"),

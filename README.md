@@ -81,6 +81,8 @@ phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
 
 **Do not replace this CVM or wipe its volumes** for a routine upgrade. Disk holds the **registered Signal phone** and **encrypted user prefs**. TEE RAM is cleared on reboot; Phala reattaches named volumes on in-place upgrade. Details: [docs/one-cvm-architecture.md — CVM storage](docs/one-cvm-architecture.md#cvm-storage-keep-intact).
 
+After deploy / re-register, capture `username_token` from `phala logs` or `!bot-username` and set GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_TOKEN` for the site Message button — [DEVELOPMENT.md — Signal username → site Message button](.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
+
 ## Project structure
 
 ```

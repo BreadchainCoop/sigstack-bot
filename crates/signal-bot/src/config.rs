@@ -161,6 +161,11 @@ pub struct EntitlementsConfig {
     #[serde(default = "default_entitlements_path")]
     pub storage_path: String,
 
+    /// When true, gate product commands on linked entitlements / enabled groups.
+    /// Default false so local/`cargo test` stay open; set true in Phala prod.
+    #[serde(default)]
+    pub enforce: bool,
+
     /// Previous dstack `compose_hash` values (comma-separated). Used only when
     /// DeriveKey is missing so AppInfo-encrypted `entitlements.enc` still decrypts
     /// after a compose/image bump; the bot then re-saves with an app-id-only key.
@@ -245,6 +250,7 @@ impl Default for EntitlementsConfig {
         Self {
             persist: default_true(),
             storage_path: default_entitlements_path(),
+            enforce: false,
             legacy_compose_hash: String::new(),
         }
     }
@@ -430,6 +436,7 @@ mod tests {
             .legacy_compose_hash
             .is_empty());
         assert!(EntitlementsConfig::default().persist);
+        assert!(!EntitlementsConfig::default().enforce);
         assert_eq!(
             EntitlementsConfig::default().storage_path,
             "/data/entitlements.enc"

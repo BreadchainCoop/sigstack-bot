@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { E2E_SIGNAL_USERNAME_TOKEN } from './src/lib/signalUsernameLink';
 
 const basePath = process.env.BASE_PATH ?? '/sigstack-bot/sigstack';
 const origin = 'http://127.0.0.1:4173';
@@ -11,8 +12,8 @@ export default defineConfig({
 		timeout: 180_000,
 		env: {
 			...process.env,
-			PUBLIC_SIGNAL_USERNAME_LINK:
-				process.env.PUBLIC_SIGNAL_USERNAME_LINK || 'https://signal.me/#eu/e2e-test-username-link'
+			PUBLIC_SIGNAL_USERNAME_TOKEN:
+				process.env.PUBLIC_SIGNAL_USERNAME_TOKEN || E2E_SIGNAL_USERNAME_TOKEN
 		}
 	},
 	use: {

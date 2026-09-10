@@ -1,14 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
 	import { LINK_CODE_MAX_LENGTH, readLinkCode } from '$lib/checkoutLanding';
-	import Button from '$lib/components/Button.svelte';
+	import { resolveSignalUsernameLink } from '$lib/signalUsernameLink';
 	import LinkInSignal from '$lib/components/LinkInSignal.svelte';
 
 	const { pages, meta } = $derived(getContent(getLocale()));
@@ -16,9 +13,20 @@
 
 	// Query params are client-only (static prerender cannot vary by searchParams).
 	const codeFromUrl = $derived(browser ? readLinkCode(page.url) : null);
-	const signalUsernameLink = $derived(env.PUBLIC_SIGNAL_USERNAME_LINK?.trim() || '');
+	const signalUsernameLink = $derived(
+		resolveSignalUsernameLink(env.PUBLIC_SIGNAL_USERNAME_TOKEN)
+	);
 	let draft = $state('');
+	let revealedCode = $state<string | null>(null);
 	let error = $state<string | null>(null);
+	let hydratedFromUrl = $state(false);
+
+	$effect(() => {
+		if (!browser || hydratedFromUrl || !codeFromUrl) return;
+		draft = codeFromUrl;
+		revealedCode = codeFromUrl;
+		hydratedFromUrl = true;
+	});
 
 	function onSubmit(e: Event) {
 		e.preventDefault();
@@ -32,9 +40,7 @@
 			return;
 		}
 		error = null;
-		const base = resolve('/alpha' as Pathname);
-		const qs = new URLSearchParams({ code: trimmed });
-		void goto(`${base}?${qs.toString()}`);
+		revealedCode = trimmed;
 	}
 </script>
 
@@ -47,73 +53,44 @@
 <h1>{copy.title}</h1>
 <p class="lead">{copy.lead}</p>
 
-<section class="benefits" aria-labelledby="alpha-benefits">
-	<h2 id="alpha-benefits">{copy.benefitsHeading}</h2>
-	<ul>
-		{#each copy.benefits as benefit (benefit)}
-			<li>{benefit}</li>
-		{/each}
-	</ul>
-</section>
-
-{#if browser && codeFromUrl}
-	<LinkInSignal
-		code={codeFromUrl}
-		heading={copy.linkHeading}
-		body={copy.linkBody}
-		steps={copy.linkSteps}
-		copyLabel={copy.copyLabel}
-		copyDoneLabel={copy.copyDoneLabel}
-		messageCta={copy.messageCta}
-		signalLinkMissing={copy.signalLinkMissing}
-		{signalUsernameLink}
+<form class="alpha-form" onsubmit={onSubmit}>
+	<label class="field" for="alpha-code">{copy.codeLabel}</label>
+	<input
+		id="alpha-code"
+		name="code"
+		type="text"
+		autocomplete="off"
+		spellcheck="false"
+		placeholder={copy.codePlaceholder}
+		bind:value={draft}
+		aria-invalid={error ? 'true' : undefined}
+		aria-describedby={error ? 'alpha-code-error' : undefined}
 	/>
-	<div class="cta-row">
-		<Button href="/get-started">{copy.getStartedCta}</Button>
-		<Button href="/plans" variant="ghost">{copy.plansCta}</Button>
+	{#if error}
+		<p id="alpha-code-error" class="field-error" role="alert">{error}</p>
+	{/if}
+	<div class="cta-row form-actions">
+		<button type="submit" class="btn btn-primary">{copy.submitLabel}</button>
 	</div>
-{:else if !codeFromUrl}
-	<form class="alpha-form" onsubmit={onSubmit}>
-		<label class="field" for="alpha-code">{copy.codeLabel}</label>
-		<input
-			id="alpha-code"
-			name="code"
-			type="text"
-			autocomplete="off"
-			spellcheck="false"
-			placeholder={copy.codePlaceholder}
-			bind:value={draft}
-			aria-invalid={error ? 'true' : undefined}
-			aria-describedby={error ? 'alpha-code-error' : undefined}
+</form>
+
+{#if revealedCode}
+	<div class="link-reveal">
+		<LinkInSignal
+			code={revealedCode}
+			heading={copy.linkHeading}
+			body={copy.linkBody}
+			copyLabel={copy.copyLabel}
+			copyDoneLabel={copy.copyDoneLabel}
+			messageCta={copy.messageCta}
+			signalLinkMissing={copy.signalLinkMissing}
+			{signalUsernameLink}
+			nextStep={copy.enableNext}
 		/>
-		{#if error}
-			<p id="alpha-code-error" class="field-error" role="alert">{error}</p>
-		{/if}
-		<div class="cta-row form-actions">
-			<button type="submit" class="btn btn-primary">{copy.submitLabel}</button>
-			<Button href="/plans" variant="ghost">{copy.plansCta}</Button>
-		</div>
-	</form>
+	</div>
 {/if}
 
 <style>
-	.benefits {
-		margin: var(--space-6) 0;
-		max-width: 40rem;
-	}
-
-	.benefits h2 {
-		font-size: 1.15rem;
-	}
-
-	.benefits ul {
-		margin: 0;
-		padding-left: 1.25rem;
-		color: var(--muted);
-		display: grid;
-		gap: var(--space-2);
-	}
-
 	.alpha-form {
 		max-width: 28rem;
 		margin-top: var(--space-5);
@@ -150,5 +127,10 @@
 
 	.form-actions {
 		margin-top: var(--space-4);
+	}
+
+	.link-reveal {
+		margin-top: var(--space-6);
+		max-width: 40rem;
 	}
 </style>

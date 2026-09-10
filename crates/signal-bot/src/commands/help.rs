@@ -151,7 +151,10 @@ mod tests {
         assert!(t.contains("!transcription"));
         assert!(t.contains("!privacy"));
         assert!(t.contains("!info"));
-        assert!(t.contains("!help-transcription"));
+        assert!(!t.contains("GUIDES:"));
+        assert!(!t.contains("!help-threads"));
+        assert!(!t.contains("!help-in-chat"));
+        assert!(!t.contains("!help-transcription"));
         assert!(!t.contains("!transcribe-on"));
         assert!(!t.contains("!translate-me-on"));
         assert!(!t.contains("Voice notes in this chat"));

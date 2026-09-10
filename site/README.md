@@ -28,7 +28,7 @@ Static post-checkout and alpha routes (no checkout API required yet):
 | ----- | ------- |
 | `/checkout/success/` | After Stripe Checkout — show `!link` from `?code=` and plan from `?plan=` |
 | `/checkout/cancel/` | Canceled checkout — return to Plans |
-| `/alpha/` | Alpha program explainer + optional code entry |
+| `/alpha/` | Alpha explainer + inline code → Signal `!link` instructions (no post-submit navigation; `?code=` still hydrates shared links) |
 
 Expected Stripe redirect shapes:
 
@@ -42,9 +42,9 @@ Optional public env (GitHub Pages-safe; never put secret keys here):
 | Variable | Effect |
 | -------- | ------ |
 | `PUBLIC_STRIPE_PORTAL_URL` | Success page “Manage billing” link; if unset, shows “coming soon” stub |
-| `PUBLIC_SIGNAL_USERNAME_LINK` | Alpha / checkout success “Message Sigstack” button (`signal.me/#eu/…` username share link; never put the bot E.164 here) |
+| `PUBLIC_SIGNAL_USERNAME_TOKEN` | Alpha / checkout success “Message Sigstack” button — token only; site builds `signal.me/#eu/<token>` (never put the bot E.164 or a full URL here; `#` breaks unquoted `.env`) |
 
-After the bot claims its Signal username (startup `BOT__SIGNAL_USERNAME=sigstack`), copy the logged `username_link` into the GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK` and redeploy Pages.
+Set via `site/.env` (gitignored; copy from [`.env.example`](.env.example)) or the GitHub Actions variable for Pages. Empty env hides the Message CTA (missing-link copy). After the bot claims or re-claims its username, paste the logged `username_token` (or second line of `!bot-username`) into env / the Actions var and redeploy Pages — do not commit real tokens. TEE capture: [DEVELOPMENT.md — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
 
 ## Scripts
 

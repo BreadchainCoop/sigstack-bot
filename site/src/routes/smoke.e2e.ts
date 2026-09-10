@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { E2E_SIGNAL_USERNAME_LINK } from '../lib/signalUsernameLink';
 
 async function expectNoHorizontalOverflow(page: import('@playwright/test').Page) {
 	const overflow = await page.evaluate(
@@ -120,7 +121,10 @@ test.describe('smoke', () => {
 		await expect(page.getByText('Plan purchased: Bundle · Individual.')).toBeVisible();
 		await expect(page.getByText('!link test-code-1')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toHaveAttribute(
+			'href',
+			E2E_SIGNAL_USERNAME_LINK
+		);
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
 	});
 
@@ -129,7 +133,7 @@ test.describe('smoke', () => {
 		await expect(page.getByRole('heading', { level: 1, name: 'You are subscribed' })).toBeVisible();
 		await expect(page.getByText('Stripe receipt email', { exact: false })).toBeVisible();
 		await expect(page.getByText('!link', { exact: false })).toBeVisible();
-		await expect(page.locator('.link-cmd')).toHaveCount(0);
+		await expect(page.locator('.cmd-row')).toHaveCount(0);
 	});
 
 	test('checkout cancel returns to plans', async ({ page }) => {
@@ -142,15 +146,33 @@ test.describe('smoke', () => {
 
 	test('alpha claim page accepts code and shows link instructions', async ({ page }) => {
 		await page.goto('./alpha/');
-		await expect(page.getByRole('heading', { level: 1, name: 'Alpha access' })).toBeVisible();
-		await expect(page.getByText('90 days', { exact: false }).first()).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Alpha' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'See paid plans' })).toHaveCount(0);
 		await page.getByLabel('Alpha code').fill('alpha-demo-9');
 		await page.getByRole('button', { name: 'Continue' }).click();
-		await expect(page).toHaveURL(/code=alpha-demo-9/);
+		await expect(page).toHaveURL(/\/alpha\/?$/);
+		await expect(page).not.toHaveURL(/code=/);
+		await expect(page.getByLabel('Alpha code')).toBeVisible();
 		await expect(page.getByText('!link alpha-demo-9')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Copy command' })).not.toHaveText(/Copy command/);
+		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toHaveAttribute(
+			'href',
+			E2E_SIGNAL_USERNAME_LINK
+		);
+		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toHaveCount(0);
+		await expect(page.getByRole('heading', { name: 'Link in Signal' })).toBeVisible();
+		await expect(page.getByText('!enable-sigstack', { exact: false })).toBeVisible();
+		await expect(page.locator('.link-steps')).toHaveCount(0);
+	});
+
+	test('alpha shared ?code= hydrates link instructions', async ({ page }) => {
+		await page.goto('./alpha/?code=shared-token');
+		await expect(page.getByLabel('Alpha code')).toHaveValue('shared-token');
+		await expect(page.getByText('!link shared-token')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'See paid plans' })).toHaveCount(0);
+		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toHaveCount(0);
 	});
 
 	test('alpha empty submit shows validation without navigating', async ({ page }) => {

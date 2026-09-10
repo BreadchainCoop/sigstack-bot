@@ -6,6 +6,7 @@ use signal_bot::bot_identity::BotIdentity;
 use signal_bot::config::Config;
 use signal_bot::dispatch::dispatch_message;
 use signal_bot::ensure_username::ensure_signal_username;
+use signal_bot::entitlement_gate::EntitlementGate;
 use signal_bot::error::AppResult;
 use signal_bot::group_invite_acceptor::{
     run_invite_acceptor, InvitePolicy, DEFAULT_INVITE_POLL_INTERVAL,
@@ -49,19 +50,26 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
-    if let Some(phone) = config
+    let nickname = config
+        .bot
+        .signal_username
+        .as_deref()
+        .unwrap_or("sigstack")
+        .to_string();
+    let claimed_username = if let Some(phone) = config
         .signal
         .phone_number
         .as_deref()
         .filter(|p| !p.trim().is_empty())
     {
-        let nickname = config.bot.signal_username.as_deref().unwrap_or("sigstack");
-        ensure_signal_username(&signal, phone, nickname).await;
+        ensure_signal_username(&signal, phone, &nickname).await
     } else {
         warn!(
             "SIGNAL__PHONE_NUMBER unset — skipping Signal username ensure (needed for site Message link)"
         );
-    }
+        None
+    };
+    let bot_username = claimed_username.unwrap_or(nickname);
 
     let bot_identity = BotIdentity::new();
 
@@ -70,11 +78,18 @@ async fn main() -> AppResult<()> {
         signal.clone(),
         dstack.clone(),
         bot_identity.clone(),
+        bot_username,
     )
     .await?;
 
     let handlers = Arc::new(built.handlers);
-    let _entitlements = built.entitlements;
+    let entitlements = EntitlementGate {
+        store: built.entitlements,
+        enforce: config.entitlements.enforce,
+    };
+    if entitlements.enforce {
+        info!("Entitlement enforcement enabled (link + enable-sigstack gate)");
+    }
     info!("Registered {} command handlers", handlers.len());
 
     {
@@ -97,12 +112,14 @@ async fn main() -> AppResult<()> {
                 let handlers = handlers.clone();
                 let signal = signal.clone();
                 let bot_identity = bot_identity.clone();
+                let entitlements = entitlements.clone();
                 tokio::spawn(async move {
                     let _ = dispatch_message(
                         handlers.as_slice(),
                         &signal,
                         &bot_identity,
                         &message,
+                        &entitlements,
                     )
                     .await;
                 });

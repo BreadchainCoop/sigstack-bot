@@ -94,7 +94,6 @@ export type SiteContent = {
 			planPurchasedGeneric: string;
 			linkHeading: string;
 			linkBody: string;
-			linkSteps: string[];
 			copyLabel: string;
 			copyDoneLabel: string;
 			messageCta: string;
@@ -115,8 +114,6 @@ export type SiteContent = {
 			title: string;
 			lead: string;
 			eyebrow: string;
-			benefitsHeading: string;
-			benefits: string[];
 			codeLabel: string;
 			codePlaceholder: string;
 			submitLabel: string;
@@ -124,13 +121,11 @@ export type SiteContent = {
 			errorTooLong: string;
 			linkHeading: string;
 			linkBody: string;
-			linkSteps: string[];
 			copyLabel: string;
 			copyDoneLabel: string;
 			messageCta: string;
 			signalLinkMissing: string;
-			getStartedCta: string;
-			plansCta: string;
+			enableNext: string;
 		};
 	};
 	legalPrivacy: {

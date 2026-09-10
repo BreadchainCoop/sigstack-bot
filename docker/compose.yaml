@@ -50,6 +50,7 @@ services:
       - GROUP_PREFERENCES__STORAGE_PATH=/data/group_prefs.enc
       - ENTITLEMENTS__PERSIST=${ENTITLEMENTS_PERSIST:-true}
       - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
+      - ENTITLEMENTS__ENFORCE=${ENTITLEMENTS_ENFORCE:-false}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
       - group-prefs-translation:/data

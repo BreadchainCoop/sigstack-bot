@@ -4,6 +4,7 @@
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
 	import { planLabelFromSku, readLinkCode } from '$lib/checkoutLanding';
+	import { resolveSignalUsernameLink } from '$lib/signalUsernameLink';
 	import Button from '$lib/components/Button.svelte';
 	import LinkInSignal from '$lib/components/LinkInSignal.svelte';
 	import { env } from '$env/dynamic/public';
@@ -24,7 +25,9 @@
 			: copy.planPurchasedGeneric
 	);
 	const portalUrl = $derived(env.PUBLIC_STRIPE_PORTAL_URL?.trim() || '');
-	const signalUsernameLink = $derived(env.PUBLIC_SIGNAL_USERNAME_LINK?.trim() || '');
+	const signalUsernameLink = $derived(
+		resolveSignalUsernameLink(env.PUBLIC_SIGNAL_USERNAME_TOKEN)
+	);
 </script>
 
 <svelte:head>
@@ -43,7 +46,6 @@
 			{code}
 			heading={copy.linkHeading}
 			body={copy.linkBody}
-			steps={copy.linkSteps}
 			copyLabel={copy.copyLabel}
 			copyDoneLabel={copy.copyDoneLabel}
 			messageCta={copy.messageCta}

@@ -1,4 +1,4 @@
-//! `!link <code>` and `!claim-group` — bind pending entitlements (alpha MVP).
+//! `!link <code>` and `!enable-sigstack` — bind entitlements and unlock groups (alpha MVP).
 
 use crate::commands::CommandHandler;
 use crate::entitlements_store::{
@@ -12,19 +12,24 @@ use signal_client::BotMessage;
 use std::sync::Arc;
 
 const LINK_USAGE: &str = "Usage: !link <code>";
-const CLAIM_USAGE: &str = "Usage: !claim-group (run in the Signal group to claim)";
 const LINK_GROUP_WARN: &str =
     "Tip: prefer DMing this bot with !link so your code is not visible in the group.";
 const ALREADY_ACTIVE_MSG: &str =
     "You already have an active alpha entitlement linked to this account.";
+const ENABLE_SUCCESS: &str =
+    "Sigstack is on in this group. Anyone here can use !help and the product commands.";
 
 pub struct LinkHandler {
     entitlements: Arc<EntitlementsStore>,
+    bot_username: String,
 }
 
 impl LinkHandler {
-    pub fn new(entitlements: Arc<EntitlementsStore>) -> Self {
-        Self { entitlements }
+    pub fn new(entitlements: Arc<EntitlementsStore>, bot_username: String) -> Self {
+        Self {
+            entitlements,
+            bot_username,
+        }
     }
 
     fn owner_key(message: &BotMessage) -> String {
@@ -36,24 +41,25 @@ impl LinkHandler {
         Some(strip_word_prefix(text, "!link")?.trim())
     }
 
+    fn enable_usage(&self) -> String {
+        format!(
+            "Run !enable-sigstack in a Signal group after inviting this bot (username: {}).",
+            self.bot_username
+        )
+    }
+
     fn linked_reply(
+        &self,
         bound_sku: PlanSku,
         bound_source: EntitlementSource,
-        expires_at: Option<chrono::DateTime<Utc>>,
         is_group: bool,
     ) -> String {
-        let mut reply = format!(
-            "Linked. Plan: {:?} ({:?}). You have access through {}.",
-            bound_sku,
-            bound_source,
-            expires_at
-                .map(|t| t.format("%Y-%m-%d").to_string())
-                .unwrap_or_else(|| "the plan end date".into())
-        );
+        let mut reply = format!("Linked. Plan: {:?} ({:?}).", bound_sku, bound_source);
         if bound_sku.is_group_claimable() {
-            reply.push_str(
-                "\n\nIn a group, run !claim-group to attach group-scope features to that chat.",
-            );
+            reply.push_str(&format!(
+                "\n\nWelcome. Create a Signal group with this bot, or open an existing group and invite it — username: {}\n\nThen in that group run !enable-sigstack so everyone there can use Sigstack.",
+                self.bot_username
+            ));
         }
         if is_group {
             reply = format!("{LINK_GROUP_WARN}\n\n{reply}");
@@ -76,12 +82,7 @@ impl LinkHandler {
 
         if is_reusable_alpha_code(code) {
             return match self.entitlements.redeem_reusable_alpha(owner) {
-                Ok(bound) => Ok(Self::linked_reply(
-                    bound.plan_sku,
-                    bound.source,
-                    bound.expires_at,
-                    message.is_group,
-                )),
+                Ok(bound) => Ok(self.linked_reply(bound.plan_sku, bound.source, message.is_group)),
                 Err(RedeemReuseError::AlreadyActive) => Ok(ALREADY_ACTIVE_MSG.into()),
                 Err(RedeemReuseError::EmptyOwner) => {
                     Ok("Could not determine your Signal identity. Try again from Signal.".into())
@@ -113,52 +114,33 @@ impl LinkHandler {
         }
 
         match self.entitlements.bind_link_token(code, owner.clone()) {
-            Ok(bound) => Ok(Self::linked_reply(
-                bound.plan_sku,
-                bound.source,
-                bound.expires_at,
-                message.is_group,
-            )),
+            Ok(bound) => Ok(self.linked_reply(bound.plan_sku, bound.source, message.is_group)),
             Err(e) => Ok(format!("Could not link that code: {e}")),
         }
     }
 
-    async fn handle_claim_group(&self, message: &BotMessage) -> AppResult<String> {
+    async fn handle_enable_sigstack(&self, message: &BotMessage) -> AppResult<String> {
         let Some(group_id) = message.group_id.as_deref() else {
-            return Ok(CLAIM_USAGE.into());
+            return Ok(self.enable_usage());
         };
         let owner = Self::owner_key(message);
         if owner.is_empty() {
             return Ok("Could not determine your Signal identity.".into());
         }
 
-        let records = self.entitlements.get_individual(&owner);
-        let Some(record) = records.iter().find(|r| {
-            r.plan_sku.is_group_claimable()
-                && r.claimed_group_id.is_none()
-                && r.is_granting_at(Utc::now())
-        }) else {
-            if records.iter().any(|r| {
-                r.plan_sku.is_group_claimable()
-                    && r.claimed_group_id.as_deref() == Some(group_id)
-                    && r.is_granting_at(Utc::now())
-            }) {
-                return Ok("This group is already claimed for your entitlement.".into());
-            }
+        if !self.entitlements.has_active_individual(&owner, Utc::now()) {
             return Ok(
-                "No claimable entitlement found. Link an alpha (or group) plan with !link <code> first."
+                "No entitlement found. Link an alpha (or group) plan with !link <code> first."
                     .into(),
             );
-        };
+        }
 
         match self
             .entitlements
-            .claim_group(&owner, &record.id, group_id.to_string())
+            .enable_sigstack(&owner, group_id.to_string())
         {
-            Ok(_) => Ok(
-                "Claimed this group for your entitlement. Group-scope features apply here.".into(),
-            ),
-            Err(e) => Ok(format!("Could not claim this group: {e}")),
+            Ok(_) => Ok(ENABLE_SUCCESS.into()),
+            Err(e) => Ok(format!("Could not enable Sigstack in this group: {e}")),
         }
     }
 }
@@ -166,7 +148,8 @@ impl LinkHandler {
 #[async_trait]
 impl CommandHandler for LinkHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        starts_with_word(&message.text, "!link") || starts_with_word(&message.text, "!claim-group")
+        starts_with_word(&message.text, "!link")
+            || starts_with_word(&message.text, "!enable-sigstack")
     }
 
     fn label(&self) -> &'static str {
@@ -174,8 +157,8 @@ impl CommandHandler for LinkHandler {
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        if starts_with_word(&message.text, "!claim-group") {
-            return self.handle_claim_group(message).await;
+        if starts_with_word(&message.text, "!enable-sigstack") {
+            return self.handle_enable_sigstack(message).await;
         }
         if starts_with_word(&message.text, "!link") {
             return self.handle_link(message).await;
@@ -189,6 +172,12 @@ mod tests {
     use super::*;
     use crate::entitlements_store::REUSABLE_ALPHA_CODE;
     use chrono::Duration;
+
+    const TEST_BOT_USERNAME: &str = "sigstack.test";
+
+    fn handler(store: Arc<EntitlementsStore>) -> LinkHandler {
+        LinkHandler::new(store, TEST_BOT_USERNAME.into())
+    }
 
     fn dm(text: &str, source: &str) -> BotMessage {
         BotMessage {
@@ -218,13 +207,18 @@ mod tests {
     async fn link_binds_pending_alpha() {
         let store = EntitlementsStore::new_in_memory();
         let codes = store.mint_alpha_codes(1, 90).unwrap();
-        let handler = LinkHandler::new(store.clone());
+        let handler = handler(store.clone());
 
         let reply = handler
             .execute(&dm(&format!("!link {}", codes[0]), "uuid-ada"))
             .await
             .unwrap();
         assert!(reply.contains("Linked"), "{reply}");
+        assert!(reply.contains("Welcome"), "{reply}");
+        assert!(reply.contains("Create a Signal group"), "{reply}");
+        assert!(reply.contains(TEST_BOT_USERNAME), "{reply}");
+        assert!(reply.contains("!enable-sigstack"), "{reply}");
+        assert!(!reply.to_lowercase().contains("access through"), "{reply}");
         assert_eq!(store.get_individual("uuid-ada").len(), 1);
         assert!(store.get_pending(&codes[0]).is_none());
     }
@@ -232,7 +226,7 @@ mod tests {
     #[tokio::test]
     async fn link_rejects_unknown_code() {
         let store = EntitlementsStore::new_in_memory();
-        let handler = LinkHandler::new(store);
+        let handler = handler(store);
         let reply = handler
             .execute(&dm("!link not-a-real-code", "uuid-ada"))
             .await
@@ -254,7 +248,7 @@ mod tests {
                 None,
             )
             .unwrap();
-        let handler = LinkHandler::new(store);
+        let handler = handler(store);
         let reply = handler
             .execute(&dm("!link expired-code", "uuid-ada"))
             .await
@@ -263,37 +257,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn claim_group_after_link() {
+    async fn enable_sigstack_after_link() {
         let store = EntitlementsStore::new_in_memory();
         let codes = store.mint_alpha_codes(1, 90).unwrap();
-        let handler = LinkHandler::new(store.clone());
+        let handler = handler(store.clone());
         handler
             .execute(&dm(&format!("!link {}", codes[0]), "uuid-ada"))
             .await
             .unwrap();
 
         let reply = handler
-            .execute(&group_msg("!claim-group", "uuid-ada", "group.main"))
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "group.main"))
             .await
             .unwrap();
-        assert!(reply.contains("Claimed"), "{reply}");
+        assert!(reply.contains("Sigstack is on"), "{reply}");
         assert_eq!(store.get_group("group.main").len(), 1);
     }
 
     #[tokio::test]
-    async fn reusable_bread_friend_grants_two_owners() {
+    async fn enable_sigstack_dm_usage_includes_username() {
         let store = EntitlementsStore::new_in_memory();
-        let handler = LinkHandler::new(store.clone());
+        let handler = handler(store);
+        let reply = handler
+            .execute(&dm("!enable-sigstack", "uuid-ada"))
+            .await
+            .unwrap();
+        assert!(reply.contains("!enable-sigstack"), "{reply}");
+        assert!(reply.contains(TEST_BOT_USERNAME), "{reply}");
+    }
+
+    #[tokio::test]
+    async fn enable_sigstack_multiple_groups() {
+        let store = EntitlementsStore::new_in_memory();
+        let handler = handler(store.clone());
+        handler
+            .execute(&dm(&format!("!link {REUSABLE_ALPHA_CODE}"), "uuid-ada"))
+            .await
+            .unwrap();
+
+        handler
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "group.a"))
+            .await
+            .unwrap();
+        handler
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "group.b"))
+            .await
+            .unwrap();
+        assert_eq!(store.get_group("group.a").len(), 1);
+        assert_eq!(store.get_group("group.b").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn enable_sigstack_requires_link() {
+        let store = EntitlementsStore::new_in_memory();
+        let handler = handler(store);
+        let reply = handler
+            .execute(&group_msg("!enable-sigstack", "uuid-bob", "group.main"))
+            .await
+            .unwrap();
+        assert!(reply.contains("!link"), "{reply}");
+    }
+
+    #[tokio::test]
+    async fn reusable_bread_grants_two_owners() {
+        let store = EntitlementsStore::new_in_memory();
+        let handler = handler(store.clone());
 
         let a = handler
             .execute(&dm(&format!("!link {REUSABLE_ALPHA_CODE}"), "uuid-a"))
             .await
             .unwrap();
         assert!(a.contains("Linked"), "{a}");
-        let b = handler
-            .execute(&dm("!link Bread-Friend", "uuid-b"))
-            .await
-            .unwrap();
+        let b = handler.execute(&dm("!link Bread", "uuid-b")).await.unwrap();
         assert!(b.contains("Linked"), "{b}");
         assert_eq!(store.get_individual("uuid-a").len(), 1);
         assert_eq!(store.get_individual("uuid-b").len(), 1);
@@ -309,7 +344,7 @@ mod tests {
     async fn minted_single_use_still_consumed() {
         let store = EntitlementsStore::new_in_memory();
         let codes = store.mint_alpha_codes(1, 90).unwrap();
-        let handler = LinkHandler::new(store.clone());
+        let handler = handler(store.clone());
         handler
             .execute(&dm(&format!("!link {}", codes[0]), "uuid-one"))
             .await
@@ -323,10 +358,11 @@ mod tests {
     }
 
     #[test]
-    fn matches_link_and_claim() {
-        let handler = LinkHandler::new(EntitlementsStore::new_in_memory());
+    fn matches_link_and_enable() {
+        let handler = handler(EntitlementsStore::new_in_memory());
         assert!(handler.matches(&dm("!link abc", "u")));
-        assert!(handler.matches(&dm("!claim-group", "u")));
+        assert!(handler.matches(&dm("!enable-sigstack", "u")));
+        assert!(!handler.matches(&dm("!claim-group", "u")));
         assert!(!handler.matches(&dm("!help", "u")));
     }
 }

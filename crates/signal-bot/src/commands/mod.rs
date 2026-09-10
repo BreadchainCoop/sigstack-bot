@@ -1,5 +1,6 @@
 //! Bot command handlers.
 
+mod bot_username;
 #[cfg(test)]
 mod command_aliases;
 mod help;
@@ -16,6 +17,7 @@ mod translate_me;
 mod translate_service;
 mod verify;
 
+pub use bot_username::BotUsernameHandler;
 pub use help::{CommandsHandler, HelpHandler, InfoHandler};
 pub use link::LinkHandler;
 pub use privacy::PrivacyHandler;

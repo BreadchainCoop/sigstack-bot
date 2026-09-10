@@ -33,4 +33,4 @@ jobs:
       - run: npm run test:e2e
         env:
           CI: true
-          BASE_PATH: /sigstack-bot/cypherslate
+          BASE_PATH: /sigstack-bot/sigstack

@@ -7,7 +7,7 @@
 <footer class="footer">
 	<div class="shell grid">
 		<div>
-			<p class="brand">CipherSlate</p>
+			<p class="brand">Sigstack</p>
 			<p class="muted">{m.footer_tagline()}</p>
 		</div>
 		<div>

@@ -1,6 +1,6 @@
 # Voice transcription
 
-Status: **implemented** on the unified CipherSlate on the surviving Phala CVM.
+Status: **implemented** on the unified Sigstack on the surviving Phala CVM.
 
 Speech → text via **NEAR AI Whisper Large V3** (GPU TEE). Audio is decrypted in this CVM, stripped of Signal metadata, and uploaded as a generic file. See [one-CVM architecture](one-cvm-architecture.md) and [CPU TEE Whisper does not scale](solutions/architecture-patterns/2026-08-13-cpu-tee-whisper-does-not-scale.md).
 

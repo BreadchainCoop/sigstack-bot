@@ -23,7 +23,7 @@
 
 			<!-- Quote reply -->
 			<rect x="128" y="156" width="264" height="64" rx="8" class="bubble bubble-reply" />
-			<text x="140" y="174" class="who">CipherSlate · quote-reply</text>
+			<text x="140" y="174" class="who">Sigstack · quote-reply</text>
 			<text x="140" y="194" class="msg">🇪🇸 Reunión en la plaza a las 3</text>
 			<text x="140" y="210" class="hint">original stays · translation below</text>
 		</g>

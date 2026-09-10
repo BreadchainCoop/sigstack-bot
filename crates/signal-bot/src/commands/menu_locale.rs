@@ -162,7 +162,7 @@ PER MSG QUOTE REPLY:
 
 !help-transcription"#;
 
-const HELP_HUB: &str = r#"--CipherSlate--
+const HELP_HUB: &str = r#"--Sigstack--
 
 MENUS:
 !translation-threads
@@ -188,7 +188,7 @@ const HELP_THREAD: &str = r#"Language Thread
 !info
 !commands"#;
 
-const INFO_HUB: &str = r#"--CipherSlate--
+const INFO_HUB: &str = r#"--Sigstack--
 
 !translation-threads
   Language Threads — multilingual main chat + language sidecars
@@ -353,7 +353,7 @@ const PRIVACY_MENU: &str = r#"Privacy & TEE
 example:
    !verify "write something unique here"
 
-CipherSlate is one Signal number in one Phala TEE/CVM.
+Sigstack is one Signal number in one Phala TEE/CVM.
 
 Translation: Signal text is processed in this TEE and translated via NEAR AI private inference.
 

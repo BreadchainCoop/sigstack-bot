@@ -4,8 +4,8 @@ import { getContent } from './index';
 describe('getContent', () => {
 	it('returns English content for en', () => {
 		const c = getContent('en');
-		expect(c.meta.siteName).toBe('CipherSlate');
-		expect(c.pages.home.title).toBe('CipherSlate');
+		expect(c.meta.siteName).toBe('Sigstack');
+		expect(c.pages.home.title).toBe('Sigstack');
 		expect(c.pages.home.lead).not.toContain('Placeholder');
 		expect(c.pages.home.paths).toHaveLength(3);
 		expect(c.pages.home.paths[0]?.href).toBe('/products#language-threads');

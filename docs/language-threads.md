@@ -42,7 +42,7 @@ N=1 (one sidecar) uses the same relay rules as N=3 — add another language late
 | `!commands` | Sidecar only | Compact Language Thread command list |
 | `!list-langs` | Any | Full Language Threads / manual `!translate` catalog (includes Basque, Swahili, and 30 other codes) |
 | `!help-threads` | Any | How Language Threads works (use case + flow) |
-| `!help` / `!privacy` | Any | Hub menus (`!help` is always the CipherSlate hub; `!privacy` and `!verify` on this bot) |
+| `!help` / `!privacy` | Any | Hub menus (`!help` is always the Sigstack hub; `!privacy` and `!verify` on this bot) |
 
 Menus: `!help` → `!translation-threads`. English-only for now (multi-language UI deferred).
 

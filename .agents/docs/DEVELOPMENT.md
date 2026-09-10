@@ -1,4 +1,4 @@
-# CipherSlate — Development Guide
+# Sigstack — Development Guide
 
 ## Product direction
 

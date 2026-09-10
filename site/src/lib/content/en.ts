@@ -2,17 +2,17 @@ import type { SiteContent } from './types';
 
 export const en: SiteContent = {
 	meta: {
-		siteName: 'CipherSlate',
+		siteName: 'Sigstack',
 		tagline: 'Translation and transcription inside Signal',
 		description:
 			'TEE-hosted Signal bot for Language Threads, in-chat translation, and voice transcription — not a general chat assistant.'
 	},
 	pages: {
 		home: {
-			title: 'CipherSlate',
+			title: 'Sigstack',
 			lead: 'One Signal bot for multilingual groups: Language Threads, same-group translation, and voice-to-text — hosted in a hardware TEE.',
 			notChat:
-				'CipherSlate is not a general AI chat assistant. It translates and transcribes inside Signal so organizers can run multilingual rooms without leaving the app.',
+				'Sigstack is not a general AI chat assistant. It translates and transcribes inside Signal so organizers can run multilingual rooms without leaving the app.',
 			pathsHeading: 'Which mode do you want?',
 			paths: [
 				{
@@ -70,16 +70,16 @@ export const en: SiteContent = {
 		},
 		privacy: {
 			title: 'Privacy and trust',
-			lead: 'CipherSlate runs in a Phala Trusted Execution Environment (TEE)—sealed hardware the host cannot read. Privacy is enforced by the chip, not by a policy alone.',
+			lead: 'Sigstack runs in a Phala Trusted Execution Environment (TEE)—sealed hardware the host cannot read. Privacy is enforced by the chip, not by a policy alone.',
 			sections: [
 				{
 					id: 'what-is-a-tee',
 					title: 'What a TEE is',
-					lead: 'A locked region inside the server chip. Code and messages stay encrypted in memory; the cloud host cannot peek. Phala provides that sealed hardware for CipherSlate.'
+					lead: 'A locked region inside the server chip. Code and messages stay encrypted in memory; the cloud host cannot peek. Phala provides that sealed hardware for Sigstack.'
 				},
 				{
-					id: 'how-cipherslate',
-					title: 'How CipherSlate uses it',
+					id: 'how-sigstack',
+					title: 'How Sigstack uses it',
 					lead: 'One Signal number in one Phala TEE. Text and voice decrypt only inside that box. Translation and transcription go to NEAR AI private inference; voice leaves only as metadata-stripped audio.'
 				},
 				{
@@ -100,8 +100,8 @@ export const en: SiteContent = {
 			eyebrow: 'Organizers',
 			steps: [
 				{
-					title: 'Add CipherSlate',
-					body: 'Organizers: invite CipherSlate to your Signal group (it auto-accepts). Alpha or paid users: open a DM first via the Message CipherSlate button on the alpha or checkout pages, then link with `!link <code>`.'
+					title: 'Add Sigstack',
+					body: 'Organizers: invite Sigstack to your Signal group (it auto-accepts). Alpha or paid users: open a DM first via the Message Sigstack button on the alpha or checkout pages, then link with `!link <code>`.'
 				},
 				{
 					title: 'Open the hub',
@@ -114,7 +114,7 @@ export const en: SiteContent = {
 			],
 			hubCommandsHeading: 'Hub commands',
 			hubCommands: [
-				{ command: '!help / !info', where: 'Any', effect: 'CipherSlate hub menus' },
+				{ command: '!help / !info', where: 'Any', effect: 'Sigstack hub menus' },
 				{ command: '!privacy', where: 'Any', effect: 'Privacy, TEE, and !verify in one reply' },
 				{ command: '!translation-threads', where: 'Any', effect: 'Language Threads menu' },
 				{ command: '!translation-in-chat', where: 'Any', effect: 'In-chat translation menu' },
@@ -126,13 +126,13 @@ export const en: SiteContent = {
 			lead: 'Pick a Bundle for all three products, or pay à la carte. Individual plans cover you; Group plans cover a whole Signal chat where the product works that way.',
 			alphaBand: {
 				eyebrow: 'Alpha',
-				title: 'Try CipherSlate free with an alpha code',
+				title: 'Try Sigstack free with an alpha code',
 				lead: 'Full Bundle access for 90 days—no checkout. Redeem your code, open a Signal DM, and send `!link`.',
 				ctaLabel: 'Redeem alpha code'
 			},
 			bundle: {
 				eyebrow: 'Package',
-				title: 'CipherSlate Bundle',
+				title: 'Sigstack Bundle',
 				lead: 'Access to Language Threads, In-chat Translation, and Transcription in one subscription.',
 				note: 'Language Threads and In-chat auto cannot run at the same time—choose one translation mode. Voice pairs with either.',
 				offers: [
@@ -245,24 +245,24 @@ export const en: SiteContent = {
 		},
 		checkoutSuccess: {
 			title: 'You are subscribed',
-			lead: 'Next, link CipherSlate to your Signal account so your plan unlocks in chat.',
+			lead: 'Next, link Sigstack to your Signal account so your plan unlocks in chat.',
 			eyebrow: 'Checkout',
 			planPurchased: 'Plan purchased: {plan}.',
 			planPurchasedGeneric: 'Your plan is ready.',
 			linkHeading: 'Link in Signal',
 			linkBody:
-				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open CipherSlate in Signal, paste, and send:',
+				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open Sigstack in Signal, paste, and send:',
 			linkSteps: [
 				'Copy the `!link` command below',
-				'Open a DM with CipherSlate (Message button)',
+				'Open a DM with Sigstack (Message button)',
 				'Paste the command and send'
 			],
 			copyLabel: 'Copy command',
 			copyDoneLabel: 'Copied',
-			messageCta: 'Message CipherSlate',
-			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM CipherSlate.',
+			messageCta: 'Message Sigstack',
+			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM Sigstack.',
 			missingCode:
-				'We could not find a link code in this page URL. Check your Stripe receipt email for `!link <code>`, then send that command in a DM with CipherSlate.',
+				'We could not find a link code in this page URL. Check your Stripe receipt email for `!link <code>`, then send that command in a DM with Sigstack.',
 			portalCta: 'Manage billing',
 			portalComingSoon: 'Manage billing (coming soon)',
 			getStartedCta: 'Organizer checklist'
@@ -276,7 +276,7 @@ export const en: SiteContent = {
 		},
 		alpha: {
 			title: 'Alpha access',
-			lead: 'Redeem an alpha code for the full CipherSlate Bundle — Language Threads, in-chat translation, and transcription — for 90 days, no Stripe checkout.',
+			lead: 'Redeem an alpha code for the full Sigstack Bundle — Language Threads, in-chat translation, and transcription — for 90 days, no Stripe checkout.',
 			eyebrow: 'Alpha',
 			benefitsHeading: 'What you get',
 			benefits: [
@@ -291,16 +291,16 @@ export const en: SiteContent = {
 			errorTooLong: 'That code is too long. Check the code you were given and try again.',
 			linkHeading: 'Link in Signal',
 			linkBody:
-				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open CipherSlate in Signal, paste, and send:',
+				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open Sigstack in Signal, paste, and send:',
 			linkSteps: [
 				'Copy the `!link` command below',
-				'Open a DM with CipherSlate (Message button)',
+				'Open a DM with Sigstack (Message button)',
 				'Paste the command and send'
 			],
 			copyLabel: 'Copy command',
 			copyDoneLabel: 'Copied',
-			messageCta: 'Message CipherSlate',
-			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM CipherSlate.',
+			messageCta: 'Message Sigstack',
+			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM Sigstack.',
 			getStartedCta: 'Organizer checklist',
 			plansCta: 'See paid plans'
 		}
@@ -311,7 +311,7 @@ export const en: SiteContent = {
 		sections: [
 			{
 				title: 'Overview',
-				body: 'CipherSlate processes Signal group messages to provide translation and transcription. This stub summarizes processing for the public site; operators should align it with live deployment before collecting payment.'
+				body: 'Sigstack processes Signal group messages to provide translation and transcription. This stub summarizes processing for the public site; operators should align it with live deployment before collecting payment.'
 			},
 			{
 				title: 'Data we process',
@@ -333,7 +333,7 @@ export const en: SiteContent = {
 		sections: [
 			{
 				title: 'Service',
-				body: 'CipherSlate is provided as a Signal automation for translation and transcription. Availability depends on the operator’s deployment.'
+				body: 'Sigstack is provided as a Signal automation for translation and transcription. Availability depends on the operator’s deployment.'
 			},
 			{
 				title: 'Acceptable use',
@@ -354,7 +354,7 @@ export const en: SiteContent = {
 		updated: 'January 2004',
 		copyright: 'Copyright 2024 Zaki Manian',
 		overview:
-			'CipherSlate source code is licensed under the Apache License, Version 2.0. You may use, reproduce, and distribute the software subject to the terms below. The same text appears in the project LICENSE file.',
+			'Sigstack source code is licensed under the Apache License, Version 2.0. You may use, reproduce, and distribute the software subject to the terms below. The same text appears in the project LICENSE file.',
 		fullText: `Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

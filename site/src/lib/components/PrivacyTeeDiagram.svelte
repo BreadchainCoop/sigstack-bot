@@ -1,7 +1,7 @@
 <figure class="diagram diagram-panel" aria-labelledby="tee-diagram-title">
 	<p id="tee-diagram-title" class="sr-only">
 		A cloud host surrounds a sealed TEE. The host cannot read memory inside the sealed region where
-		CipherSlate runs.
+		Sigstack runs.
 	</p>
 
 	<svg viewBox="0 0 520 280" role="img" aria-hidden="true" class="canvas">
@@ -14,7 +14,7 @@
 		<rect x="120" y="100" width="280" height="120" rx="10" class="bubble bubble-sealed" />
 		<text x="260" y="132" text-anchor="middle" class="who">Trusted Execution Environment</text>
 		<text x="260" y="156" text-anchor="middle" class="msg">Encrypted memory · sealed by the chip</text>
-		<text x="260" y="180" text-anchor="middle" class="msg">CipherSlate runs here</text>
+		<text x="260" y="180" text-anchor="middle" class="msg">Sigstack runs here</text>
 		<text x="260" y="200" text-anchor="middle" class="hint">host blocked from reading plaintext</text>
 	</svg>
 

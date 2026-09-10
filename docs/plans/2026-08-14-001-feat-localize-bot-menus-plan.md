@@ -54,7 +54,7 @@ A Spanish speaker in a mixed group still gets English `!help`. The leftover `Men
 - R10. In a Language Thread sidecar, if the user has no explicit locale, menus default to that sidecar's language code when it is in `ALL_LANGUAGES`.
 - R11. An explicit user locale wins over the sidecar default, including `en`.
 - R12. Localized command lists keep the stacked layout in `docs/solutions/signal-mobile-menus.md`.
-- R13. Hub `!help` from a sidecar still returns the CipherSlate hub menu (localized), not the thread compact list.
+- R13. Hub `!help` from a sidecar still returns the Sigstack hub menu (localized), not the thread compact list.
 
 **Coverage and persistence**
 

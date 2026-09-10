@@ -25,7 +25,7 @@
 
 			<!-- Transcript reply -->
 			<rect x="128" y="180" width="280" height="48" rx="8" class="bubble bubble-reply" />
-			<text x="140" y="198" class="who">CipherSlate · quote-reply</text>
+			<text x="140" y="198" class="who">Sigstack · quote-reply</text>
 			<text x="140" y="214" class="msg">📝 Transcript: Supplies at door B</text>
 		</g>
 	</svg>

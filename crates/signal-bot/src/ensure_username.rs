@@ -70,21 +70,27 @@ pub async fn claim_signal_username(
 ///
 /// Non-fatal on failure so a username API hiccup does not block the bot.
 /// On success, logs `username` + `username_token` for ops to set
-/// `PUBLIC_SIGNAL_USERNAME_TOKEN` on the marketing site.
-pub async fn ensure_signal_username(signal: &SignalClient, phone_number: &str, nickname: &str) {
+/// `PUBLIC_SIGNAL_USERNAME_TOKEN` on the marketing site, and returns the
+/// full claimed username (e.g. `sigstack.01`). Returns `None` on skip/failure.
+pub async fn ensure_signal_username(
+    signal: &SignalClient,
+    phone_number: &str,
+    nickname: &str,
+) -> Option<String> {
     match claim_signal_username(signal, phone_number, nickname).await {
         Ok(info) => {
-            let username = info.username.as_deref().unwrap_or("(unknown)");
+            let username = info.username.as_deref().filter(|u| !u.is_empty());
             let token = info
                 .username_link
                 .as_deref()
                 .and_then(username_link_token)
                 .unwrap_or("(no token returned)");
             info!(
-                username,
+                username = username.unwrap_or("(unknown)"),
                 username_token = token,
                 "Signal username ready — set site PUBLIC_SIGNAL_USERNAME_TOKEN to username_token after re-register"
             );
+            username.map(str::to_string)
         }
         Err(ClaimUsernameError::EmptyNickname) => {
             if nickname.trim().is_empty() {
@@ -92,6 +98,7 @@ pub async fn ensure_signal_username(signal: &SignalClient, phone_number: &str, n
             } else {
                 warn!("BOT__SIGNAL_USERNAME has no nickname — skipping Signal username ensure");
             }
+            None
         }
         Err(err) => {
             warn!(
@@ -99,6 +106,7 @@ pub async fn ensure_signal_username(signal: &SignalClient, phone_number: &str, n
                 nickname,
                 "Failed to ensure Signal username (non-fatal); set manually via signal-cli if needed"
             );
+            None
         }
     }
 }
@@ -184,7 +192,8 @@ mod tests {
             .await;
 
         let client = SignalClient::new(mock_server.uri()).unwrap();
-        ensure_signal_username(&client, "+15555555555", "sigstack.99").await;
+        let got = ensure_signal_username(&client, "+15555555555", "sigstack.99").await;
+        assert_eq!(got.as_deref(), Some("sigstack.01"));
     }
 
     #[tokio::test]
@@ -192,7 +201,9 @@ mod tests {
         let mock_server = MockServer::start().await;
         let client = SignalClient::new(mock_server.uri()).unwrap();
         // No mock — would fail if called.
-        ensure_signal_username(&client, "+15555555555", "  ").await;
+        assert!(ensure_signal_username(&client, "+15555555555", "  ")
+            .await
+            .is_none());
     }
 
     #[tokio::test]
@@ -205,6 +216,8 @@ mod tests {
             .await;
 
         let client = SignalClient::new(mock_server.uri()).unwrap();
-        ensure_signal_username(&client, "+15555555555", "sigstack").await;
+        assert!(ensure_signal_username(&client, "+15555555555", "sigstack")
+            .await
+            .is_none());
     }
 }

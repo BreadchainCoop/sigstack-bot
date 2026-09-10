@@ -50,19 +50,26 @@ async fn main() -> AppResult<()> {
     }
     info!("Signal API healthy");
 
-    if let Some(phone) = config
+    let nickname = config
+        .bot
+        .signal_username
+        .as_deref()
+        .unwrap_or("sigstack")
+        .to_string();
+    let claimed_username = if let Some(phone) = config
         .signal
         .phone_number
         .as_deref()
         .filter(|p| !p.trim().is_empty())
     {
-        let nickname = config.bot.signal_username.as_deref().unwrap_or("sigstack");
-        ensure_signal_username(&signal, phone, nickname).await;
+        ensure_signal_username(&signal, phone, &nickname).await
     } else {
         warn!(
             "SIGNAL__PHONE_NUMBER unset — skipping Signal username ensure (needed for site Message link)"
         );
-    }
+        None
+    };
+    let bot_username = claimed_username.unwrap_or(nickname);
 
     let bot_identity = BotIdentity::new();
 
@@ -71,6 +78,7 @@ async fn main() -> AppResult<()> {
         signal.clone(),
         dstack.clone(),
         bot_identity.clone(),
+        bot_username,
     )
     .await?;
 

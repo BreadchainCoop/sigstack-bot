@@ -27,11 +27,15 @@ pub struct BuiltHandlers {
 }
 
 /// Unified bot: Language Threads → voice → in-chat → hub menus → quote translate → verify/help.
+///
+/// `bot_username` is the live Signal handle when known (e.g. `sigstack.01`), else the
+/// configured nickname — used in `!link` / `!enable-sigstack` organizer copy.
 pub async fn build_handlers(
     config: &Config,
     signal: Arc<SignalClient>,
     dstack: Arc<DstackClient>,
     bot_identity: Arc<BotIdentity>,
+    bot_username: String,
 ) -> AppResult<BuiltHandlers> {
     let near_cfg = config
         .near_ai
@@ -193,7 +197,10 @@ pub async fn build_handlers(
             .clone()
             .unwrap_or_else(|| "sigstack".into()),
     )));
-    handlers.push(Box::new(LinkHandler::new(entitlements.clone())));
+    handlers.push(Box::new(LinkHandler::new(
+        entitlements.clone(),
+        bot_username,
+    )));
     handlers.push(Box::new(CommandsHandler::new(group_prefs.clone())));
     handlers.push(Box::new(VerifyHandler::new(dstack.clone())));
     handlers.push(Box::new(HelpHandler::new()));
@@ -288,7 +295,7 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let built = build_handlers(&config, signal, dstack, identity)
+        let built = build_handlers(&config, signal, dstack, identity, "sigstack.test".into())
             .await
             .expect("translation handlers");
         let handlers = built.handlers;
@@ -338,7 +345,7 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let built = build_handlers(&config, signal, dstack, identity)
+        let built = build_handlers(&config, signal, dstack, identity, "sigstack.test".into())
             .await
             .expect("translation handlers");
         let handlers = built.handlers;
@@ -368,7 +375,8 @@ mod tests {
         let dstack = Arc::new(DstackClient::new(&config.dstack.socket_path));
         let identity = BotIdentity::new();
 
-        let result = build_handlers(&config, signal, dstack, identity).await;
+        let result =
+            build_handlers(&config, signal, dstack, identity, "sigstack.test".into()).await;
         assert!(result.is_err(), "missing NEAR AI should fail");
         assert!(
             result.err().unwrap().to_string().contains("NEAR AI"),

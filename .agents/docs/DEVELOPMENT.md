@@ -100,20 +100,20 @@ Do not re-register phone A. Proxy **:8081** only.
 
 ### Signal username → site Message button
 
-The marketing site is static GitHub Pages. It does **not** discover the bot username at runtime. After the bot starts (or after first register / username ensure), capture `username_link` from CVM logs and bake it into Pages via a public Actions variable. Manual ops is intentional — no CVM→GitHub sync.
+The marketing site is static GitHub Pages. It does **not** discover the bot username at runtime. After the bot starts (or after first register / username ensure), capture the **share token** from CVM logs or `!bot-username` and bake it into Pages via a public Actions variable. Manual ops is intentional — no CVM→GitHub sync. The site assembles `https://signal.me/#eu/<token>` (never store a full URL in `.env` — `#` truncates under dotenv).
 
-1. Pull logs:
+1. Pull logs (or DM the bot `!bot-username`):
    ```bash
    phala logs --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353
    ```
-2. Find `Signal username ready` with `username=` (e.g. `sigstack.57`) and `username_link=https://signal.me/#eu/…`.
-3. Set the repo GitHub Actions **variable** `PUBLIC_SIGNAL_USERNAME_LINK` to that URL (never the E.164; the link is public by design).
-4. Redeploy Pages (`workflow_dispatch` on **Pages**, or any `site/**` push). The workflow already passes `vars.PUBLIC_SIGNAL_USERNAME_LINK` into the site build.
-5. Verify: [sigstack `_app/env.js`](https://breadchaincoop.github.io/sigstack-bot/sigstack/_app/env.js) shows a non-empty `PUBLIC_SIGNAL_USERNAME_LINK`.
+2. Find `Signal username ready` with `username=` (e.g. `sigstack.57`) and `username_token=…`, **or** take the second line of the `!bot-username` reply (token only — not a URL).
+3. Set the repo GitHub Actions **variable** `PUBLIC_SIGNAL_USERNAME_TOKEN` to that token (never the E.164; the assembled link is public by design). Remove any leftover `PUBLIC_SIGNAL_USERNAME_LINK` var.
+4. Redeploy Pages (`workflow_dispatch` on **Pages**, or any `site/**` push). The workflow already passes `vars.PUBLIC_SIGNAL_USERNAME_TOKEN` into the site build.
+5. Verify: [sigstack `_app/env.js`](https://breadchaincoop.github.io/sigstack-bot/sigstack/_app/env.js) shows a non-empty `PUBLIC_SIGNAL_USERNAME_TOKEN`.
 
-**When to re-do:** required after Signal **re-register** or a forced username re-claim (discriminator / `username_link` can change). Not required on routine in-place CVM image upgrades that keep `signal-config-translation` (session + username usually persist); confirm via logs if unsure.
+**When to re-do:** required after Signal **re-register** or a forced username re-claim (discriminator / share token can change). Not required on routine in-place CVM image upgrades that keep `signal-config-translation` (session + username usually persist); confirm via logs if unsure.
 
-**Local:** the same log line appears in Docker Compose `signal-bot` logs. For local site testing, set `PUBLIC_SIGNAL_USERNAME_LINK` when running `site/` (`npm run dev` / build) — separate from `docker/.env`. Site var details: [`site/README.md`](../../site/README.md).
+**Local:** the same log line appears in Docker Compose `signal-bot` logs. For local site testing, set `PUBLIC_SIGNAL_USERNAME_TOKEN` in `site/.env` when running `site/` (`npm run dev` / build) — separate from `docker/.env`. Site var details: [`site/README.md`](../../site/README.md).
 
 ### CVM storage — do not wipe
 

@@ -1,7 +1,7 @@
-//! `!bot-username` — secret ops command: return live Signal username + share link.
+//! `!bot-username` — secret ops command: return live Signal username + share token.
 
 use crate::commands::CommandHandler;
-use crate::ensure_username::{claim_signal_username, ClaimUsernameError};
+use crate::ensure_username::{claim_signal_username, username_link_token, ClaimUsernameError};
 use crate::error::AppResult;
 use async_trait::async_trait;
 use signal_bot_core::is_exact_command_any;
@@ -14,6 +14,8 @@ const NO_PHONE_MSG: &str = "Could not determine this bot's Signal phone number."
 const EMPTY_NICK_MSG: &str =
     "BOT__SIGNAL_USERNAME is empty; set a nickname (e.g. sigstack) and retry.";
 const UNKNOWN_USER_MSG: &str = "Signal returned no username. Try again shortly.";
+const NO_TOKEN_MSG: &str =
+    "Signal returned no share token. Try again shortly, then set PUBLIC_SIGNAL_USERNAME_TOKEN.";
 
 pub struct BotUsernameHandler {
     signal: Arc<SignalClient>,
@@ -46,11 +48,9 @@ impl BotUsernameHandler {
             .map(str::to_string)
     }
 
-    fn format_reply(username: &str, link: Option<&str>) -> String {
-        match link.filter(|l| !l.is_empty()) {
-            Some(link) => format!("{username}\n{link}"),
-            None => username.to_string(),
-        }
+    /// Username on line 1; site token on line 2 (never the full signal.me URL).
+    fn format_reply(username: &str, token: &str) -> String {
+        format!("{username}\n{token}")
     }
 }
 
@@ -74,7 +74,11 @@ impl CommandHandler for BotUsernameHandler {
                 let Some(username) = info.username.as_deref().filter(|u| !u.is_empty()) else {
                     return Ok(UNKNOWN_USER_MSG.into());
                 };
-                Ok(Self::format_reply(username, info.username_link.as_deref()))
+                let Some(token) = info.username_link.as_deref().and_then(username_link_token)
+                else {
+                    return Ok(format!("{username}\n{NO_TOKEN_MSG}"));
+                };
+                Ok(Self::format_reply(username, token))
             }
             Err(ClaimUsernameError::EmptyNickname) => Ok(EMPTY_NICK_MSG.into()),
             Err(err) => {
@@ -130,7 +134,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn returns_username_and_link() {
+    async fn returns_username_and_token() {
         let mock = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/v1/accounts/%2B15550001111/username"))
@@ -148,8 +152,8 @@ mod tests {
             "sigstack.99",
         );
         let out = h.execute(&dm("!bot-username")).await.unwrap();
-        assert!(out.contains("sigstack.57"));
-        assert!(out.contains("https://signal.me/#eu/abc"));
+        assert_eq!(out, "sigstack.57\nabc");
+        assert!(!out.contains("https://signal.me"));
     }
 
     #[tokio::test]

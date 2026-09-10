@@ -250,13 +250,7 @@ export const en: SiteContent = {
 			planPurchased: 'Plan purchased: {plan}.',
 			planPurchasedGeneric: 'Your plan is ready.',
 			linkHeading: 'Link in Signal',
-			linkBody:
-				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open Sigstack in Signal, paste, and send:',
-			linkSteps: [
-				'Copy the `!link` command below',
-				'Open a DM with Sigstack (Message button)',
-				'Paste the command and send'
-			],
+			linkBody: 'Copy the command, open Sigstack, paste and send in a DM.',
 			copyLabel: 'Copy command',
 			copyDoneLabel: 'Copied',
 			messageCta: 'Message Sigstack',
@@ -275,34 +269,20 @@ export const en: SiteContent = {
 			getStartedCta: 'Organizer checklist'
 		},
 		alpha: {
-			title: 'Alpha access',
-			lead: 'Redeem an alpha code for the full Sigstack Bundle — Language Threads, in-chat translation, and transcription — for 90 days, no Stripe checkout.',
+			title: 'Alpha',
+			lead: 'Enter your code, then message Sigstack in Signal.',
 			eyebrow: 'Alpha',
-			benefitsHeading: 'What you get',
-			benefits: [
-				'Full Bundle access (individual and group scopes) for 90 days',
-				'Same Signal linking flow as paid plans (`!link <code>`)',
-				'After expiry, subscribe on Plans to keep using products'
-			],
 			codeLabel: 'Alpha code',
 			codePlaceholder: 'Enter your code',
 			submitLabel: 'Continue',
 			errorEmpty: 'Enter an alpha code to continue.',
 			errorTooLong: 'That code is too long. Check the code you were given and try again.',
 			linkHeading: 'Link in Signal',
-			linkBody:
-				'Prefer a DM (avoid pasting link codes in a group). Copy the command, open Sigstack in Signal, paste, and send:',
-			linkSteps: [
-				'Copy the `!link` command below',
-				'Open a DM with Sigstack (Message button)',
-				'Paste the command and send'
-			],
+			linkBody: 'Copy the command, open Sigstack, paste and send in a DM.',
 			copyLabel: 'Copy command',
 			copyDoneLabel: 'Copied',
 			messageCta: 'Message Sigstack',
-			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM Sigstack.',
-			getStartedCta: 'Organizer checklist',
-			plansCta: 'See paid plans'
+			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM Sigstack.'
 		}
 	},
 	legalPrivacy: {

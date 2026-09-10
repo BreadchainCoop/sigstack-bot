@@ -62,7 +62,7 @@ phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
 
 ### Signal username → site Message button
 
-After deploy (or re-register), read CVM logs for `Signal username ready` / `username_link`, set GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_LINK`, and redeploy Pages so alpha / checkout **Message Sigstack** works. Discriminator and link can change after re-register; routine in-place upgrades that keep `signal-config-translation` usually keep the username. Full checklist: [`.agents/docs/DEVELOPMENT.md` — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
+After deploy (or re-register), read CVM logs for `Signal username ready` / `username_token` (or DM `!bot-username`), set GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_TOKEN`, and redeploy Pages so alpha / checkout **Message Sigstack** works. Discriminator and token can change after re-register; routine in-place upgrades that keep `signal-config-translation` usually keep the username. Full checklist: [`.agents/docs/DEVELOPMENT.md` — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
 
 ### CVM storage (keep intact)
 

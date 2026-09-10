@@ -12,7 +12,7 @@ declare global {
 
 interface ImportMetaEnv {
 	readonly PUBLIC_STRIPE_PORTAL_URL?: string;
-	readonly PUBLIC_SIGNAL_USERNAME_LINK?: string;
+	readonly PUBLIC_SIGNAL_USERNAME_TOKEN?: string;
 }
 
 export {};

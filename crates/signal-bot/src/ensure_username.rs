@@ -4,6 +4,9 @@ use signal_client::{SignalClient, SignalError, UsernameInfo};
 use thiserror::Error;
 use tracing::{info, warn};
 
+/// Prefix of Signal username share URLs (`https://signal.me/#eu/<token>`).
+pub const SIGNAL_USERNAME_LINK_PREFIX: &str = "https://signal.me/#eu/";
+
 /// Failure claiming / refreshing a Signal username.
 #[derive(Debug, Error)]
 pub enum ClaimUsernameError {
@@ -11,6 +14,26 @@ pub enum ClaimUsernameError {
     EmptyNickname,
     #[error(transparent)]
     Signal(#[from] SignalError),
+}
+
+/// Extract the share token from a signal-cli `username_link`.
+///
+/// Accepts `https://signal.me/#eu/<token>` (case-insensitive host). Returns `None`
+/// for empty, truncated, or unexpected links — never returns a full URL.
+pub fn username_link_token(username_link: &str) -> Option<&str> {
+    let trimmed = username_link.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if !lower.starts_with(SIGNAL_USERNAME_LINK_PREFIX) {
+        return None;
+    }
+    let token = trimmed[SIGNAL_USERNAME_LINK_PREFIX.len()..].trim();
+    if token.is_empty() || token.contains('#') || token.contains('/') {
+        return None;
+    }
+    Some(token)
 }
 
 /// Normalize env nickname to Signal nickname only (strip accidental `.NN`).
@@ -46,20 +69,21 @@ pub async fn claim_signal_username(
 /// Claim / refresh a Signal username via signal-cli.
 ///
 /// Non-fatal on failure so a username API hiccup does not block the bot.
-/// On success, logs `username` + `username_link` for ops to set
-/// `PUBLIC_SIGNAL_USERNAME_LINK` on the marketing site.
+/// On success, logs `username` + `username_token` for ops to set
+/// `PUBLIC_SIGNAL_USERNAME_TOKEN` on the marketing site.
 pub async fn ensure_signal_username(signal: &SignalClient, phone_number: &str, nickname: &str) {
     match claim_signal_username(signal, phone_number, nickname).await {
         Ok(info) => {
             let username = info.username.as_deref().unwrap_or("(unknown)");
-            let link = info
+            let token = info
                 .username_link
                 .as_deref()
-                .unwrap_or("(no link returned)");
+                .and_then(username_link_token)
+                .unwrap_or("(no token returned)");
             info!(
                 username,
-                username_link = link,
-                "Signal username ready — set site PUBLIC_SIGNAL_USERNAME_LINK to username_link after re-register"
+                username_token = token,
+                "Signal username ready — set site PUBLIC_SIGNAL_USERNAME_TOKEN to username_token after re-register"
             );
         }
         Err(ClaimUsernameError::EmptyNickname) => {
@@ -85,6 +109,29 @@ mod tests {
     use wiremock::matchers::{body_json, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    #[test]
+    fn username_link_token_extracts_payload() {
+        assert_eq!(
+            username_link_token("https://signal.me/#eu/abcTOKEN"),
+            Some("abcTOKEN")
+        );
+        assert_eq!(
+            username_link_token("  HTTPS://SIGNAL.ME/#eu/xyz  "),
+            Some("xyz")
+        );
+    }
+
+    #[test]
+    fn username_link_token_rejects_bad_links() {
+        assert_eq!(username_link_token(""), None);
+        assert_eq!(username_link_token("   "), None);
+        assert_eq!(username_link_token("https://signal.me/"), None);
+        assert_eq!(username_link_token("https://signal.me/#eu/"), None);
+        assert_eq!(username_link_token("https://example.com/#eu/abc"), None);
+        assert_eq!(username_link_token("abcTOKEN"), None);
+        assert_eq!(username_link_token("https://signal.me/#eu/a/b"), None);
+    }
+
     #[tokio::test]
     async fn claim_returns_username_info() {
         let mock_server = MockServer::start().await;
@@ -106,6 +153,10 @@ mod tests {
         assert_eq!(
             info.username_link.as_deref(),
             Some("https://signal.me/#eu/x")
+        );
+        assert_eq!(
+            username_link_token(info.username_link.as_deref().unwrap()),
+            Some("x")
         );
     }
 

@@ -22,7 +22,7 @@ use whisper_client::WhisperClient;
 pub struct BuiltHandlers {
     pub handlers: Vec<Box<dyn CommandHandler>>,
     /// Encrypted entitlements store. Held for process lifetime; consumed by
-    /// `!link` / `!claim-group` (and future webhook / gating).
+    /// `!link` / `!enable-sigstack` and entitlement gating when enforce is on.
     pub entitlements: Arc<EntitlementsStore>,
 }
 

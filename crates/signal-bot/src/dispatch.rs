@@ -2,6 +2,7 @@
 
 use crate::bot_identity::BotIdentity;
 use crate::commands::CommandHandler;
+use crate::entitlement_gate::EntitlementGate;
 use signal_client::{BotMessage, SignalClient};
 use tracing::{debug, error};
 
@@ -17,6 +18,11 @@ pub enum DispatchOutcome {
     },
     /// No handler claimed the message.
     NoMatch,
+    /// Entitlement gate denied before execute (reply may still have been sent).
+    Denied {
+        label: &'static str,
+        sent_reply: bool,
+    },
 }
 
 /// Note bot identity, find the first matching handler, execute, and reply when needed.
@@ -25,6 +31,7 @@ pub async fn dispatch_message(
     signal: &SignalClient,
     bot_identity: &BotIdentity,
     message: &BotMessage,
+    entitlements: &EntitlementGate,
 ) -> DispatchOutcome {
     bot_identity.note_inbound(message);
 
@@ -55,6 +62,24 @@ pub async fn dispatch_message(
         quote_reply,
         "Dispatching to handler"
     );
+
+    if let Err(deny) = entitlements.allow(message) {
+        let response = deny.message();
+        debug!(handler = label, reason = ?deny, "Entitlement gate denied");
+        // Never call execute (including handles_own_reply) so NEAR/voice do not run.
+        let send_result = if quote_reply {
+            signal.reply_quoted(message, response, None).await
+        } else {
+            signal.reply(message, response).await
+        };
+        if let Err(e) = &send_result {
+            error!("Failed to send entitlement deny reply: {}", e);
+        }
+        return DispatchOutcome::Denied {
+            label,
+            sent_reply: send_result.is_ok(),
+        };
+    }
 
     match handler.execute(message).await {
         Ok(response) => {
@@ -115,6 +140,7 @@ pub async fn dispatch_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entitlements_store::EntitlementsStore;
     use crate::error::{AppError, AppResult};
     use async_trait::async_trait;
     use serde_json::json;
@@ -177,6 +203,22 @@ mod tests {
         }
     }
 
+    fn group(text: &str, source: &str, group_id: &str) -> BotMessage {
+        let mut m = dm(text);
+        m.source = source.into();
+        m.source_number = Some(source.into());
+        m.is_group = true;
+        m.group_id = Some(group_id.into());
+        m
+    }
+
+    fn open_gate() -> EntitlementGate {
+        EntitlementGate {
+            store: EntitlementsStore::new_in_memory(),
+            enforce: false,
+        }
+    }
+
     async fn signal_mock() -> (MockServer, SignalClient) {
         let server = MockServer::start().await;
         let client = SignalClient::new(server.uri()).unwrap();
@@ -196,7 +238,8 @@ mod tests {
             calls: Arc::new(AtomicUsize::new(0)),
         })];
 
-        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("hello")).await;
+        let outcome =
+            dispatch_message(&handlers, &signal, &identity, &dm("hello"), &open_gate()).await;
         assert_eq!(outcome, DispatchOutcome::NoMatch);
     }
 
@@ -226,7 +269,8 @@ mod tests {
         })];
         let identity = BotIdentity::new();
 
-        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!help")).await;
+        let outcome =
+            dispatch_message(&handlers, &signal, &identity, &dm("!help"), &open_gate()).await;
         assert_eq!(
             outcome,
             DispatchOutcome::Matched {
@@ -277,7 +321,8 @@ mod tests {
         })];
         let identity = BotIdentity::new();
 
-        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!voice")).await;
+        let outcome =
+            dispatch_message(&handlers, &signal, &identity, &dm("!voice"), &open_gate()).await;
         assert_eq!(
             outcome,
             DispatchOutcome::Matched {
@@ -308,7 +353,8 @@ mod tests {
         })];
         let identity = BotIdentity::new();
 
-        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!me")).await;
+        let outcome =
+            dispatch_message(&handlers, &signal, &identity, &dm("!me"), &open_gate()).await;
         assert_eq!(
             outcome,
             DispatchOutcome::Matched {
@@ -342,7 +388,8 @@ mod tests {
         })];
         let identity = BotIdentity::new();
 
-        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!boom")).await;
+        let outcome =
+            dispatch_message(&handlers, &signal, &identity, &dm("!boom"), &open_gate()).await;
         assert_eq!(
             outcome,
             DispatchOutcome::Matched {
@@ -385,7 +432,8 @@ mod tests {
         ];
         let identity = BotIdentity::new();
 
-        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!x")).await;
+        let outcome =
+            dispatch_message(&handlers, &signal, &identity, &dm("!x"), &open_gate()).await;
         assert_eq!(
             outcome,
             DispatchOutcome::Matched {
@@ -396,5 +444,162 @@ mod tests {
         );
         assert_eq!(first.load(Ordering::SeqCst), 1);
         assert_eq!(second.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn enforce_denies_help_without_link_and_skips_execute() {
+        let (server, signal) = signal_mock().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .and(body_partial_json(json!({
+                "message": crate::entitlement_gate::DENY_NEED_LINK
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let handlers: Vec<Box<dyn CommandHandler>> = vec![Box::new(StubHandler {
+            trigger: "!help",
+            label: "help",
+            quote: false,
+            own_reply: false,
+            fail: false,
+            calls: calls.clone(),
+        })];
+        let identity = BotIdentity::new();
+        let gate = EntitlementGate {
+            store: EntitlementsStore::new_in_memory(),
+            enforce: true,
+        };
+
+        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!help"), &gate).await;
+        assert_eq!(
+            outcome,
+            DispatchOutcome::Denied {
+                label: "help",
+                sent_reply: true,
+            }
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn enforce_allows_help_after_link_in_dm() {
+        let (server, signal) = signal_mock().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .and(body_partial_json(json!({ "message": "stub-ok" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("+15550002222".into()).unwrap();
+        let gate = EntitlementGate {
+            store,
+            enforce: true,
+        };
+        let calls = Arc::new(AtomicUsize::new(0));
+        let handlers: Vec<Box<dyn CommandHandler>> = vec![Box::new(StubHandler {
+            trigger: "!help",
+            label: "help",
+            quote: false,
+            own_reply: false,
+            fail: false,
+            calls: calls.clone(),
+        })];
+        let identity = BotIdentity::new();
+
+        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!help"), &gate).await;
+        assert_eq!(
+            outcome,
+            DispatchOutcome::Matched {
+                label: "help",
+                sent_reply: true,
+                used_quote: false,
+            }
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn enforce_denies_group_help_until_enable_then_allows_member() {
+        let (_server, signal) = signal_mock().await;
+        // Group outbound uses group APIs; assert execute gating only (not send success).
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("uuid-ada".into()).unwrap();
+        let gate = EntitlementGate {
+            store: store.clone(),
+            enforce: true,
+        };
+        let calls = Arc::new(AtomicUsize::new(0));
+        let handlers: Vec<Box<dyn CommandHandler>> = vec![Box::new(StubHandler {
+            trigger: "!help",
+            label: "help",
+            quote: false,
+            own_reply: false,
+            fail: false,
+            calls: calls.clone(),
+        })];
+        let identity = BotIdentity::new();
+
+        let denied = dispatch_message(
+            &handlers,
+            &signal,
+            &identity,
+            &group("!help", "uuid-bob", "g1"),
+            &gate,
+        )
+        .await;
+        assert!(matches!(denied, DispatchOutcome::Denied { .. }));
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+        store.enable_sigstack("uuid-ada", "g1".into()).unwrap();
+        let allowed = dispatch_message(
+            &handlers,
+            &signal,
+            &identity,
+            &group("!help", "uuid-bob", "g1"),
+            &gate,
+        )
+        .await;
+        assert!(
+            matches!(allowed, DispatchOutcome::Matched { label: "help", .. }),
+            "{allowed:?}"
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn enforce_skips_own_reply_execute_when_denied() {
+        let (server, signal) = signal_mock().await;
+        Mock::given(method("POST"))
+            .and(path("/v2/send"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let handlers: Vec<Box<dyn CommandHandler>> = vec![Box::new(StubHandler {
+            trigger: "!me",
+            label: "translate_me",
+            quote: false,
+            own_reply: true,
+            fail: false,
+            calls: calls.clone(),
+        })];
+        let identity = BotIdentity::new();
+        let gate = EntitlementGate {
+            store: EntitlementsStore::new_in_memory(),
+            enforce: true,
+        };
+
+        let outcome = dispatch_message(&handlers, &signal, &identity, &dm("!me"), &gate).await;
+        assert!(matches!(outcome, DispatchOutcome::Denied { .. }));
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
 }

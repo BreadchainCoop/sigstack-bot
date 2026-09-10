@@ -76,7 +76,7 @@ impl PlanSku {
         }
     }
 
-    /// Whether this SKU may be claimed onto a Signal group.
+    /// Whether this SKU may enable a Signal group (`!enable-sigstack`).
     pub fn is_group_claimable(self) -> bool {
         self.is_group_scope() || matches!(self, Self::BundleAllAlpha)
     }
@@ -127,8 +127,13 @@ pub struct EntitlementRecord {
     pub owner_uuid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link_token: Option<String>,
+    /// Paid one-group claim (legacy / future Stripe group SKUs). Prefer
+    /// `enabled_group_ids` for alpha multi-group `!enable-sigstack`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claimed_group_id: Option<String>,
+    /// Groups enabled via `!enable-sigstack` (alpha may enable many).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_group_ids: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -371,14 +376,13 @@ impl EntitlementsStore {
         });
     }
 
-    /// Insert or replace a record under its owner (and group index when claimed).
+    /// Insert or replace a record under its owner (and group index when enabled).
     pub fn upsert(self: &Arc<Self>, record: EntitlementRecord) -> Result<(), String> {
         let owner = record
             .owner_uuid
             .clone()
             .ok_or_else(|| "upsert requires owner_uuid".to_string())?;
         let id = record.id.clone();
-        let claimed = record.claimed_group_id.clone();
 
         {
             let mut individuals = self.individuals.write().unwrap();
@@ -390,27 +394,38 @@ impl EntitlementsStore {
             }
         }
 
-        self.reindex_group_claim(&id, claimed.as_deref(), Some(&record));
+        self.reindex_record_groups(&id, Some(&record));
         self.schedule_persist();
         Ok(())
     }
 
-    fn reindex_group_claim(
-        &self,
-        record_id: &str,
-        new_group: Option<&str>,
-        record: Option<&EntitlementRecord>,
-    ) {
+    /// Group ids this record sponsors (multi-enable + optional legacy claim).
+    fn record_sponsored_groups(record: &EntitlementRecord) -> Vec<String> {
+        let mut gids = record.enabled_group_ids.clone();
+        if let Some(claimed) = record.claimed_group_id.as_ref() {
+            if !claimed.is_empty() && !gids.iter().any(|g| g == claimed) {
+                gids.push(claimed.clone());
+            }
+        }
+        gids
+    }
+
+    /// Remove `record_id` from every group bucket, then re-add under its sponsored groups.
+    fn reindex_record_groups(&self, record_id: &str, record: Option<&EntitlementRecord>) {
         let mut groups = self.groups.write().unwrap();
         for list in groups.values_mut() {
             list.retain(|r| r.id != record_id);
         }
         groups.retain(|_, list| !list.is_empty());
 
-        if let (Some(gid), Some(rec)) = (new_group, record) {
-            if rec.plan_sku.is_group_claimable() {
-                groups.entry(gid.to_string()).or_default().push(rec.clone());
-            }
+        let Some(rec) = record else {
+            return;
+        };
+        if !rec.plan_sku.is_group_claimable() {
+            return;
+        }
+        for gid in Self::record_sponsored_groups(rec) {
+            groups.entry(gid).or_default().push(rec.clone());
         }
     }
 
@@ -476,6 +491,7 @@ impl EntitlementsStore {
             owner_uuid: None,
             link_token: Some(link_token.clone()),
             claimed_group_id: None,
+            enabled_group_ids: Vec::new(),
             created_at: now,
             updated_at: now,
         };
@@ -519,7 +535,66 @@ impl EntitlementsStore {
         Ok(record)
     }
 
-    /// Claim a group-scoped (or alpha) entitlement onto a Signal group.
+    /// Enable Sigstack in a Signal group (alpha may enable many groups).
+    ///
+    /// Idempotent when this owner's entitlement already sponsors `group_id`, or when
+    /// any active sponsor already enabled the group.
+    pub fn enable_sigstack(
+        self: &Arc<Self>,
+        owner_uuid: &str,
+        group_id: String,
+    ) -> Result<EntitlementRecord, String> {
+        if group_id.trim().is_empty() {
+            return Err("group_id must be non-empty".into());
+        }
+        let now = Utc::now();
+
+        if self
+            .get_group(&group_id)
+            .iter()
+            .any(|r| r.is_granting_at(now))
+        {
+            // Already enabled by someone; return caller's sponsoring row if any, else first.
+            if let Some(mine) = self.get_individual(owner_uuid).into_iter().find(|r| {
+                r.is_granting_at(now)
+                    && r.plan_sku.is_group_claimable()
+                    && Self::record_sponsored_groups(r)
+                        .iter()
+                        .any(|g| g == &group_id)
+            }) {
+                return Ok(mine);
+            }
+            return self
+                .get_group(&group_id)
+                .into_iter()
+                .find(|r| r.is_granting_at(now))
+                .ok_or_else(|| "group enabled but no granting sponsor found".into());
+        }
+
+        let mut individuals = self.individuals.write().unwrap();
+        let list = individuals
+            .get_mut(owner_uuid)
+            .ok_or_else(|| format!("no entitlements for owner {owner_uuid}"))?;
+        let pos = list.iter().position(|r| {
+            r.plan_sku.is_group_claimable() && r.is_granting_at(now)
+        }).ok_or_else(|| {
+            "no enableable entitlement found; link an alpha (or group) plan with !link <code> first"
+                .to_string()
+        })?;
+
+        if !list[pos].enabled_group_ids.iter().any(|g| g == &group_id) {
+            list[pos].enabled_group_ids.push(group_id.clone());
+        }
+        list[pos].updated_at = now;
+        let record = list[pos].clone();
+        drop(individuals);
+
+        self.reindex_record_groups(&record.id, Some(&record));
+        self.schedule_persist();
+        Ok(record)
+    }
+
+    /// Paid one-group claim (sets `claimed_group_id`). Prefer [`Self::enable_sigstack`] for alpha.
     pub fn claim_group(
         self: &Arc<Self>,
         owner_uuid: &str,
@@ -545,13 +620,30 @@ impl EntitlementsStore {
         }
 
         list[pos].claimed_group_id = Some(group_id.clone());
+        if !list[pos].enabled_group_ids.iter().any(|g| g == &group_id) {
+            list[pos].enabled_group_ids.push(group_id);
+        }
         list[pos].updated_at = Utc::now();
         let record = list[pos].clone();
         drop(individuals);
 
-        self.reindex_group_claim(record_id, Some(&group_id), Some(&record));
+        self.reindex_record_groups(&record.id, Some(&record));
         self.schedule_persist();
         Ok(record)
+    }
+
+    /// True when the owner has any active granting individual entitlement.
+    pub fn has_active_individual(&self, owner_key: &str, now: DateTime<Utc>) -> bool {
+        self.get_individual(owner_key)
+            .iter()
+            .any(|r| r.is_granting_at(now))
+    }
+
+    /// True when this group has at least one still-granting sponsor (was enabled).
+    pub fn is_group_enabled(&self, group_id: &str, now: DateTime<Utc>) -> bool {
+        self.get_group(group_id)
+            .iter()
+            .any(|r| r.is_granting_at(now))
     }
 
     pub fn set_status(
@@ -619,8 +711,11 @@ impl EntitlementsStore {
         let mut groups: HashMap<String, Vec<EntitlementRecord>> = HashMap::new();
         for list in individuals.values() {
             for record in list {
-                if let Some(gid) = &record.claimed_group_id {
-                    groups.entry(gid.clone()).or_default().push(record.clone());
+                if !record.plan_sku.is_group_claimable() {
+                    continue;
+                }
+                for gid in Self::record_sponsored_groups(record) {
+                    groups.entry(gid).or_default().push(record.clone());
                 }
             }
         }
@@ -638,9 +733,8 @@ impl EntitlementsStore {
                 if let Some(record) = list.iter_mut().find(|r| r.id == record_id) {
                     f(record);
                     let updated = record.clone();
-                    let claimed = updated.claimed_group_id.clone();
                     drop(individuals);
-                    self.reindex_group_claim(record_id, claimed.as_deref(), Some(&updated));
+                    self.reindex_record_groups(record_id, Some(&updated));
                     return Ok(updated);
                 }
             }
@@ -905,6 +999,7 @@ impl EntitlementsStore {
             owner_uuid: Some(owner_uuid),
             link_token: None,
             claimed_group_id: None,
+            enabled_group_ids: Vec::new(),
             created_at: now,
             updated_at: now,
         };
@@ -933,6 +1028,7 @@ mod tests {
             owner_uuid: Some(owner.into()),
             link_token: None,
             claimed_group_id: None,
+            enabled_group_ids: Vec::new(),
             created_at: now,
             updated_at: now,
         }
@@ -1022,6 +1118,7 @@ mod tests {
             .claim_group("owner-1", &id, "group.main".into())
             .unwrap();
         assert_eq!(claimed.claimed_group_id.as_deref(), Some("group.main"));
+        assert!(claimed.enabled_group_ids.iter().any(|g| g == "group.main"));
         assert_eq!(store.get_group("group.main").len(), 1);
         assert_eq!(
             store.get_individual("owner-1")[0]
@@ -1029,6 +1126,63 @@ mod tests {
                 .as_deref(),
             Some("group.main")
         );
+    }
+
+    #[test]
+    fn enable_sigstack_allows_multiple_groups_for_alpha() {
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("owner-1".into()).unwrap();
+
+        let a = store.enable_sigstack("owner-1", "group.a".into()).unwrap();
+        assert!(a.enabled_group_ids.iter().any(|g| g == "group.a"));
+        let b = store.enable_sigstack("owner-1", "group.b".into()).unwrap();
+        assert!(b.enabled_group_ids.iter().any(|g| g == "group.a"));
+        assert!(b.enabled_group_ids.iter().any(|g| g == "group.b"));
+        assert_eq!(store.get_group("group.a").len(), 1);
+        assert_eq!(store.get_group("group.b").len(), 1);
+        assert!(store.is_group_enabled("group.a", Utc::now()));
+        assert!(store.is_group_enabled("group.b", Utc::now()));
+    }
+
+    #[test]
+    fn enable_sigstack_idempotent_when_already_enabled() {
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("owner-1".into()).unwrap();
+        store
+            .enable_sigstack("owner-1", "group.main".into())
+            .unwrap();
+        let again = store
+            .enable_sigstack("owner-1", "group.main".into())
+            .unwrap();
+        assert_eq!(
+            again
+                .enabled_group_ids
+                .iter()
+                .filter(|g| *g == "group.main")
+                .count(),
+            1
+        );
+        // Another entitled user also gets idempotent success.
+        store.redeem_reusable_alpha("owner-2".into()).unwrap();
+        let other = store
+            .enable_sigstack("owner-2", "group.main".into())
+            .unwrap();
+        assert!(other.is_granting_at(Utc::now()));
+    }
+
+    #[test]
+    fn enabled_group_ids_default_on_legacy_json() {
+        let json = r#"{
+            "id":"r1",
+            "plan_sku":"bundle-all-alpha",
+            "source":"alpha",
+            "status":"active",
+            "owner_uuid":"u1",
+            "created_at":"2026-01-01T00:00:00Z",
+            "updated_at":"2026-01-01T00:00:00Z"
+        }"#;
+        let rec: EntitlementRecord = serde_json::from_str(json).unwrap();
+        assert!(rec.enabled_group_ids.is_empty());
     }
 
     #[test]

@@ -56,6 +56,7 @@ services:
       - GROUP_PREFERENCES__LEGACY_COMPOSE_HASH=${GROUP_PREFERENCES_LEGACY_COMPOSE_HASH:-}
       - ENTITLEMENTS__PERSIST=true
       - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
+      - ENTITLEMENTS__ENFORCE=true
       - ENTITLEMENTS__LEGACY_COMPOSE_HASH=${ENTITLEMENTS_LEGACY_COMPOSE_HASH:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro

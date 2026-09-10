@@ -1,4 +1,4 @@
-//! `!link <code>` and `!claim-group` — bind pending entitlements (alpha MVP).
+//! `!link <code>` and `!enable-sigstack` — bind entitlements and unlock groups (alpha MVP).
 
 use crate::commands::CommandHandler;
 use crate::entitlements_store::{
@@ -12,11 +12,14 @@ use signal_client::BotMessage;
 use std::sync::Arc;
 
 const LINK_USAGE: &str = "Usage: !link <code>";
-const CLAIM_USAGE: &str = "Usage: !claim-group (run in the Signal group to claim)";
+const ENABLE_USAGE: &str =
+    "Usage: !enable-sigstack (run in the Signal group after inviting this bot)";
 const LINK_GROUP_WARN: &str =
     "Tip: prefer DMing this bot with !link so your code is not visible in the group.";
 const ALREADY_ACTIVE_MSG: &str =
     "You already have an active alpha entitlement linked to this account.";
+const ENABLE_SUCCESS: &str =
+    "Sigstack enabled in this group. Anyone here can use !help and product commands.";
 
 pub struct LinkHandler {
     entitlements: Arc<EntitlementsStore>,
@@ -52,7 +55,7 @@ impl LinkHandler {
         );
         if bound_sku.is_group_claimable() {
             reply.push_str(
-                "\n\nIn a group, run !claim-group to attach group-scope features to that chat.",
+                "\n\nIn a group, run !enable-sigstack so everyone in that chat can use Sigstack.",
             );
         }
         if is_group {
@@ -123,42 +126,28 @@ impl LinkHandler {
         }
     }
 
-    async fn handle_claim_group(&self, message: &BotMessage) -> AppResult<String> {
+    async fn handle_enable_sigstack(&self, message: &BotMessage) -> AppResult<String> {
         let Some(group_id) = message.group_id.as_deref() else {
-            return Ok(CLAIM_USAGE.into());
+            return Ok(ENABLE_USAGE.into());
         };
         let owner = Self::owner_key(message);
         if owner.is_empty() {
             return Ok("Could not determine your Signal identity.".into());
         }
 
-        let records = self.entitlements.get_individual(&owner);
-        let Some(record) = records.iter().find(|r| {
-            r.plan_sku.is_group_claimable()
-                && r.claimed_group_id.is_none()
-                && r.is_granting_at(Utc::now())
-        }) else {
-            if records.iter().any(|r| {
-                r.plan_sku.is_group_claimable()
-                    && r.claimed_group_id.as_deref() == Some(group_id)
-                    && r.is_granting_at(Utc::now())
-            }) {
-                return Ok("This group is already claimed for your entitlement.".into());
-            }
+        if !self.entitlements.has_active_individual(&owner, Utc::now()) {
             return Ok(
-                "No claimable entitlement found. Link an alpha (or group) plan with !link <code> first."
+                "No entitlement found. Link an alpha (or group) plan with !link <code> first."
                     .into(),
             );
-        };
+        }
 
         match self
             .entitlements
-            .claim_group(&owner, &record.id, group_id.to_string())
+            .enable_sigstack(&owner, group_id.to_string())
         {
-            Ok(_) => Ok(
-                "Claimed this group for your entitlement. Group-scope features apply here.".into(),
-            ),
-            Err(e) => Ok(format!("Could not claim this group: {e}")),
+            Ok(_) => Ok(ENABLE_SUCCESS.into()),
+            Err(e) => Ok(format!("Could not enable Sigstack in this group: {e}")),
         }
     }
 }
@@ -166,7 +155,8 @@ impl LinkHandler {
 #[async_trait]
 impl CommandHandler for LinkHandler {
     fn matches(&self, message: &BotMessage) -> bool {
-        starts_with_word(&message.text, "!link") || starts_with_word(&message.text, "!claim-group")
+        starts_with_word(&message.text, "!link")
+            || starts_with_word(&message.text, "!enable-sigstack")
     }
 
     fn label(&self) -> &'static str {
@@ -174,8 +164,8 @@ impl CommandHandler for LinkHandler {
     }
 
     async fn execute(&self, message: &BotMessage) -> AppResult<String> {
-        if starts_with_word(&message.text, "!claim-group") {
-            return self.handle_claim_group(message).await;
+        if starts_with_word(&message.text, "!enable-sigstack") {
+            return self.handle_enable_sigstack(message).await;
         }
         if starts_with_word(&message.text, "!link") {
             return self.handle_link(message).await;
@@ -225,6 +215,7 @@ mod tests {
             .await
             .unwrap();
         assert!(reply.contains("Linked"), "{reply}");
+        assert!(reply.contains("!enable-sigstack"), "{reply}");
         assert_eq!(store.get_individual("uuid-ada").len(), 1);
         assert!(store.get_pending(&codes[0]).is_none());
     }
@@ -263,7 +254,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn claim_group_after_link() {
+    async fn enable_sigstack_after_link() {
         let store = EntitlementsStore::new_in_memory();
         let codes = store.mint_alpha_codes(1, 90).unwrap();
         let handler = LinkHandler::new(store.clone());
@@ -273,11 +264,43 @@ mod tests {
             .unwrap();
 
         let reply = handler
-            .execute(&group_msg("!claim-group", "uuid-ada", "group.main"))
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "group.main"))
             .await
             .unwrap();
-        assert!(reply.contains("Claimed"), "{reply}");
+        assert!(reply.contains("enabled"), "{reply}");
         assert_eq!(store.get_group("group.main").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn enable_sigstack_multiple_groups() {
+        let store = EntitlementsStore::new_in_memory();
+        let handler = LinkHandler::new(store.clone());
+        handler
+            .execute(&dm(&format!("!link {REUSABLE_ALPHA_CODE}"), "uuid-ada"))
+            .await
+            .unwrap();
+
+        handler
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "group.a"))
+            .await
+            .unwrap();
+        handler
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "group.b"))
+            .await
+            .unwrap();
+        assert_eq!(store.get_group("group.a").len(), 1);
+        assert_eq!(store.get_group("group.b").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn enable_sigstack_requires_link() {
+        let store = EntitlementsStore::new_in_memory();
+        let handler = LinkHandler::new(store);
+        let reply = handler
+            .execute(&group_msg("!enable-sigstack", "uuid-bob", "group.main"))
+            .await
+            .unwrap();
+        assert!(reply.contains("!link"), "{reply}");
     }
 
     #[tokio::test]
@@ -323,10 +346,11 @@ mod tests {
     }
 
     #[test]
-    fn matches_link_and_claim() {
+    fn matches_link_and_enable() {
         let handler = LinkHandler::new(EntitlementsStore::new_in_memory());
         assert!(handler.matches(&dm("!link abc", "u")));
-        assert!(handler.matches(&dm("!claim-group", "u")));
+        assert!(handler.matches(&dm("!enable-sigstack", "u")));
+        assert!(!handler.matches(&dm("!claim-group", "u")));
         assert!(!handler.matches(&dm("!help", "u")));
     }
 }

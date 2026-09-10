@@ -6,6 +6,7 @@ use signal_bot::bot_identity::BotIdentity;
 use signal_bot::config::Config;
 use signal_bot::dispatch::dispatch_message;
 use signal_bot::ensure_username::ensure_signal_username;
+use signal_bot::entitlement_gate::EntitlementGate;
 use signal_bot::error::AppResult;
 use signal_bot::group_invite_acceptor::{
     run_invite_acceptor, InvitePolicy, DEFAULT_INVITE_POLL_INTERVAL,
@@ -74,7 +75,13 @@ async fn main() -> AppResult<()> {
     .await?;
 
     let handlers = Arc::new(built.handlers);
-    let _entitlements = built.entitlements;
+    let entitlements = EntitlementGate {
+        store: built.entitlements,
+        enforce: config.entitlements.enforce,
+    };
+    if entitlements.enforce {
+        info!("Entitlement enforcement enabled (link + enable-sigstack gate)");
+    }
     info!("Registered {} command handlers", handlers.len());
 
     {
@@ -97,12 +104,14 @@ async fn main() -> AppResult<()> {
                 let handlers = handlers.clone();
                 let signal = signal.clone();
                 let bot_identity = bot_identity.clone();
+                let entitlements = entitlements.clone();
                 tokio::spawn(async move {
                     let _ = dispatch_message(
                         handlers.as_slice(),
                         &signal,
                         &bot_identity,
                         &message,
+                        &entitlements,
                     )
                     .await;
                 });

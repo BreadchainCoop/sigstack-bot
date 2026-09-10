@@ -186,6 +186,6 @@ mod tests {
 
     #[test]
     fn reusable_code_constant_still_usable() {
-        assert_eq!(REUSABLE_ALPHA_CODE, "bread-friend");
+        assert_eq!(REUSABLE_ALPHA_CODE, "bread");
     }
 }

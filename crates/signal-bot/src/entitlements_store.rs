@@ -225,7 +225,7 @@ fn new_record_id() -> String {
 }
 
 /// Temporary reusable friend code for alpha (each linker gets their own 90-day grant).
-pub const REUSABLE_ALPHA_CODE: &str = "bread-friend";
+pub const REUSABLE_ALPHA_CODE: &str = "bread";
 
 /// True when `code` matches the reusable friend alpha code (trim + case-insensitive).
 pub fn is_reusable_alpha_code(code: &str) -> bool {
@@ -1251,9 +1251,9 @@ mod tests {
 
     #[test]
     fn reusable_alpha_code_match_is_case_insensitive() {
-        assert!(is_reusable_alpha_code("bread-friend"));
-        assert!(is_reusable_alpha_code("Bread-Friend"));
-        assert!(is_reusable_alpha_code("  BREAD-FRIEND  "));
+        assert!(is_reusable_alpha_code("bread"));
+        assert!(is_reusable_alpha_code("Bread"));
+        assert!(is_reusable_alpha_code("  BREAD  "));
         assert!(!is_reusable_alpha_code("bread-fiend"));
     }
 

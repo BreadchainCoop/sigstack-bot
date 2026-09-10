@@ -304,7 +304,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reusable_bread_friend_grants_two_owners() {
+    async fn reusable_bread_grants_two_owners() {
         let store = EntitlementsStore::new_in_memory();
         let handler = LinkHandler::new(store.clone());
 
@@ -313,10 +313,7 @@ mod tests {
             .await
             .unwrap();
         assert!(a.contains("Linked"), "{a}");
-        let b = handler
-            .execute(&dm("!link Bread-Friend", "uuid-b"))
-            .await
-            .unwrap();
+        let b = handler.execute(&dm("!link Bread", "uuid-b")).await.unwrap();
         assert!(b.contains("Linked"), "{b}");
         assert_eq!(store.get_individual("uuid-a").len(), 1);
         assert_eq!(store.get_individual("uuid-b").len(), 1);

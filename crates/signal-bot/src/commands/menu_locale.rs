@@ -169,11 +169,6 @@ MENUS:
 !translation-in-chat
 !transcription
 
-GUIDES:
-!help-threads
-!help-in-chat
-!help-transcription
-
 OTHER:
 !info
 !privacy
@@ -235,9 +230,6 @@ const TRANSLATION_THREADS_MENU: &str = r#"Join/Create Language Thread
 examples:
    !translate-me-thread es
    !translate-me-thread es en
-
-Language Threads: unlimited sidecars; main stays multilingual.
-Bilingual Threads: exactly two languages, one sidecar; each room is assigned a language and the bot translates both ways.
 
 !enable-in-chat (disable threads)
 !help"#;
@@ -376,6 +368,10 @@ mod tests {
         assert!(h.contains("!transcription"));
         assert!(h.contains("!privacy"));
         assert!(h.contains("!info"));
+        assert!(!h.contains("GUIDES:"));
+        assert!(!h.contains("!help-threads"));
+        assert!(!h.contains("!help-in-chat"));
+        assert!(!h.contains("!help-transcription"));
         assert!(!h.contains("Language Threads\n"));
         assert!(!h.contains("In-chat translation\n"));
         assert!(!h.contains("  "));

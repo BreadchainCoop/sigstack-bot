@@ -15,8 +15,6 @@ examples:
    !translate-me-thread es
    !translate-me-thread es en
 
-Language Threads: unlimited sidecars; main stays multilingual.
-Bilingual Threads: exactly two languages, one sidecar; each room is assigned a language and the bot translates both ways.
 
 !enable-in-chat (disable threads)
 !help`;

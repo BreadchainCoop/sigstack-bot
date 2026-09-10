@@ -282,7 +282,9 @@ export const en: SiteContent = {
 			copyLabel: 'Copy command',
 			copyDoneLabel: 'Copied',
 			messageCta: 'Message Sigstack',
-			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM Sigstack.'
+			signalLinkMissing: 'Signal link not configured yet—ask your organizer how to DM Sigstack.',
+			enableNext:
+				'After you link, create or open a Signal group, invite Sigstack, then run !enable-sigstack so everyone in that chat can use Sigstack.'
 		}
 	},
 	legalPrivacy: {

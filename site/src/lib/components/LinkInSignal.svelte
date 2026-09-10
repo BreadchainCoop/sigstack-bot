@@ -10,7 +10,8 @@
 		copyDoneLabel,
 		messageCta,
 		signalLinkMissing,
-		signalUsernameLink
+		signalUsernameLink,
+		nextStep
 	}: {
 		code: string;
 		heading: string;
@@ -20,6 +21,7 @@
 		messageCta: string;
 		signalLinkMissing: string;
 		signalUsernameLink: string;
+		nextStep?: string;
 	} = $props();
 
 	let copied = $state(false);
@@ -73,6 +75,9 @@
 			<p class="missing-link muted" role="status">{signalLinkMissing}</p>
 		{/if}
 	</div>
+	{#if nextStep}
+		<p class="next-step muted">{nextStep}</p>
+	{/if}
 </section>
 
 <style>
@@ -127,6 +132,12 @@
 	.missing-link {
 		margin: 0;
 		max-width: 28rem;
+		font-size: 0.95rem;
+	}
+
+	.next-step {
+		margin: var(--space-4) 0 0;
+		max-width: 36rem;
 		font-size: 0.95rem;
 	}
 

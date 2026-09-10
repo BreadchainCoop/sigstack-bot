@@ -125,6 +125,7 @@ export type SiteContent = {
 			copyDoneLabel: string;
 			messageCta: string;
 			signalLinkMissing: string;
+			enableNext: string;
 		};
 	};
 	legalPrivacy: {

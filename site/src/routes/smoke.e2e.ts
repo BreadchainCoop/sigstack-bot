@@ -162,6 +162,7 @@ test.describe('smoke', () => {
 		);
 		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toHaveCount(0);
 		await expect(page.getByRole('heading', { name: 'Link in Signal' })).toBeVisible();
+		await expect(page.getByText('!enable-sigstack', { exact: false })).toBeVisible();
 		await expect(page.locator('.link-steps')).toHaveCount(0);
 	});
 

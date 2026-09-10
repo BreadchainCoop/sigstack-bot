@@ -85,6 +85,7 @@
 			messageCta={copy.messageCta}
 			signalLinkMissing={copy.signalLinkMissing}
 			{signalUsernameLink}
+			nextStep={copy.enableNext}
 		/>
 	</div>
 {/if}

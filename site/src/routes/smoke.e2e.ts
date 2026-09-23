@@ -24,7 +24,7 @@ test.describe('smoke', () => {
 	test('get started shows organizer steps and hub commands', async ({ page }) => {
 		await page.goto('./get-started/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Getting started' })).toBeVisible();
-		await expect(page.getByText('Add Sigstack')).toBeVisible();
+		await expect(page.getByText('Invite Sigstack', { exact: true })).toBeVisible();
 		await expect(page.getByText('!help / !info')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Language Threads' }).first()).toBeVisible();
 	});

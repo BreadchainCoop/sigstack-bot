@@ -20,7 +20,7 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 
 ## Commerce / Stripe / entitlements
 
-**Current epic:** [Epic: CipherSlate commerce — Stripe, entitlements, alpha](https://github.com/BreadchainCoop/sigstack-bot/issues/68) (children #53, #55–#65, #70)  
+**Current epic:** [Epic: CipherSlate commerce — Stripe, entitlements, alpha](https://github.com/BreadchainCoop/sigstack-bot/issues/68) (children #53, #55–#65, #70, #79)  
 **Superseded:** [#13](https://github.com/BreadchainCoop/sigstack-bot/issues/13) (closed — education / early site scope done)
 
 ### Fast alpha (outside epic)
@@ -34,7 +34,7 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | # | Title | Notes |
 |---|--------|--------|
 | [52](https://github.com/BreadchainCoop/sigstack-bot/issues/52) | decision: stripe checkout and webhook hosting architecture | **Accepted Option A** — [`docs/plans/2026-09-22-stripe-cvm-commerce-sidecar.md`](../../docs/plans/2026-09-22-stripe-cvm-commerce-sidecar.md) |
-| [54](https://github.com/BreadchainCoop/sigstack-bot/issues/54) | ops: stripe products and prices for cipherslate plans | Catalog: `all-access-3` / `all-access-10` (+ alpha); see `docs/commerce/stripe-catalog.md` |
+| [54](https://github.com/BreadchainCoop/sigstack-bot/issues/54) | ops: stripe products and prices for cipherslate plans | Closed; SKUs + seed script. Remaining run → #79 |
 | [77](https://github.com/BreadchainCoop/sigstack-bot/issues/77) | ops: subscriber backup and wipe recovery for paid entitlements | Rebuild from Stripe and/or cancel+notify if `entitlements.enc` wiped |
 
 ### Epic children (#68)
@@ -54,8 +54,9 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | [64](https://github.com/BreadchainCoop/sigstack-bot/issues/64) | feat: deploy commerce service and entitlements on phala cvm | |
 | [65](https://github.com/BreadchainCoop/sigstack-bot/issues/65) | test: commerce and entitlement e2e test plan | |
 | [70](https://github.com/BreadchainCoop/sigstack-bot/issues/70) | feat: alpha coexistence with Stripe link and paid gating | After Stripe `!link` spine |
+| [79](https://github.com/BreadchainCoop/sigstack-bot/issues/79) | ops: seed stripe test catalog and write price ids to docs | Needs `sk_test_…`; fills `docs/commerce/stripe-catalog.md` |
 
-**Recommended order (epic [#68](https://github.com/BreadchainCoop/sigstack-bot/issues/68)):** foundation #53+#62 (done) → parallel #63/#65 + related #52/#54 → #54→#55→#56 → #57 → #58 → #70 → #61 → #64 → finish #65 before prod enforce. Fast alpha #69 is **outside** this epic. Full write-up on the epic issue.
+**Recommended order (epic [#68](https://github.com/BreadchainCoop/sigstack-bot/issues/68)):** foundation #53+#62 (done) → parallel #63/#65 + #79 + related #52/#54 → #79→#55→#56 → #57 → #58 → #70 → #61 → #64 → finish #65 before prod enforce. Fast alpha #69 is **outside** this epic. Full write-up on the epic issue.
 
 ## Product suite / architecture
 

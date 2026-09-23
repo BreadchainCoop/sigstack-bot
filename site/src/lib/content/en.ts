@@ -96,20 +96,20 @@ export const en: SiteContent = {
 		},
 		getStarted: {
 			title: 'Getting started',
-			lead: 'Organizer checklist — the commands people actually type in Signal.',
+			lead: 'After you link, invite Sigstack to your Signal group and enable it.',
 			eyebrow: 'Organizers',
 			steps: [
 				{
-					title: 'Add Sigstack',
-					body: 'Organizers: invite Sigstack to your Signal group (it auto-accepts). Alpha or paid users: open a DM first via the Message Sigstack button on the alpha or checkout pages, then link with `!link <code>`.'
+					title: 'Invite Sigstack',
+					body: 'Create or open a Signal group and invite Sigstack (it auto-accepts).'
+				},
+				{
+					title: 'Enable the group',
+					body: 'Send !enable-sigstack so everyone in that chat can use Sigstack.'
 				},
 				{
 					title: 'Open the hub',
 					body: 'Send !help for product menus: Language Threads, in-chat, and transcription.'
-				},
-				{
-					title: 'Pick a path',
-					body: 'Start Language Threads with !translate-me-thread <lang>, or in-chat with !translate-all-on <lang1> <lang2>, and opt into voice with !transcribe-on.'
 				}
 			],
 			hubCommandsHeading: 'Hub commands',

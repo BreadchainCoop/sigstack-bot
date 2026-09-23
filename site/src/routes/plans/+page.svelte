@@ -1,16 +1,11 @@
 <script lang="ts">
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
-	import type { PlanOffer } from '$lib/content/types';
 	import Button from '$lib/components/Button.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const { pages, meta } = $derived(getContent(getLocale()));
 	const page = $derived(pages.plans);
-
-	function scopeLabel(scope: PlanOffer['scope']) {
-		return page.scopeLabels[scope];
-	}
 </script>
 
 <svelte:head>
@@ -30,15 +25,15 @@
 	<Button href="/alpha">{page.alphaBand.ctaLabel}</Button>
 </section>
 
-<section class="section bundle" aria-labelledby="bundle-heading">
-	<p class="eyebrow accent-eyebrow">{page.bundle.eyebrow}</p>
-	<h2 id="bundle-heading">{page.bundle.title}</h2>
-	<p class="lead">{page.bundle.lead}</p>
-	<p class="bundle-note muted">{page.bundle.note}</p>
-	<div class="offer-grid bundle-grid">
-		{#each page.bundle.offers as offer, i (offer.id)}
-			<article class="panel offer" class:featured={offer.scope === 'group'} style="--offer-i: {i}">
-				<p class="eyebrow scope">{scopeLabel(offer.scope)}</p>
+<section class="section paid" aria-labelledby="paid-heading">
+	<p class="eyebrow accent-eyebrow">{page.paid.eyebrow}</p>
+	<h2 id="paid-heading">{page.paid.title}</h2>
+	<p class="lead">{page.paid.lead}</p>
+	<p class="paid-note muted">{page.paid.note}</p>
+	<div class="offer-grid paid-grid">
+		{#each page.paid.offers as offer, i (offer.id)}
+			<article class="panel offer" class:featured={offer.featured} style="--offer-i: {i}">
+				<p class="eyebrow scope">{offer.badge}</p>
 				<h3>{offer.name}</h3>
 				<p class="offer-blurb">{offer.blurb}</p>
 				<p class="price">
@@ -50,33 +45,6 @@
 			</article>
 		{/each}
 	</div>
-</section>
-
-<section class="section a-la-carte" aria-labelledby="a-la-carte-heading">
-	<h2 id="a-la-carte-heading">{page.aLaCarteHeading}</h2>
-	<p class="lead">{page.aLaCarteLead}</p>
-
-	{#each page.products as product (product.id)}
-		<section class="product-block" id={product.id}>
-			<h3 class="product-title">{product.title}</h3>
-			<p class="product-lead muted">{product.lead}</p>
-			<div class="offer-grid" class:single={product.offers.length === 1}>
-				{#each product.offers as offer, i (offer.id)}
-					<article class="panel offer" style="--offer-i: {i}">
-						<p class="eyebrow scope">{scopeLabel(offer.scope)}</p>
-						<h4 class="offer-name">{offer.name}</h4>
-						<p class="offer-blurb">{offer.blurb}</p>
-						<p class="price">
-							<span class="amount">{offer.priceLabel}</span>{#if offer.period}<span class="period"
-									>{offer.period}</span
-								>{/if}
-						</p>
-						<Button href={offer.ctaHref} variant="ghost">{offer.ctaLabel}</Button>
-					</article>
-				{/each}
-			</div>
-		</section>
-	{/each}
 </section>
 
 <p class="footnote muted">{page.footnote}</p>
@@ -113,11 +81,11 @@
 		color: var(--accent-text);
 	}
 
-	.bundle {
-		animation: bundle-in 0.55s ease-out both;
+	.paid {
+		animation: paid-in 0.55s ease-out both;
 	}
 
-	.bundle-note {
+	.paid-note {
 		max-width: 40rem;
 		margin-bottom: var(--space-5);
 		font-size: 0.95rem;
@@ -129,11 +97,7 @@
 	}
 
 	@media (min-width: 640px) {
-		.offer-grid:not(.single) {
-			grid-template-columns: repeat(2, 1fr);
-		}
-
-		.bundle-grid {
+		.paid-grid {
 			grid-template-columns: repeat(2, 1fr);
 		}
 	}
@@ -158,28 +122,6 @@
 	.offer-blurb {
 		color: var(--muted);
 		flex: 1;
-		margin-bottom: var(--space-4);
-	}
-
-	.offer-name,
-	.product-title {
-		margin: 0 0 var(--space-2);
-		font-size: 1.15rem;
-		font-weight: 700;
-		letter-spacing: -0.02em;
-	}
-
-	.product-block {
-		margin-top: var(--space-6);
-		scroll-margin-top: calc(var(--header-height) + var(--space-4));
-	}
-
-	.product-block:first-of-type {
-		margin-top: var(--space-5);
-	}
-
-	.product-lead {
-		max-width: 40rem;
 		margin-bottom: var(--space-4);
 	}
 
@@ -213,7 +155,7 @@
 		margin-bottom: var(--space-4);
 	}
 
-	@keyframes bundle-in {
+	@keyframes paid-in {
 		from {
 			opacity: 0;
 			transform: translateY(0.5rem);
@@ -236,7 +178,7 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.bundle,
+		.paid,
 		.offer {
 			animation: none;
 		}

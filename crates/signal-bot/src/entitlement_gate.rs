@@ -79,9 +79,12 @@ pub struct EntitlementGate {
 }
 
 impl EntitlementGate {
-    pub fn allow(&self, message: &BotMessage) -> Result<(), GateDeny> {
+    pub async fn allow(&self, message: &BotMessage) -> Result<(), GateDeny> {
         if !self.enforce {
             return Ok(());
+        }
+        if let Err(e) = self.store.reload_if_stale().await {
+            tracing::warn!("entitlements reload before gate failed: {e}");
         }
         check_access(&self.store, message)
     }
@@ -174,14 +177,14 @@ mod tests {
         assert!(check_access(&store, &group("!enable-sigstack", "ada", "g1")).is_ok());
     }
 
-    #[test]
-    fn gate_enforce_false_always_allows() {
+    #[tokio::test]
+    async fn gate_enforce_false_always_allows() {
         let store = EntitlementsStore::new_in_memory();
         let gate = EntitlementGate {
             store,
             enforce: false,
         };
-        assert!(gate.allow(&dm("!help", "nobody")).is_ok());
+        assert!(gate.allow(&dm("!help", "nobody")).await.is_ok());
     }
 
     #[test]

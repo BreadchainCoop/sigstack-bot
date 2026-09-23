@@ -33,8 +33,9 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 
 | # | Title | Notes |
 |---|--------|--------|
-| [52](https://github.com/BreadchainCoop/sigstack-bot/issues/52) | decision: stripe checkout and webhook hosting architecture | Decision |
+| [52](https://github.com/BreadchainCoop/sigstack-bot/issues/52) | decision: stripe checkout and webhook hosting architecture | **Accepted Option A** — [`docs/plans/2026-09-22-stripe-cvm-commerce-sidecar.md`](../../docs/plans/2026-09-22-stripe-cvm-commerce-sidecar.md) |
 | [54](https://github.com/BreadchainCoop/sigstack-bot/issues/54) | ops: stripe products and prices for cipherslate plans | Catalog: `all-access-3` / `all-access-10` (+ alpha); see `docs/commerce/stripe-catalog.md` |
+| [77](https://github.com/BreadchainCoop/sigstack-bot/issues/77) | ops: subscriber backup and wipe recovery for paid entitlements | Rebuild from Stripe and/or cancel+notify if `entitlements.enc` wiped |
 
 ### Epic children (#68)
 

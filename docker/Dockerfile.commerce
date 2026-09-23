@@ -1,16 +1,14 @@
-# Build stage
+# Build stage — signal-commerce (Stripe checkout + webhooks)
 FROM rust:1.88-alpine AS builder
 
 RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 
 WORKDIR /app
 
-# Retry slow registry downloads inside Docker
 ENV CARGO_NET_RETRY=10 \
     CARGO_HTTP_TIMEOUT=300 \
     CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
-# Cache dependencies (omit rust-toolchain.toml — same pattern as docker/Dockerfile)
 COPY Cargo.toml Cargo.lock ./
 COPY crates/signal-bot/Cargo.toml crates/signal-bot/
 COPY crates/signal-bot-core/Cargo.toml crates/signal-bot-core/
@@ -24,13 +22,14 @@ COPY crates/whisper-client/Cargo.toml crates/whisper-client/
 
 # Minimal stubs so `cargo fetch` can resolve path dependencies
 RUN mkdir -p crates/signal-bot/src/commands && \
-    echo "pub mod commands; pub mod config; pub mod error; pub mod group_preferences_store; pub mod transcribe_prefs;" > crates/signal-bot/src/lib.rs && \
+    echo "pub mod commands; pub mod config; pub mod error; pub mod group_preferences_store; pub mod transcribe_prefs; pub mod entitlements_store;" > crates/signal-bot/src/lib.rs && \
     echo "fn main() {}" > crates/signal-bot/src/main.rs && \
     echo "" > crates/signal-bot/src/commands/mod.rs && \
     echo "" > crates/signal-bot/src/config.rs && \
     echo "" > crates/signal-bot/src/error.rs && \
     echo "" > crates/signal-bot/src/group_preferences_store.rs && \
     echo "" > crates/signal-bot/src/transcribe_prefs.rs && \
+    echo "" > crates/signal-bot/src/entitlements_store.rs && \
     mkdir -p crates/signal-bot-core/src && echo "pub fn dummy() {}" > crates/signal-bot-core/src/lib.rs && \
     mkdir -p crates/signal-bot-voice/src && echo "pub fn dummy() {}" > crates/signal-bot-voice/src/lib.rs && \
     mkdir -p crates/near-ai-client/src && echo "pub fn dummy() {}" > crates/near-ai-client/src/lib.rs && \
@@ -43,38 +42,28 @@ RUN mkdir -p crates/signal-bot/src/commands && \
     echo "fn main() {}" > crates/signal-commerce/src/main.rs && \
     echo "" > crates/signal-commerce/src/lib.rs
 
-# Download all registry crates (cached layer; survives source COPY)
 RUN cargo fetch --locked
 
-# Warm compile cache (ignore stub compile errors)
-RUN cargo build --release -p signal-registration-proxy 2>/dev/null || true
+RUN cargo build --release -p signal-commerce 2>/dev/null || true
 
-# Copy actual source
 COPY crates crates
 
-# Touch source files to trigger rebuild
 RUN find crates -name "*.rs" -exec touch {} \;
 
-# Build release binary (offline: deps already fetched in cached layer above)
-RUN cargo build --release --locked --offline --bin signal-registration-proxy
+RUN cargo build --release --locked --offline --bin signal-commerce
 
 # Runtime stage
 FROM alpine:3.21
 
-# Install CA certificates for HTTPS
 RUN apk add --no-cache ca-certificates
 
-# Create data directory for encrypted registry
 RUN mkdir -p /data && chown 1000:1000 /data
 
-# Copy binary
-COPY --from=builder /app/target/release/signal-registration-proxy /signal-registration-proxy
+COPY --from=builder /app/target/release/signal-commerce /signal-commerce
 
-# Non-root user
 RUN adduser -D -u 1000 appuser
 USER appuser
 
-# Expose port
-EXPOSE 8081
+EXPOSE 8082
 
-ENTRYPOINT ["/signal-registration-proxy"]
+ENTRYPOINT ["/signal-commerce"]

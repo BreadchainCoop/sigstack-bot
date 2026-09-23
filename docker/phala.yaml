@@ -7,6 +7,7 @@
 # Build & push (linux/amd64):
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-bot-tee:latest -f docker/Dockerfile --push .
 #   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
+#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-commerce:latest -f docker/Dockerfile.commerce --push .
 #
 # First create: `phala deploy -n sigstack-translation …`
 # Later upgrades MUST use `--cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` (or the live app id)
@@ -14,7 +15,8 @@
 # See docs/one-cvm-architecture.md#cvm-storage-keep-intact
 #   phala deploy --cvm-id YOUR_CVM -c docker/phala.yaml -e docker/.phala.env --wait
 #
-# Registration proxy :8081 (phone B). Do not re-register phone A.
+# Registration proxy :8081 (phone B). Commerce :8082 (Stripe checkout + webhooks).
+# Do not re-register phone A.
 
 services:
   signal-api:
@@ -83,6 +85,32 @@ services:
       - "8081:8081"
     depends_on:
       - signal-api
+    restart: unless-stopped
+
+  signal-commerce:
+    image: ${SIGNAL_COMMERCE_IMAGE}
+    environment:
+      - SERVER__LISTEN_ADDR=0.0.0.0
+      - SERVER__PORT=8082
+      - DSTACK__SOCKET_PATH=/var/run/dstack.sock
+      - ENTITLEMENTS__PERSIST=true
+      - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
+      - ENTITLEMENTS__LEGACY_COMPOSE_HASH=${ENTITLEMENTS_LEGACY_COMPOSE_HASH:-}
+      - STRIPE__SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE__WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE__PRICE_ALL_ACCESS_3=${STRIPE_PRICE_ALL_ACCESS_3}
+      - STRIPE__PRICE_ALL_ACCESS_10=${STRIPE_PRICE_ALL_ACCESS_10}
+      - SITE__PUBLIC_BASE_URL=${SITE_PUBLIC_BASE_URL:-https://breadchaincoop.github.io/sigstack-bot/sigstack}
+      - SITE__CORS_ORIGIN=${SITE_CORS_ORIGIN:-https://breadchaincoop.github.io}
+      - LOG__LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock:ro
+      # Same volume as signal-bot — entitlements.enc (do not add a separate volume).
+      - group-prefs-translation:/data
+    ports:
+      - "8082:8082"
+    depends_on:
+      - signal-bot
     restart: unless-stopped
 
 volumes:

@@ -8,6 +8,7 @@ members = [
     "crates/dstack-client",
     "crates/signal-client",
     "crates/signal-registration-proxy",
+    "crates/signal-commerce",
     "crates/whisper-client",
 ]
 

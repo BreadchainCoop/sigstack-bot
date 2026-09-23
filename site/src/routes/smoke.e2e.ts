@@ -93,7 +93,7 @@ test.describe('smoke', () => {
 		await expect(page.getByRole('link', { name: 'Privacy Policy' }).first()).toBeVisible();
 	});
 
-	test('plans page shows Bundle and Individual/Group scopes', async ({ page }) => {
+	test('plans page shows alpha and all-access packs', async ({ page }) => {
 		await page.goto('./plans/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
 		await expect(
@@ -108,7 +108,7 @@ test.describe('smoke', () => {
 		await expect(page.getByText('All-access · 3 groups')).toBeVisible();
 		await expect(page.getByText('All-access · 10 groups')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
-		await expect(page.getByText('checkout is not live', { exact: false })).toBeVisible();
+		await expect(page.locator('.footnote')).toContainText('Paid checkout is not live yet');
 	});
 
 	test('checkout success shows link code and plan label', async ({ page }) => {

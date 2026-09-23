@@ -62,6 +62,10 @@ sequenceDiagram
 | Abandoned sessions | Expire unpaid pending tokens (24–48h TTL) so abandoned Checkouts do not litter the store |
 | CORS | Allow the GitHub Pages origin only on `POST /v1/checkout/sessions` |
 
+## Compose / env
+
+Commerce is wired in [`docker/compose.yaml`](../../docker/compose.yaml) and [`docker/phala.yaml`](../../docker/phala.yaml) as `signal-commerce` on **`:8082`**, sharing `group-prefs-translation` → `/data/entitlements.enc` with the bot. Image: `docker/Dockerfile.commerce`. Secrets via `STRIPE_*` / `SITE_*` in [`docker/.phala.env.example`](../../docker/.phala.env.example) (never commit real keys).
+
 ## Phala ingress / TLS
 
 Stripe and the browser need a **public HTTPS** URL into the CVM. Precedent: registration proxy on host port `8081`, reached via Phala gateway, e.g.

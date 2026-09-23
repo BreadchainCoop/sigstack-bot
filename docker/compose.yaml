@@ -92,6 +92,39 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  signal-commerce:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.commerce
+    environment:
+      - SERVER__LISTEN_ADDR=0.0.0.0
+      - SERVER__PORT=8082
+      - DSTACK__SOCKET_PATH=/var/run/dstack.sock
+      - ENTITLEMENTS__PERSIST=${ENTITLEMENTS_PERSIST:-true}
+      - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
+      - ENTITLEMENTS__LEGACY_COMPOSE_HASH=${ENTITLEMENTS_LEGACY_COMPOSE_HASH:-}
+      - STRIPE__SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE__WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE__PRICE_ALL_ACCESS_3=${STRIPE_PRICE_ALL_ACCESS_3:-}
+      - STRIPE__PRICE_ALL_ACCESS_10=${STRIPE_PRICE_ALL_ACCESS_10:-}
+      - SITE__PUBLIC_BASE_URL=${SITE_PUBLIC_BASE_URL:-https://breadchaincoop.github.io/sigstack-bot/sigstack}
+      - SITE__CORS_ORIGIN=${SITE_CORS_ORIGIN:-https://breadchaincoop.github.io}
+      - LOG__LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock:ro
+      - group-prefs-translation:/data
+    ports:
+      - "8082:8082"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
 volumes:
   signal-config-translation:
     driver: local

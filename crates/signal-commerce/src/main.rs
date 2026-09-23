@@ -36,6 +36,9 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    if config.stripe.secret_key.trim().is_empty() {
+        warn!("STRIPE__SECRET_KEY empty — Checkout Session create will fail until configured");
+    }
     if config.stripe.webhook_secret.trim().is_empty() {
         warn!("STRIPE__WEBHOOK_SECRET empty — webhook verification will fail");
     }

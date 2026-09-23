@@ -36,9 +36,6 @@ pub struct CheckoutMetadata {
 
 impl StripeClient {
     pub fn new(cfg: &StripeConfig) -> Result<Self> {
-        if cfg.secret_key.trim().is_empty() {
-            return Err(anyhow!("STRIPE__SECRET_KEY is required"));
-        }
         Ok(Self {
             http: Client::new(),
             secret_key: cfg.secret_key.clone(),
@@ -56,6 +53,9 @@ impl StripeClient {
         success_url: &str,
         cancel_url: &str,
     ) -> Result<CheckoutSession> {
+        if self.secret_key.trim().is_empty() {
+            return Err(anyhow!("STRIPE__SECRET_KEY is not configured"));
+        }
         let url = format!("{}/v1/checkout/sessions", self.api_base);
         let params = [
             ("mode", "subscription"),

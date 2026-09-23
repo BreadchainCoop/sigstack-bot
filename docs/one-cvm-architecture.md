@@ -47,7 +47,7 @@ Register the number against this stack’s `signal-api` (or the registration pro
 
 | Compose | CVM | Contents |
 |---------|-----|----------|
-| [`docker/phala.yaml`](../docker/phala.yaml) | 4 GB (`tdx.medium`) | `signal-api` + `signal-bot` + proxy `:8081`. **No Whisper sidecar.** |
+| [`docker/phala.yaml`](../docker/phala.yaml) | 4 GB (`tdx.medium`) | `signal-api` + `signal-bot` + proxy `:8081` + commerce `:8082`. **No Whisper sidecar.** |
 
 Live CVM: `sigstack-translation` **`0e82fa77-8b15-4dbd-89c4-9045ab911353`** (app `9adac7636fe255182f699940ffd1924960415507`). The former transcription CVM `eba19afc-0c26-4409-b026-f757928d2ef8` was deleted (idle Whisper bill). The retired second number is not re-registered; groups that still list it can remove that contact.
 

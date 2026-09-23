@@ -56,11 +56,12 @@ crates/
   signal-client/
   dstack-client/
   signal-registration-proxy/  # Ops registration helper
+  signal-commerce/            # Stripe checkout + webhooks (CVM sidecar)
 docker/
   compose.yaml                # local one-number stack
   phala.yaml                  # prod one-CVM suite
   .env.example / .phala.env.example
-  Dockerfile / Dockerfile.proxy
+  Dockerfile / Dockerfile.proxy / Dockerfile.commerce
 docs/
   one-cvm-architecture.md
   voice-transcription.md
@@ -76,15 +77,16 @@ cp docker/.env.example docker/.env
 docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
-Network: `sigstack-translation-internal`.
+Network: `sigstack-translation-internal`. Commerce listens on host **`:8082`** when Stripe env is set (see `.env.example`).
 
 ## Phala deploy
 
-Build `linux/amd64` images (bot + registration proxy only), then **in-place** upgrade the surviving CVM:
+Build `linux/amd64` images (bot + registration proxy + commerce), then **in-place** upgrade the surviving CVM:
 
 ```bash
 docker buildx build --platform linux/amd64 -t YOUR/signal-bot-tee:latest -f docker/Dockerfile --push .
 docker buildx build --platform linux/amd64 -t YOUR/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
+docker buildx build --platform linux/amd64 -t YOUR/signal-commerce:latest -f docker/Dockerfile.commerce --push .
 
 phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
   -c docker/phala.yaml -e docker/.phala.env --wait

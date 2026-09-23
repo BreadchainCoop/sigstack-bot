@@ -20,6 +20,7 @@ COPY crates/near-ai-client/Cargo.toml crates/near-ai-client/
 COPY crates/dstack-client/Cargo.toml crates/dstack-client/
 COPY crates/signal-client/Cargo.toml crates/signal-client/
 COPY crates/signal-registration-proxy/Cargo.toml crates/signal-registration-proxy/
+COPY crates/signal-commerce/Cargo.toml crates/signal-commerce/
 COPY crates/whisper-client/Cargo.toml crates/whisper-client/
 
 # Minimal stubs so `cargo fetch` can resolve path dependencies
@@ -38,7 +39,10 @@ RUN mkdir -p crates/signal-bot/src/commands && \
     mkdir -p crates/signal-client/src && echo "pub fn dummy() {}" > crates/signal-client/src/lib.rs && \
     mkdir -p crates/whisper-client/src && echo "pub fn dummy() {}" > crates/whisper-client/src/lib.rs && \
     mkdir -p crates/signal-registration-proxy/src && \
-    echo "fn main() {}" > crates/signal-registration-proxy/src/main.rs
+    echo "fn main() {}" > crates/signal-registration-proxy/src/main.rs && \
+    mkdir -p crates/signal-commerce/src && \
+    echo "fn main() {}" > crates/signal-commerce/src/main.rs && \
+    echo "" > crates/signal-commerce/src/lib.rs
 
 # Download all registry crates (cached layer; survives source COPY)
 RUN cargo fetch --locked

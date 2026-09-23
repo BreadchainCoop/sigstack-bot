@@ -1,0 +1,43 @@
+[package]
+name = "signal-commerce"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CVM Stripe checkout + webhook sidecar for Sigstack entitlements"
+
+[[bin]]
+name = "signal-commerce"
+path = "src/main.rs"
+
+[dependencies]
+signal-bot = { path = "../signal-bot" }
+dstack-client = { path = "../dstack-client" }
+
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+config.workspace = true
+dotenvy.workspace = true
+reqwest.workspace = true
+chrono.workspace = true
+hex.workspace = true
+sha2.workspace = true
+rand = "0.8"
+
+axum = "0.7"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+hmac = "0.12"
+subtle = "2.5"
+
+[dev-dependencies]
+tokio-test.workspace = true
+wiremock.workspace = true
+tempfile = "3"
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }

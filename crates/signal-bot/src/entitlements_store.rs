@@ -347,7 +347,6 @@ impl EntitlementsStore {
         store
     }
 
-    #[cfg(test)]
     pub async fn with_test_key(
         dstack: DstackClient,
         storage_path: PathBuf,
@@ -764,6 +763,82 @@ impl EntitlementsStore {
     ) -> Result<EntitlementRecord, String> {
         let updated = self.mutate_record(record_id, |r| {
             r.status = status;
+            r.updated_at = Utc::now();
+        })?;
+        self.schedule_persist();
+        Ok(updated)
+    }
+
+    /// Attach Stripe customer/subscription ids to a pending row (checkout completion).
+    ///
+    /// Clears unpaid-session `expires_at` so the pending token stays valid until `!link`.
+    pub fn attach_stripe_ids_to_pending(
+        self: &Arc<Self>,
+        link_token: &str,
+        customer_id: Option<String>,
+        subscription_id: Option<String>,
+    ) -> Result<EntitlementRecord, String> {
+        let mut pending = self.pending_by_token.write().unwrap();
+        let record = pending
+            .get_mut(link_token)
+            .ok_or_else(|| format!("unknown link_token: {link_token}"))?;
+        if let Some(c) = customer_id {
+            record.stripe_customer_id = Some(c);
+        }
+        if let Some(s) = subscription_id {
+            record.stripe_subscription_id = Some(s);
+        }
+        record.expires_at = None;
+        record.status = EntitlementStatus::Active;
+        record.updated_at = Utc::now();
+        let out = record.clone();
+        drop(pending);
+        self.schedule_persist();
+        Ok(out)
+    }
+
+    /// Find a record (pending or individual) by Stripe subscription id.
+    pub fn find_by_stripe_subscription_id(
+        &self,
+        subscription_id: &str,
+    ) -> Option<EntitlementRecord> {
+        {
+            let pending = self.pending_by_token.read().unwrap();
+            if let Some(r) = pending
+                .values()
+                .find(|r| r.stripe_subscription_id.as_deref() == Some(subscription_id))
+            {
+                return Some(r.clone());
+            }
+        }
+        let individuals = self.individuals.read().unwrap();
+        for list in individuals.values() {
+            if let Some(r) = list
+                .iter()
+                .find(|r| r.stripe_subscription_id.as_deref() == Some(subscription_id))
+            {
+                return Some(r.clone());
+            }
+        }
+        None
+    }
+
+    /// Update status (and optional `expires_at`) for the record with this subscription id.
+    pub fn update_by_stripe_subscription(
+        self: &Arc<Self>,
+        subscription_id: &str,
+        status: EntitlementStatus,
+        expires_at: Option<Option<DateTime<Utc>>>,
+    ) -> Result<EntitlementRecord, String> {
+        let id = self
+            .find_by_stripe_subscription_id(subscription_id)
+            .ok_or_else(|| format!("no entitlement for subscription {subscription_id}"))?
+            .id;
+        let updated = self.mutate_record(&id, |r| {
+            r.status = status;
+            if let Some(exp) = expires_at {
+                r.expires_at = exp;
+            }
             r.updated_at = Utc::now();
         })?;
         self.schedule_persist();

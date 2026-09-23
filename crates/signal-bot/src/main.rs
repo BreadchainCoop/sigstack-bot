@@ -84,11 +84,27 @@ async fn main() -> AppResult<()> {
 
     let handlers = Arc::new(built.handlers);
     let entitlements = EntitlementGate {
-        store: built.entitlements,
+        store: built.entitlements.clone(),
         enforce: config.entitlements.enforce,
     };
     if entitlements.enforce {
         info!("Entitlement enforcement enabled (link + enable-sigstack gate)");
+    }
+    {
+        let store = built.entitlements.clone();
+        tokio::spawn(async move {
+            let mut ticker =
+                tokio::time::interval(signal_bot::entitlements_store::ENTITLEMENTS_RELOAD_INTERVAL);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                match store.reload_if_stale().await {
+                    Ok(true) => info!("Reloaded entitlements from disk (peer write)"),
+                    Ok(false) => {}
+                    Err(e) => warn!("Periodic entitlements reload failed: {e}"),
+                }
+            }
+        });
     }
     info!("Registered {} command handlers", handlers.len());
 

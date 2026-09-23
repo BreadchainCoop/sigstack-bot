@@ -15,15 +15,22 @@ use aes_gcm::{
 };
 use chrono::{DateTime, Utc};
 use dstack_client::DstackClient;
+use fs2::FileExt;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 use tokio::fs;
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+
+/// How often the bot refreshes entitlements from disk when a peer (commerce) may have written.
+pub const ENTITLEMENTS_RELOAD_INTERVAL: std::time::Duration = std::time::Duration::from_secs(15);
 
 const DATA_VERSION: u32 = 1;
 const KEY_DERIVATION_PATH: &str = "signal-bot/entitlements";
@@ -286,6 +293,10 @@ pub struct EntitlementsStore {
     storage_path: Option<PathBuf>,
     cached_key: RwLock<Option<[u8; 32]>>,
     persist_lock: Mutex<()>,
+    /// File mtime observed at last successful load or persist (cross-process staleness).
+    loaded_mtime: RwLock<Option<SystemTime>>,
+    /// When true, [`Self::schedule_persist`] is a no-op (caller will persist under disk lock).
+    defer_persist: AtomicBool,
     legacy_compose_hashes: Vec<String>,
 }
 
@@ -300,6 +311,8 @@ impl EntitlementsStore {
             storage_path: None,
             cached_key: RwLock::new(None),
             persist_lock: Mutex::new(()),
+            loaded_mtime: RwLock::new(None),
+            defer_persist: AtomicBool::new(false),
             legacy_compose_hashes: Vec::new(),
         })
     }
@@ -319,6 +332,8 @@ impl EntitlementsStore {
             storage_path: if persist { Some(storage_path) } else { None },
             cached_key: RwLock::new(None),
             persist_lock: Mutex::new(()),
+            loaded_mtime: RwLock::new(None),
+            defer_persist: AtomicBool::new(false),
             legacy_compose_hashes,
         });
 
@@ -346,14 +361,113 @@ impl EntitlementsStore {
             storage_path: Some(storage_path),
             cached_key: RwLock::new(Some(key)),
             persist_lock: Mutex::new(()),
+            loaded_mtime: RwLock::new(None),
+            defer_persist: AtomicBool::new(false),
             legacy_compose_hashes: Vec::new(),
         });
         let _ = store.load().await;
         store
     }
 
+    fn lock_path(storage_path: &Path) -> PathBuf {
+        let mut s = storage_path.as_os_str().to_owned();
+        s.push(".lock");
+        PathBuf::from(s)
+    }
+
+    /// Exclusive advisory lock for cross-process load/persist (sibling `.lock` file).
+    ///
+    /// Runs `flock` on the blocking pool so the async runtime is not stalled (important for
+    /// `tokio::test` current-thread and for overlapping `schedule_persist` tasks).
+    async fn acquire_disk_lock(&self) -> Result<std::fs::File, String> {
+        let path = self
+            .storage_path
+            .as_ref()
+            .ok_or_else(|| "persistence not configured".to_string())?
+            .clone();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("create storage dir: {e}"))?;
+        }
+        let lock_path = Self::lock_path(&path);
+        tokio::task::spawn_blocking(move || {
+            let file = OpenOptions::new()
+                .create(true)
+                .read(true)
+                .write(true)
+                .truncate(false)
+                .open(&lock_path)
+                .map_err(|e| format!("open entitlements lock: {e}"))?;
+            file.lock_exclusive()
+                .map_err(|e| format!("lock entitlements file: {e}"))?;
+            Ok(file)
+        })
+        .await
+        .map_err(|e| format!("entitlements lock task: {e}"))?
+    }
+
+    fn disk_mtime(path: &Path) -> Option<SystemTime> {
+        std::fs::metadata(path).ok().and_then(|m| m.modified().ok())
+    }
+
+    fn remember_mtime(&self, path: &Path) {
+        *self.loaded_mtime.write().unwrap() = Self::disk_mtime(path);
+    }
+
+    /// Force reload from disk when persistence is configured. No-op for in-memory stores.
+    pub async fn reload(&self) -> Result<(), String> {
+        if self.storage_path.is_none() {
+            return Ok(());
+        }
+        self.load().await.map(|_| ())
+    }
+
+    /// Reload when the on-disk file is newer than the last load/persist.
+    ///
+    /// Returns `true` when a reload ran. No-op for in-memory stores.
+    pub async fn reload_if_stale(&self) -> Result<bool, String> {
+        let Some(path) = self.storage_path.as_ref() else {
+            return Ok(false);
+        };
+        let disk_mtime = Self::disk_mtime(path);
+        let loaded = *self.loaded_mtime.read().unwrap();
+        match (disk_mtime, loaded) {
+            (None, _) => Ok(false),
+            (Some(disk), Some(known)) if disk <= known => Ok(false),
+            (Some(_), _) => {
+                debug!("Entitlements file newer on disk; reloading");
+                self.load().await?;
+                Ok(true)
+            }
+        }
+    }
+
+    /// Hold the disk lock, reload from disk, run `f`, then persist.
+    ///
+    /// Prefer this for commerce (or any peer) read-modify-write so bot memory stays consistent.
+    /// Mutations inside `f` that call [`Self::schedule_persist`] are deferred until this returns.
+    pub async fn with_disk_lock<R>(
+        self: &Arc<Self>,
+        f: impl FnOnce(&Arc<Self>) -> R,
+    ) -> Result<R, String> {
+        if self.storage_path.is_none() {
+            return Ok(f(self));
+        }
+        // Same lock order as load/persist: persist_lock then flock.
+        let _guard = self.persist_lock.lock().await;
+        let _disk = self.acquire_disk_lock().await?;
+        self.load_unlocked().await?;
+        self.defer_persist.store(true, Ordering::SeqCst);
+        let out = f(self);
+        self.defer_persist.store(false, Ordering::SeqCst);
+        self.persist_unlocked().await?;
+        Ok(out)
+    }
+
     fn schedule_persist(self: &Arc<Self>) {
         if self.storage_path.is_none() {
+            return;
+        }
+        if self.defer_persist.load(Ordering::SeqCst) {
             return;
         }
         let store = Arc::clone(self);
@@ -831,8 +945,16 @@ impl EntitlementsStore {
     }
 
     async fn persist(&self) -> Result<(), String> {
+        if self.storage_path.is_none() {
+            return Err("persistence not configured".into());
+        }
+        // In-process first, then flock — avoids macOS same-process dual-fd flock deadlock.
         let _guard = self.persist_lock.lock().await;
+        let _disk = self.acquire_disk_lock().await?;
+        self.persist_unlocked().await
+    }
 
+    async fn persist_unlocked(&self) -> Result<(), String> {
         let path = self
             .storage_path
             .as_ref()
@@ -855,6 +977,7 @@ impl EntitlementsStore {
             .await
             .map_err(|e| format!("rename temp file: {e}"))?;
 
+        self.remember_mtime(path);
         debug!(
             "Saved encrypted entitlements ({} bytes) to {path:?}",
             data.len()
@@ -863,6 +986,15 @@ impl EntitlementsStore {
     }
 
     async fn load(&self) -> Result<usize, String> {
+        if self.storage_path.is_none() {
+            return Err("persistence not configured".into());
+        }
+        let _guard = self.persist_lock.lock().await;
+        let _disk = self.acquire_disk_lock().await?;
+        self.load_unlocked().await
+    }
+
+    async fn load_unlocked(&self) -> Result<usize, String> {
         let path = self
             .storage_path
             .as_ref()
@@ -870,6 +1002,7 @@ impl EntitlementsStore {
 
         if !path.exists() {
             info!("Entitlements file not found at {path:?}, starting fresh");
+            *self.loaded_mtime.write().unwrap() = None;
             return Ok(0);
         }
 
@@ -892,9 +1025,10 @@ impl EntitlementsStore {
         *self.groups.write().unwrap() = snapshot.groups;
         *self.pending_by_token.write().unwrap() = snapshot.pending_by_token;
         *self.cached_key.write().unwrap() = Some(preferred_key);
+        self.remember_mtime(path);
         if used_key != preferred_key {
             info!("Re-encrypting entitlements with the stable persist key");
-            self.persist().await?;
+            self.persist_unlocked().await?;
         }
         Ok(count)
     }
@@ -1349,5 +1483,74 @@ mod tests {
             .enable_sigstack("owner-1", "group.overflow".into())
             .unwrap_err();
         assert!(err.contains("up to 10 groups"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn reload_if_stale_picks_up_peer_write() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("entitlements.enc");
+        let key = [9u8; 32];
+
+        let writer =
+            EntitlementsStore::with_test_key(DstackClient::new("/x"), path.clone(), key).await;
+        let reader =
+            EntitlementsStore::with_test_key(DstackClient::new("/x"), path.clone(), key).await;
+
+        assert!(reader.get_pending("tok-peer").is_none());
+
+        writer
+            .create_pending(
+                "tok-peer".into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        writer.flush().await.unwrap();
+
+        // Ensure mtime advances on coarse filesystems.
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        // Touch via another persist if needed — flush already wrote; bump by rewriting.
+        writer.flush().await.unwrap();
+
+        assert!(reader.reload_if_stale().await.unwrap());
+        assert!(reader.get_pending("tok-peer").is_some());
+        assert!(!reader.reload_if_stale().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn with_disk_lock_persists_create_pending() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("entitlements.enc");
+        let key = [11u8; 32];
+
+        let store =
+            EntitlementsStore::with_test_key(DstackClient::new("/x"), path.clone(), key).await;
+        store
+            .with_disk_lock(|s| {
+                s.create_pending(
+                    "tok-lock".into(),
+                    PlanSku::AllAccess10,
+                    EntitlementSource::Stripe,
+                    None,
+                    Some("cus".into()),
+                    None,
+                )
+                .unwrap();
+            })
+            .await
+            .unwrap();
+
+        let reopened = EntitlementsStore::with_test_key(DstackClient::new("/x"), path, key).await;
+        assert!(reopened.get_pending("tok-lock").is_some());
+    }
+
+    #[tokio::test]
+    async fn reload_if_stale_noop_for_in_memory() {
+        let store = EntitlementsStore::new_in_memory();
+        assert!(!store.reload_if_stale().await.unwrap());
+        store.reload().await.unwrap();
     }
 }

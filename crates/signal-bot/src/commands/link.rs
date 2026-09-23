@@ -68,6 +68,9 @@ impl LinkHandler {
     }
 
     async fn handle_link(&self, message: &BotMessage) -> AppResult<String> {
+        if let Err(e) = self.entitlements.reload_if_stale().await {
+            tracing::warn!("entitlements reload before !link failed: {e}");
+        }
         let Some(code) = Self::parse_link_code(&message.text) else {
             return Ok(LINK_USAGE.into());
         };
@@ -120,6 +123,9 @@ impl LinkHandler {
     }
 
     async fn handle_enable_sigstack(&self, message: &BotMessage) -> AppResult<String> {
+        if let Err(e) = self.entitlements.reload_if_stale().await {
+            tracing::warn!("entitlements reload before !enable-sigstack failed: {e}");
+        }
         let Some(group_id) = message.group_id.as_deref() else {
             return Ok(self.enable_usage());
         };

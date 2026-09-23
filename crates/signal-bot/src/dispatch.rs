@@ -63,7 +63,7 @@ pub async fn dispatch_message(
         "Dispatching to handler"
     );
 
-    if let Err(deny) = entitlements.allow(message) {
+    if let Err(deny) = entitlements.allow(message).await {
         let response = deny.message();
         debug!(handler = label, reason = ?deny, "Entitlement gate denied");
         // Never call execute (including handles_own_reply) so NEAR/voice do not run.

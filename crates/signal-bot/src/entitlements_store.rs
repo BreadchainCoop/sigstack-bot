@@ -2,11 +2,12 @@
 //!
 //! # Plan composition (alpha vs paid)
 //!
-//! Alpha `bundle-all-alpha` grants full bundle feature coverage while `active`/`past_due`
-//! and unexpired. A **paid** (`source: stripe`) entitlement that overlaps a feature
-//! **replaces** alpha for that feature only; non-overlapping alpha coverage remains.
-//! Stripe catalog SKUs must match the site offer ids in `site/src/lib/content/en.ts`
-//! (plus `bundle-all-alpha`); do not invent `-me` aliases here.
+//! Alpha `bundle-all-alpha` and paid all-access packs grant full product coverage while
+//! `active`/`past_due` and unexpired. A **paid** (`source: stripe`) entitlement that
+//! overlaps a feature **replaces** alpha for that feature only; non-overlapping alpha
+//! coverage remains. Paid packs cap how many Signal groups the subscriber may enable
+//! via `!enable-sigstack`; alpha is uncapped. Stripe catalog SKUs must match the site
+//! offer ids in `site/src/lib/content/en.ts` (plus `bundle-all-alpha`).
 
 use aes_gcm::{
     aead::{Aead, KeyInit},
@@ -28,57 +29,52 @@ const DATA_VERSION: u32 = 1;
 const KEY_DERIVATION_PATH: &str = "signal-bot/entitlements";
 const NONCE_SIZE: usize = 12;
 
+/// Full product access (threads + in-chat + transcription), individual and group axes.
+const ALL_ACCESS_GRANTS: &[FeatureGrant] = &[
+    FeatureGrant::ThreadsIndividual,
+    FeatureGrant::InChatMe,
+    FeatureGrant::TranscriptionIndividual,
+    FeatureGrant::ThreadsGroup,
+    FeatureGrant::InChatAll,
+];
+
 /// Plan SKU strings aligned with `site/src/lib/content/en.ts` offer `id`s, plus alpha.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PlanSku {
-    BundleIndividual,
-    BundleGroup,
-    ThreadsIndividual,
-    ThreadsGroup,
-    InChatMe,
-    InChatAll,
-    TranscriptionIndividual,
-    /// Commerce alpha: full Bundle-all for a limited window (`source: alpha`).
+    /// Paid: all-access for all members in up to 3 enabled groups.
+    #[serde(rename = "all-access-3")]
+    AllAccess3,
+    /// Paid: all-access for all members in up to 10 enabled groups.
+    #[serde(rename = "all-access-10")]
+    AllAccess10,
+    /// Commerce alpha: full all-access for a limited window (`source: alpha`), uncapped groups.
     BundleAllAlpha,
 }
 
 impl PlanSku {
-    /// Group-scoped catalog SKUs (claimed against a Signal group `internal_id`).
-    pub fn is_group_scope(self) -> bool {
-        matches!(
-            self,
-            Self::BundleGroup | Self::ThreadsGroup | Self::InChatAll
-        )
-    }
-
     /// Feature grants implied by this SKU (before alpha/paid composition).
     pub fn grants(self) -> &'static [FeatureGrant] {
         match self {
-            Self::BundleIndividual => &[
-                FeatureGrant::ThreadsIndividual,
-                FeatureGrant::InChatMe,
-                FeatureGrant::TranscriptionIndividual,
-            ],
-            Self::BundleAllAlpha => &[
-                FeatureGrant::ThreadsIndividual,
-                FeatureGrant::InChatMe,
-                FeatureGrant::TranscriptionIndividual,
-                FeatureGrant::ThreadsGroup,
-                FeatureGrant::InChatAll,
-            ],
-            Self::BundleGroup => &[FeatureGrant::ThreadsGroup, FeatureGrant::InChatAll],
-            Self::ThreadsIndividual => &[FeatureGrant::ThreadsIndividual],
-            Self::ThreadsGroup => &[FeatureGrant::ThreadsGroup],
-            Self::InChatMe => &[FeatureGrant::InChatMe],
-            Self::InChatAll => &[FeatureGrant::InChatAll],
-            Self::TranscriptionIndividual => &[FeatureGrant::TranscriptionIndividual],
+            Self::AllAccess3 | Self::AllAccess10 | Self::BundleAllAlpha => ALL_ACCESS_GRANTS,
         }
     }
 
     /// Whether this SKU may enable a Signal group (`!enable-sigstack`).
     pub fn is_group_claimable(self) -> bool {
-        self.is_group_scope() || matches!(self, Self::BundleAllAlpha)
+        matches!(
+            self,
+            Self::AllAccess3 | Self::AllAccess10 | Self::BundleAllAlpha
+        )
+    }
+
+    /// Max groups the subscriber may enable; `None` = uncapped (alpha).
+    pub fn max_groups(self) -> Option<usize> {
+        match self {
+            Self::AllAccess3 => Some(3),
+            Self::AllAccess10 => Some(10),
+            Self::BundleAllAlpha => None,
+        }
     }
 }
 
@@ -127,11 +123,10 @@ pub struct EntitlementRecord {
     pub owner_uuid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link_token: Option<String>,
-    /// Paid one-group claim (legacy / future Stripe group SKUs). Prefer
-    /// `enabled_group_ids` for alpha multi-group `!enable-sigstack`.
+    /// Legacy single-group claim field; prefer `enabled_group_ids` for multi-group packs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claimed_group_id: Option<String>,
-    /// Groups enabled via `!enable-sigstack` (alpha may enable many).
+    /// Groups enabled via `!enable-sigstack` (alpha uncapped; paid packs respect `max_groups`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_group_ids: Vec<String>,
     pub created_at: DateTime<Utc>,
@@ -268,13 +263,6 @@ pub fn compose_effective_grants(
             EntitlementSource::Alpha => &mut alpha,
         };
         for grant in record.plan_sku.grants() {
-            // bundle-all-alpha includes group features even on individual records.
-            if record.plan_sku.is_group_scope() && record.claimed_group_id.is_none() {
-                // Unclaimed group SKU does not yet grant group features.
-                if matches!(grant, FeatureGrant::ThreadsGroup | FeatureGrant::InChatAll) {
-                    continue;
-                }
-            }
             target.insert(*grant);
         }
     }
@@ -535,7 +523,7 @@ impl EntitlementsStore {
         Ok(record)
     }
 
-    /// Enable Sigstack in a Signal group (alpha may enable many groups).
+    /// Enable Sigstack in a Signal group (alpha uncapped; paid packs respect `max_groups`).
     ///
     /// Idempotent when this owner's entitlement already sponsors `group_id`, or when
     /// any active sponsor already enabled the group.
@@ -575,14 +563,23 @@ impl EntitlementsStore {
         let list = individuals
             .get_mut(owner_uuid)
             .ok_or_else(|| format!("no entitlements for owner {owner_uuid}"))?;
-        let pos = list.iter().position(|r| {
-            r.plan_sku.is_group_claimable() && r.is_granting_at(now)
-        }).ok_or_else(|| {
-            "no enableable entitlement found; link an alpha (or group) plan with !link <code> first"
-                .to_string()
-        })?;
+        let pos = list
+            .iter()
+            .position(|r| r.plan_sku.is_group_claimable() && r.is_granting_at(now))
+            .ok_or_else(|| {
+                "no enableable entitlement found; link an alpha or all-access plan with !link <code> first"
+                    .to_string()
+            })?;
 
         if !list[pos].enabled_group_ids.iter().any(|g| g == &group_id) {
+            if let Some(max) = list[pos].plan_sku.max_groups() {
+                let current = Self::record_sponsored_groups(&list[pos]).len();
+                if current >= max {
+                    return Err(format!(
+                        "this plan covers up to {max} groups; upgrade on the Plans page for more"
+                    ));
+                }
+            }
             list[pos].enabled_group_ids.push(group_id.clone());
         }
         list[pos].updated_at = now;
@@ -1042,12 +1039,13 @@ mod tests {
         let dstack = DstackClient::new("/nonexistent/dstack.sock");
 
         let store = EntitlementsStore::with_test_key(dstack, path.clone(), key).await;
-        let mut individual = sample_record("uuid-1", PlanSku::InChatMe, EntitlementSource::Stripe);
+        let mut individual =
+            sample_record("uuid-1", PlanSku::AllAccess3, EntitlementSource::Stripe);
         individual.stripe_customer_id = Some("cus_test".into());
         store.upsert(individual.clone()).unwrap();
 
         let mut group_sku =
-            sample_record("uuid-1", PlanSku::ThreadsGroup, EntitlementSource::Stripe);
+            sample_record("uuid-1", PlanSku::AllAccess10, EntitlementSource::Stripe);
         group_sku.claimed_group_id = Some("group.internal".into());
         store.upsert(group_sku.clone()).unwrap();
 
@@ -1056,9 +1054,11 @@ mod tests {
         let store2 = EntitlementsStore::with_test_key(DstackClient::new("/x"), path, key).await;
         let loaded = store2.get_individual("uuid-1");
         assert_eq!(loaded.len(), 2);
-        assert!(loaded.iter().any(|r| r.plan_sku == PlanSku::InChatMe));
-        assert!(loaded.iter().any(|r| r.plan_sku == PlanSku::ThreadsGroup
-            && r.claimed_group_id.as_deref() == Some("group.internal")));
+        assert!(loaded.iter().any(|r| r.plan_sku == PlanSku::AllAccess3));
+        assert!(loaded.iter().any(|r| {
+            r.plan_sku == PlanSku::AllAccess10
+                && r.claimed_group_id.as_deref() == Some("group.internal")
+        }));
         assert_eq!(store2.get_group("group.internal").len(), 1);
     }
 
@@ -1066,9 +1066,9 @@ mod tests {
     fn expire_due_marks_past_expires_at() {
         let store = EntitlementsStore::new_in_memory();
         let now = Utc::now();
-        let mut past = sample_record("u1", PlanSku::InChatMe, EntitlementSource::Alpha);
+        let mut past = sample_record("u1", PlanSku::AllAccess3, EntitlementSource::Alpha);
         past.expires_at = Some(now - Duration::hours(1));
-        let mut future = sample_record("u1", PlanSku::ThreadsIndividual, EntitlementSource::Alpha);
+        let mut future = sample_record("u1", PlanSku::BundleAllAlpha, EntitlementSource::Alpha);
         future.expires_at = Some(now + Duration::hours(1));
         store.upsert(past.clone()).unwrap();
         store.upsert(future.clone()).unwrap();
@@ -1087,7 +1087,7 @@ mod tests {
         let pending = store
             .create_pending(
                 "tok-abc".into(),
-                PlanSku::BundleIndividual,
+                PlanSku::AllAccess3,
                 EntitlementSource::Stripe,
                 None,
                 Some("cus_1".into()),
@@ -1110,7 +1110,7 @@ mod tests {
     #[test]
     fn claim_group_indexes_under_groups() {
         let store = EntitlementsStore::new_in_memory();
-        let record = sample_record("owner-1", PlanSku::InChatAll, EntitlementSource::Stripe);
+        let record = sample_record("owner-1", PlanSku::AllAccess3, EntitlementSource::Stripe);
         let id = record.id.clone();
         store.upsert(record).unwrap();
 
@@ -1193,21 +1193,17 @@ mod tests {
             r.expires_at = Some(now + Duration::days(90));
             r
         };
-        let paid = sample_record("u", PlanSku::InChatMe, EntitlementSource::Stripe);
+        let paid = sample_record("u", PlanSku::AllAccess3, EntitlementSource::Stripe);
 
         let grants = compose_effective_grants(&[alpha, paid], &[], now);
-        assert_eq!(
-            grants.get(&FeatureGrant::InChatMe),
-            Some(&EntitlementSource::Stripe)
-        );
-        assert_eq!(
-            grants.get(&FeatureGrant::ThreadsIndividual),
-            Some(&EntitlementSource::Alpha)
-        );
-        assert_eq!(
-            grants.get(&FeatureGrant::TranscriptionIndividual),
-            Some(&EntitlementSource::Alpha)
-        );
+        // Paid all-access overlaps every feature → Stripe wins across the board.
+        for grant in ALL_ACCESS_GRANTS {
+            assert_eq!(
+                grants.get(grant),
+                Some(&EntitlementSource::Stripe),
+                "{grant:?}"
+            );
+        }
     }
 
     #[test]
@@ -1217,7 +1213,7 @@ mod tests {
             "u1".into(),
             vec![sample_record(
                 "u1",
-                PlanSku::TranscriptionIndividual,
+                PlanSku::AllAccess3,
                 EntitlementSource::Stripe,
             )],
         );
@@ -1296,17 +1292,20 @@ mod tests {
     #[test]
     fn plan_sku_serde_matches_site_ids() {
         assert_eq!(
-            serde_json::to_string(&PlanSku::BundleIndividual).unwrap(),
-            "\"bundle-individual\""
+            serde_json::to_string(&PlanSku::AllAccess3).unwrap(),
+            "\"all-access-3\""
         );
         assert_eq!(
-            serde_json::to_string(&PlanSku::InChatMe).unwrap(),
-            "\"in-chat-me\""
+            serde_json::to_string(&PlanSku::AllAccess10).unwrap(),
+            "\"all-access-10\""
         );
         assert_eq!(
             serde_json::to_string(&PlanSku::BundleAllAlpha).unwrap(),
             "\"bundle-all-alpha\""
         );
+        assert_eq!(PlanSku::AllAccess3.max_groups(), Some(3));
+        assert_eq!(PlanSku::AllAccess10.max_groups(), Some(10));
+        assert_eq!(PlanSku::BundleAllAlpha.max_groups(), None);
     }
 
     #[test]
@@ -1317,10 +1316,38 @@ mod tests {
     }
 
     #[test]
-    fn unclaimed_group_sku_does_not_grant_group_features() {
-        let now = Utc::now();
-        let unclaimed = sample_record("u", PlanSku::InChatAll, EntitlementSource::Stripe);
-        let grants = compose_effective_grants(&[unclaimed], &[], now);
-        assert!(!grants.contains_key(&FeatureGrant::InChatAll));
+    fn enable_sigstack_enforces_all_access_3_cap() {
+        let store = EntitlementsStore::new_in_memory();
+        let record = sample_record("owner-1", PlanSku::AllAccess3, EntitlementSource::Stripe);
+        store.upsert(record).unwrap();
+
+        for gid in ["group.a", "group.b", "group.c"] {
+            store
+                .enable_sigstack("owner-1", gid.into())
+                .unwrap_or_else(|e| panic!("enable {gid}: {e}"));
+        }
+        let err = store
+            .enable_sigstack("owner-1", "group.d".into())
+            .unwrap_err();
+        assert!(err.contains("up to 3 groups"), "{err}");
+        assert!(!store.is_group_enabled("group.d", Utc::now()));
+        // Idempotent re-enable of an existing group still succeeds.
+        store.enable_sigstack("owner-1", "group.a".into()).unwrap();
+    }
+
+    #[test]
+    fn enable_sigstack_enforces_all_access_10_cap() {
+        let store = EntitlementsStore::new_in_memory();
+        let record = sample_record("owner-1", PlanSku::AllAccess10, EntitlementSource::Stripe);
+        store.upsert(record).unwrap();
+
+        for i in 0..10 {
+            let gid = format!("group.{i}");
+            store.enable_sigstack("owner-1", gid).unwrap();
+        }
+        let err = store
+            .enable_sigstack("owner-1", "group.overflow".into())
+            .unwrap_err();
+        assert!(err.contains("up to 10 groups"), "{err}");
     }
 }

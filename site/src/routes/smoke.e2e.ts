@@ -93,32 +93,28 @@ test.describe('smoke', () => {
 		await expect(page.getByRole('link', { name: 'Privacy Policy' }).first()).toBeVisible();
 	});
 
-	test('plans page shows Bundle and Individual/Group scopes', async ({ page }) => {
+	test('plans page shows alpha and all-access packs', async ({ page }) => {
 		await page.goto('./plans/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Plans' })).toBeVisible();
 		await expect(
 			page.getByRole('heading', { level: 2, name: 'Try Sigstack free with an alpha code' })
 		).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Redeem alpha code' })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 2, name: 'Sigstack Bundle' })).toBeVisible();
-		await expect(page.getByText('TBD').first()).toBeVisible();
-		await expect(page.getByText('Individual').first()).toBeVisible();
-		await expect(page.getByText('Group').first()).toBeVisible();
-		await expect(page.getByRole('heading', { level: 2, name: 'À la carte' })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 3, name: 'Language Threads' })).toBeVisible();
-		await expect(page.getByText('Language Threads · me')).toBeVisible();
-		await expect(page.getByText('Language Threads · group')).toBeVisible();
-		await expect(page.getByRole('heading', { level: 3, name: 'In-chat Translation' })).toBeVisible();
-		await expect(page.getByText('In-chat · me')).toBeVisible();
-		await expect(page.getByText('In-chat · all')).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'All-access packs' })).toBeVisible();
+		await expect(page.getByText('$10').first()).toBeVisible();
+		await expect(page.getByText('$25').first()).toBeVisible();
+		await expect(page.getByText('Up to 3 groups').first()).toBeVisible();
+		await expect(page.getByText('Up to 10 groups').first()).toBeVisible();
+		await expect(page.getByText('All-access · 3 groups')).toBeVisible();
+		await expect(page.getByText('All-access · 10 groups')).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
-		await expect(page.getByText('Paid pricing is not finalized', { exact: false })).toBeVisible();
+		await expect(page.locator('.footnote')).toContainText('Paid checkout is not live yet');
 	});
 
 	test('checkout success shows link code and plan label', async ({ page }) => {
-		await page.goto('./checkout/success/?code=test-code-1&plan=bundle-individual');
+		await page.goto('./checkout/success/?code=test-code-1&plan=all-access-3');
 		await expect(page.getByRole('heading', { level: 1, name: 'You are subscribed' })).toBeVisible();
-		await expect(page.getByText('Plan purchased: Bundle · Individual.')).toBeVisible();
+		await expect(page.getByText('Plan purchased: All-access · 3 groups.')).toBeVisible();
 		await expect(page.getByText('!link test-code-1')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Message Sigstack' })).toHaveAttribute(

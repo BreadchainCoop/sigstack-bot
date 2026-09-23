@@ -123,125 +123,46 @@ export const en: SiteContent = {
 		},
 		plans: {
 			title: 'Plans',
-			lead: 'Pick a Bundle for all three products, or pay à la carte. Individual plans cover you; Group plans cover a whole Signal chat where the product works that way.',
+			lead: 'Start with an alpha code, or subscribe for all-access in your Signal groups. Every member in an enabled group gets Language Threads, In-chat Translation, and Transcription.',
 			alphaBand: {
 				eyebrow: 'Alpha',
 				title: 'Try Sigstack free with an alpha code',
-				lead: 'Full Bundle access for 90 days—no checkout. Redeem your code, open a Signal DM, and send `!link`.',
+				lead: 'Full all-access for 90 days—no checkout. Redeem your code, open a Signal DM, send `!link`, then `!enable-sigstack` in each group.',
 				ctaLabel: 'Redeem alpha code'
 			},
-			bundle: {
-				eyebrow: 'Package',
-				title: 'Sigstack Bundle',
-				lead: 'Access to Language Threads, In-chat Translation, and Transcription in one subscription.',
-				note: 'Language Threads and In-chat auto cannot run at the same time—choose one translation mode. Voice pairs with either.',
+			paid: {
+				eyebrow: 'Subscribe',
+				title: 'All-access packs',
+				lead: 'One subscription unlocks every product for all members in the groups you enable.',
+				note: 'Language Threads and In-chat auto cannot run at the same time—choose one translation mode. Voice pairs with either. Checkout is not live yet.',
 				offers: [
 					{
-						id: 'bundle-individual',
-						name: 'Bundle · Individual',
-						scope: 'individual',
+						id: 'all-access-3',
+						name: 'All-access · 3 groups',
+						badge: 'Up to 3 groups',
 						blurb:
-							'Language Threads, In-chat me, and Transcription for one person. Self-subscribe in any group where the bot is present.',
-						priceLabel: 'TBD',
-						period: '',
+							'Enable Sigstack in up to three Signal groups. Every member in those chats gets full product access.',
+						priceLabel: '$10',
+						period: '/mo',
 						ctaHref: '/get-started',
 						ctaLabel: 'Get started'
 					},
 					{
-						id: 'bundle-group',
-						name: 'Bundle · Group',
-						scope: 'group',
+						id: 'all-access-10',
+						name: 'All-access · 10 groups',
+						badge: 'Up to 10 groups',
 						blurb:
-							'Everything in Individual, plus In-chat all for one Signal group—bilingual quote-replies for every member.',
-						priceLabel: 'TBD',
-						period: '',
+							'Same all-access model for larger organizers—up to ten groups, all members included.',
+						priceLabel: '$25',
+						period: '/mo',
 						ctaHref: '/get-started',
-						ctaLabel: 'Get started'
+						ctaLabel: 'Get started',
+						featured: true
 					}
 				]
 			},
-			aLaCarteHeading: 'À la carte',
-			aLaCarteLead: 'Subscribe to one product. Scope follows how the feature works in Signal.',
-			products: [
-				{
-					id: 'language-threads',
-					title: 'Language Threads',
-					lead: 'Self-subscribe to a monolingual sidecar lane, or cover the whole multilingual main with a Group plan.',
-					offers: [
-						{
-							id: 'threads-individual',
-							name: 'Language Threads · me',
-							scope: 'individual',
-							blurb: 'You join or create a Language Thread for yourself (`!translate-me-thread`).',
-							priceLabel: 'TBD',
-							period: '',
-							ctaHref: '/products#language-threads',
-							ctaLabel: 'Learn more'
-						},
-						{
-							id: 'threads-group',
-							name: 'Language Threads · group',
-							scope: 'group',
-							blurb:
-								'Language Threads for one multilingual main—sidecars for every language lane the group needs.',
-							priceLabel: 'TBD',
-							period: '',
-							ctaHref: '/products#language-threads',
-							ctaLabel: 'Learn more'
-						}
-					]
-				},
-				{
-					id: 'in-chat',
-					title: 'In-chat Translation',
-					lead: 'Stay in one bilingual chat. Me is per person; All covers the whole group.',
-					offers: [
-						{
-							id: 'in-chat-me',
-							name: 'In-chat · me',
-							scope: 'individual',
-							blurb: 'Auto-translate your messages only (`!translate-me-on`).',
-							priceLabel: 'TBD',
-							period: '',
-							ctaHref: '/products#in-chat',
-							ctaLabel: 'Learn more'
-						},
-						{
-							id: 'in-chat-all',
-							name: 'In-chat · all',
-							scope: 'group',
-							blurb: 'Group-wide bilingual quote-replies (`!translate-all-on`).',
-							priceLabel: 'TBD',
-							period: '',
-							ctaHref: '/products#in-chat',
-							ctaLabel: 'Learn more'
-						}
-					]
-				},
-				{
-					id: 'transcription',
-					title: 'Transcription',
-					lead: 'Voice notes become text so members who cannot listen still follow along.',
-					offers: [
-						{
-							id: 'transcription-individual',
-							name: 'Transcription',
-							scope: 'individual',
-							blurb: 'Per-person auto transcription (`!transcribe-on`).',
-							priceLabel: 'TBD',
-							period: '',
-							ctaHref: '/products#transcription',
-							ctaLabel: 'Learn more'
-						}
-					]
-				}
-			],
-			scopeLabels: {
-				individual: 'Individual',
-				group: 'Group'
-			},
 			footnote:
-				'Paid pricing is not finalized yet. Alpha access is free with a code; checkout is not live.'
+				'Alpha is free with a code. Paid checkout is not live yet—Get started covers organizer setup until Stripe is wired.'
 		},
 		checkoutSuccess: {
 			title: 'You are subscribed',

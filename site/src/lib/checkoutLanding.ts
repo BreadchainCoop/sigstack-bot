@@ -24,15 +24,8 @@ export function planLabelFromSku(sku: string | null, content: SiteContent): stri
 	const id = sku.trim();
 	if (!id) return null;
 
-	const fromBundle = content.pages.plans.bundle.offers.find((o) => o.id === id);
-	if (fromBundle) return fromBundle.name;
-
-	for (const product of content.pages.plans.products) {
-		const offer = product.offers.find((o) => o.id === id);
-		if (offer) return offer.name;
-	}
-
-	return null;
+	const offer = content.pages.plans.paid.offers.find((o) => o.id === id);
+	return offer?.name ?? null;
 }
 
 /** Format the Signal command shown on success / alpha landings. */

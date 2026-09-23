@@ -34,7 +34,7 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | # | Title | Notes |
 |---|--------|--------|
 | [52](https://github.com/BreadchainCoop/sigstack-bot/issues/52) | decision: stripe checkout and webhook hosting architecture | Decision |
-| [54](https://github.com/BreadchainCoop/sigstack-bot/issues/54) | ops: stripe products and prices for cipherslate plans | Catalog; SKUs follow `site/src/lib/content/en.ts` |
+| [54](https://github.com/BreadchainCoop/sigstack-bot/issues/54) | ops: stripe products and prices for cipherslate plans | Catalog: `all-access-3` / `all-access-10` (+ alpha); see `docs/commerce/stripe-catalog.md` |
 
 ### Epic children (#68)
 

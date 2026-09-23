@@ -12,24 +12,18 @@ export type PathCard = {
 	primary?: boolean;
 };
 
-export type PlanScope = 'individual' | 'group';
-
 export type PlanOffer = {
 	id: string;
 	name: string;
-	scope: PlanScope;
+	/** Short badge under the name (e.g. "Up to 3 groups"). */
+	badge: string;
 	blurb: string;
 	priceLabel: string;
 	period: string;
 	ctaHref: string;
 	ctaLabel: string;
-};
-
-export type PlanProduct = {
-	id: string;
-	title: string;
-	lead: string;
-	offers: PlanOffer[];
+	/** Visual emphasis on the larger pack. */
+	featured?: boolean;
 };
 
 export type SiteContent = {
@@ -73,17 +67,13 @@ export type SiteContent = {
 				lead: string;
 				ctaLabel: string;
 			};
-			bundle: {
+			paid: {
 				eyebrow: string;
 				title: string;
 				lead: string;
 				note: string;
 				offers: PlanOffer[];
 			};
-			aLaCarteHeading: string;
-			aLaCarteLead: string;
-			products: PlanProduct[];
-			scopeLabels: Record<PlanScope, string>;
 			footnote: string;
 		};
 		checkoutSuccess: {

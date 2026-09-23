@@ -89,7 +89,15 @@ Prefs are encrypted with dstack `DeriveKey` (path `signal-bot/group-preferences`
 
 #### Entitlement plan composition
 
-Alpha `bundle-all-alpha` grants full Bundle-all feature coverage while active/past_due and unexpired. A **paid** (`stripe`) entitlement that overlaps a feature **replaces** alpha for that feature only; non-overlapping alpha coverage remains. Feature prefs (`group_prefs.enc`) stay separate from access records (`entitlements.enc`).
+Access is **all-access per enabled Signal group** (Language Threads + In-chat + Transcription for every member in that group). Catalog:
+
+| SKU | Source | Group cap |
+|-----|--------|-----------|
+| `bundle-all-alpha` | Alpha code | Unlimited |
+| `all-access-3` | Stripe | 3 groups |
+| `all-access-10` | Stripe | 10 groups |
+
+While active/past_due and unexpired, alpha and paid packs grant the same feature set. A **paid** (`stripe`) entitlement that overlaps a feature **replaces** alpha for that feature only; non-overlapping alpha coverage remains. Subscribers enable groups with `!enable-sigstack` (paid packs enforce `max_groups`). Feature prefs (`group_prefs.enc`) stay separate from access records (`entitlements.enc`). Stripe Price IDs: [`docs/commerce/stripe-catalog.md`](commerce/stripe-catalog.md).
 
 Do not change volume names in [`docker/phala.yaml`](../docker/phala.yaml) without a deliberate migration.
 

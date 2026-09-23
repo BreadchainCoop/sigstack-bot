@@ -37,11 +37,9 @@ describe('readLinkCode', () => {
 describe('planLabelFromSku', () => {
 	const content = getContent('en');
 
-	it('resolves bundle and a-la-carte offer ids', () => {
-		expect(planLabelFromSku('bundle-group', content)).toBe('Bundle · Group');
-		expect(planLabelFromSku('bundle-individual', content)).toBe('Bundle · Individual');
-		expect(planLabelFromSku('in-chat-all', content)).toBe('In-chat · all');
-		expect(planLabelFromSku('transcription-individual', content)).toBe('Transcription');
+	it('resolves all-access pack offer ids', () => {
+		expect(planLabelFromSku('all-access-3', content)).toBe('All-access · 3 groups');
+		expect(planLabelFromSku('all-access-10', content)).toBe('All-access · 10 groups');
 	});
 
 	it('returns null for missing or unknown sku', () => {

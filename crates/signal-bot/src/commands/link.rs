@@ -1,4 +1,7 @@
-//! `!link <code>` and `!enable-sigstack` — bind entitlements and unlock groups (alpha MVP).
+//! `!link <code>` and `!enable-sigstack` — bind entitlements and unlock groups.
+//!
+//! Group bind for all-access packs is `!enable-sigstack` (not `!claim-group`).
+//! Stripe pending tokens require `stripe_subscription_id` (post-checkout webhook) before bind.
 
 use crate::commands::CommandHandler;
 use crate::entitlements_store::{
@@ -14,8 +17,10 @@ use std::sync::Arc;
 const LINK_USAGE: &str = "Usage: !link <code>";
 const LINK_GROUP_WARN: &str =
     "Tip: prefer DMing this bot with !link so your code is not visible in the group.";
-const ALREADY_ACTIVE_MSG: &str =
-    "You already have an active alpha entitlement linked to this account.";
+const ALREADY_ACTIVE_MSG: &str = "You already have an active entitlement linked to this account.";
+const STRIPE_WAIT_CHECKOUT: &str = "Checkout is not finished yet. Complete payment on the Stripe page, wait a few seconds, then try !link again.";
+const UNKNOWN_CODE_MSG: &str =
+    "Unknown or already-used code. Check the code from your checkout or alpha email and try again.";
 const ENABLE_SUCCESS: &str =
     "Sigstack is on in this group. Anyone here can use !help and the product commands.";
 
@@ -48,16 +53,39 @@ impl LinkHandler {
         )
     }
 
+    fn plan_label(sku: PlanSku) -> &'static str {
+        match sku {
+            PlanSku::AllAccess3 => "All-access · 3 groups",
+            PlanSku::AllAccess10 => "All-access · 10 groups",
+            PlanSku::BundleAllAlpha => "Alpha all-access",
+        }
+    }
+
+    fn source_label(source: EntitlementSource) -> &'static str {
+        match source {
+            EntitlementSource::Stripe => "Stripe",
+            EntitlementSource::Alpha => "alpha",
+        }
+    }
+
     fn linked_reply(
         &self,
         bound_sku: PlanSku,
         bound_source: EntitlementSource,
         is_group: bool,
     ) -> String {
-        let mut reply = format!("Linked. Plan: {:?} ({:?}).", bound_sku, bound_source);
+        let mut reply = format!(
+            "Linked. Plan: {} ({}).",
+            Self::plan_label(bound_sku),
+            Self::source_label(bound_source)
+        );
         if bound_sku.is_group_claimable() {
+            let slots = match bound_sku.max_groups() {
+                Some(n) => format!("Up to {n} Signal groups"),
+                None => "Uncapped Signal groups (alpha)".into(),
+            };
             reply.push_str(&format!(
-                "\n\nWelcome. Create a Signal group with this bot, or open an existing group and invite it — username: {}\n\nThen in that group run !enable-sigstack so everyone there can use Sigstack.",
+                "\n\n{slots}. Create a Signal group with this bot, or open an existing group and invite it — username: {}\n\nThen in that group run !enable-sigstack so everyone there can use Sigstack.",
                 self.bot_username
             ));
         }
@@ -65,6 +93,10 @@ impl LinkHandler {
             reply = format!("{LINK_GROUP_WARN}\n\n{reply}");
         }
         reply
+    }
+
+    fn owner_has_active_entitlement(&self, owner: &str) -> bool {
+        self.entitlements.has_active_individual(owner, Utc::now())
     }
 
     async fn handle_link(&self, message: &BotMessage) -> AppResult<String> {
@@ -96,24 +128,35 @@ impl LinkHandler {
         let pending = match self.entitlements.get_pending(code) {
             Some(p) => p,
             None => {
-                let owned = self.entitlements.get_individual(&owner);
-                if owned.iter().any(|r| {
-                    r.plan_sku == PlanSku::BundleAllAlpha
-                        && r.source == EntitlementSource::Alpha
-                        && r.is_granting_at(Utc::now())
-                }) {
+                if self.owner_has_active_entitlement(&owner) {
                     return Ok(ALREADY_ACTIVE_MSG.into());
                 }
-                return Ok(
-                    "Unknown or already-used code. Check the code and try again, or ask for a new alpha code."
-                        .into(),
-                );
+                return Ok(UNKNOWN_CODE_MSG.into());
             }
         };
 
         if !pending.is_granting_at(Utc::now()) {
             let _ = self.entitlements.expire_due(Utc::now());
-            return Ok("That code has expired. Ask for a new alpha code.".into());
+            return Ok(match pending.source {
+                EntitlementSource::Stripe => {
+                    "That checkout code has expired. Start checkout again from the Plans page."
+                        .into()
+                }
+                EntitlementSource::Alpha => {
+                    "That code has expired. Ask for a new alpha code.".into()
+                }
+            });
+        }
+
+        // Stripe: require webhook fulfillment before bind (subscription id attached).
+        if pending.source == EntitlementSource::Stripe
+            && pending
+                .stripe_subscription_id
+                .as_deref()
+                .unwrap_or("")
+                .is_empty()
+        {
+            return Ok(STRIPE_WAIT_CHECKOUT.into());
         }
 
         match self.entitlements.bind_link_token(code, owner.clone()) {
@@ -136,7 +179,7 @@ impl LinkHandler {
 
         if !self.entitlements.has_active_individual(&owner, Utc::now()) {
             return Ok(
-                "No entitlement found. Link an alpha (or group) plan with !link <code> first."
+                "No entitlement found. Link a plan with !link <code> first (checkout code or alpha)."
                     .into(),
             );
         }
@@ -220,7 +263,8 @@ mod tests {
             .await
             .unwrap();
         assert!(reply.contains("Linked"), "{reply}");
-        assert!(reply.contains("Welcome"), "{reply}");
+        assert!(reply.contains("Alpha all-access"), "{reply}");
+        assert!(reply.contains("Uncapped"), "{reply}");
         assert!(reply.contains("Create a Signal group"), "{reply}");
         assert!(reply.contains(TEST_BOT_USERNAME), "{reply}");
         assert!(reply.contains("!enable-sigstack"), "{reply}");
@@ -238,10 +282,11 @@ mod tests {
             .await
             .unwrap();
         assert!(reply.contains("Unknown"), "{reply}");
+        assert!(!reply.contains("ask for a new alpha"), "{reply}");
     }
 
     #[tokio::test]
-    async fn link_rejects_expired() {
+    async fn link_rejects_expired_alpha() {
         let store = EntitlementsStore::new_in_memory();
         let past = Utc::now() - Duration::days(1);
         store
@@ -260,6 +305,101 @@ mod tests {
             .await
             .unwrap();
         assert!(reply.to_lowercase().contains("expired"), "{reply}");
+        assert!(reply.contains("alpha"), "{reply}");
+    }
+
+    #[tokio::test]
+    async fn link_rejects_expired_stripe() {
+        let store = EntitlementsStore::new_in_memory();
+        let past = Utc::now() - Duration::days(1);
+        store
+            .create_pending(
+                "expired-stripe".into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                Some(past),
+                None,
+                None,
+            )
+            .unwrap();
+        let handler = handler(store);
+        let reply = handler
+            .execute(&dm("!link expired-stripe", "uuid-ada"))
+            .await
+            .unwrap();
+        assert!(reply.to_lowercase().contains("expired"), "{reply}");
+        assert!(reply.contains("Plans"), "{reply}");
+    }
+
+    #[tokio::test]
+    async fn stripe_link_requires_subscription_id() {
+        let store = EntitlementsStore::new_in_memory();
+        store
+            .create_pending(
+                "tok-unpaid".into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                Some(Utc::now() + Duration::hours(48)),
+                None,
+                None,
+            )
+            .unwrap();
+        let handler = handler(store.clone());
+        let reply = handler
+            .execute(&dm("!link tok-unpaid", "uuid-ada"))
+            .await
+            .unwrap();
+        assert!(reply.contains("Checkout is not finished"), "{reply}");
+        assert!(store.get_pending("tok-unpaid").is_some());
+        assert!(store.get_individual("uuid-ada").is_empty());
+    }
+
+    #[tokio::test]
+    async fn stripe_link_then_enable_within_cap() {
+        let store = EntitlementsStore::new_in_memory();
+        store
+            .create_pending(
+                "tok-paid".into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                Some(Utc::now() + Duration::hours(48)),
+                None,
+                None,
+            )
+            .unwrap();
+        store
+            .attach_stripe_ids_to_pending(
+                "tok-paid",
+                Some("cus_test".into()),
+                Some("sub_test".into()),
+            )
+            .unwrap();
+
+        let handler = handler(store.clone());
+        let link_reply = handler
+            .execute(&dm("!link tok-paid", "uuid-ada"))
+            .await
+            .unwrap();
+        assert!(link_reply.contains("Linked"), "{link_reply}");
+        assert!(link_reply.contains("All-access · 3 groups"), "{link_reply}");
+        assert!(link_reply.contains("Up to 3"), "{link_reply}");
+        assert!(link_reply.contains("Stripe"), "{link_reply}");
+        assert!(store.get_pending("tok-paid").is_none());
+        assert_eq!(store.get_individual("uuid-ada").len(), 1);
+
+        for (i, gid) in ["g1", "g2", "g3"].iter().enumerate() {
+            let reply = handler
+                .execute(&group_msg("!enable-sigstack", "uuid-ada", gid))
+                .await
+                .unwrap();
+            assert!(reply.contains("Sigstack is on"), "group {i}: {reply}");
+        }
+        let over = handler
+            .execute(&group_msg("!enable-sigstack", "uuid-ada", "g4"))
+            .await
+            .unwrap();
+        assert!(over.contains("covers up to 3 groups"), "{over}");
+        assert!(store.get_group("g4").is_empty());
     }
 
     #[tokio::test]
@@ -343,7 +483,7 @@ mod tests {
             .execute(&dm(&format!("!link {REUSABLE_ALPHA_CODE}"), "uuid-a"))
             .await
             .unwrap();
-        assert!(again.contains("already have an active alpha"), "{again}");
+        assert!(again.contains("already have an active"), "{again}");
     }
 
     #[tokio::test]

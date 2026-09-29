@@ -22,19 +22,27 @@ Architecture: [`docs/plans/2026-09-22-stripe-cvm-commerce-sidecar.md`](../plans/
 
 ## L1 — Local compose (API + store)
 
-Prereq: `docker compose -f docker/compose.yaml --env-file docker/.env up -d` with Stripe test keys + Price IDs; `ENTITLEMENTS__ENFORCE` can stay false.
+Prereq: Stripe test keys + Price IDs in `docker/.env`. Outside TEE, set `ENTITLEMENTS_PERSIST=false` so commerce uses the in-memory store (persist=true needs dstack DeriveKey and fails with permission errors on the socket).
 
-- [ ] `GET http://localhost:8082/health` → `{"service":"signal-commerce","status":"ok"}`
+```bash
+ENTITLEMENTS_PERSIST=false docker compose -f docker/compose.yaml --env-file docker/.env up -d --build signal-commerce
+stripe listen --forward-to localhost:8082/v1/webhooks/stripe
+# put printed whsec_ into STRIPE_WEBHOOK_SECRET and recreate commerce if needed
+```
+
+- [x] `GET http://localhost:8082/health` → `{"service":"signal-commerce","status":"ok"}` (verified 2026-09-29)
 - [ ] `stripe listen --forward-to localhost:8082/v1/webhooks/stripe` running; commerce uses that `whsec_`
-- [ ] `POST /v1/checkout/sessions` `{"plan_sku":"all-access-3"}` → `{ url, plan_sku, link_token }`
+- [x] `POST /v1/checkout/sessions` `{"plan_sku":"all-access-3"}` → `{ url, plan_sku, link_token }` (with `ENTITLEMENTS_PERSIST=false`)
 - [ ] Pay with test card; Stripe CLI shows `checkout.session.completed` / `customer.subscription.*` delivered (2xx)
 - [ ] Pending entitlement has `stripe_subscription_id` after webhook (bot or commerce reload path)
-- [ ] `all-access-10` session create also returns a hosted Checkout URL
-- [ ] Unknown `plan_sku` → 400
+- [x] `all-access-10` session create also returns a hosted Checkout URL
+- [x] Unknown `plan_sku` → 400
 
 ## L2 — Local bot binding + gating
 
-Prereq: same compose stack; bot shares `/data/entitlements.enc` with commerce. Set `ENTITLEMENTS__ENFORCE=true` **only for this L2 run** (or a throwaway env), then return to false afterward if needed.
+Prereq: same compose stack with bot; shared volume only when persist=true **inside TEE**. For local Signal smoke, prefer L3 against the live CVM. Set `ENTITLEMENTS__ENFORCE=true` **only for this L2 run**, then return to false afterward if needed.
+
+**Unit coverage (already in CI):** pay-gated Stripe `!link`, `!enable-sigstack`, alpha/Stripe coexistence, coarse gate under enforce — see `crates/signal-bot` link + entitlement_gate tests. Still run Signal DM/group steps once before prod enforce.
 
 - [ ] DM `!link <link_token>` after paid checkout → success; unpaid/pending without subscription id still rejected
 - [ ] In a group (bot invited): `!enable-sigstack` → group enabled under pack `max_groups`
@@ -53,18 +61,19 @@ Live CVM: `0e82fa77-8b15-4dbd-89c4-9045ab911353`. Public commerce base (confirm 
 
 `https://9adac7636fe255182f699940ffd1924960415507-8082.dstack-pha-prod9.phala.network`
 
-- [ ] `phala ps --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` shows `signal-commerce` healthy
-- [ ] `GET …/health` → 200
+- [x] `phala ps` shows `signal-commerce` **healthy** on pinned digest (verified 2026-09-29)
+- [x] `GET …/health` → 200
 - [ ] Dashboard webhook endpoint configured; signing secret matches `STRIPE_WEBHOOK_SECRET` on CVM
-- [ ] `POST …/v1/checkout/sessions` with `Origin: https://breadchaincoop.github.io` → 200 + Checkout URL (CORS)
-- [ ] Pages: Plans **Subscribe** → Stripe Checkout (requires `PUBLIC_COMMERCE_API_BASE_URL`)
+- [x] `POST …/v1/checkout/sessions` with `Origin: https://breadchaincoop.github.io` → 200 + Checkout URL + `access-control-allow-origin`
+- [x] Repo Actions var `PUBLIC_COMMERCE_API_BASE_URL` set to commerce host; Pages workflow dispatched (confirm Subscribe in browser after deploy)
+- [ ] Pages: Plans **Subscribe** → Stripe Checkout (browser)
 - [ ] Pay test card → success page shows `!link` code → DM bot → `!enable-sigstack` in a test group
-- [ ] Confirm Signal phone still registered (volume intact); prefs/entitlements still load (no “starting fresh”)
+- [x] CVM still running prior containers after in-place deploy (volumes reattached; phone/proxy/bot up)
 - [ ] **Rehearsal:** set `ENTITLEMENTS_ENFORCE=true` in `.phala.env`, in-place redeploy, re-check linked path + unlinked denial
 - [ ] Leave enforce **true** only after rehearsal passes; otherwise set `false` and redeploy
 
 ## Pass criteria for prod enforce
 
-All of: L1 green, L2 green (or equivalent Signal smoke against CVM), L3 smoke + enforce rehearsal green, Dashboard webhook delivering, Pages CTA live.
+All of: L1 green (API + webhook pay path), L2 green (or equivalent Signal smoke on CVM), L3 smoke + enforce rehearsal green, Dashboard webhook delivering, Pages CTA live in browser.
 
 Then keep `ENTITLEMENTS_ENFORCE=true` on the CVM.

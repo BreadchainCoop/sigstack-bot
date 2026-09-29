@@ -13,6 +13,7 @@ export type PathCard = {
 };
 
 export type PlanOffer = {
+	/** Stripe / commerce `plan_sku` (e.g. all-access-3). */
 	id: string;
 	name: string;
 	/** Short badge under the name (e.g. "Up to 3 groups"). */
@@ -20,7 +21,6 @@ export type PlanOffer = {
 	blurb: string;
 	priceLabel: string;
 	period: string;
-	ctaHref: string;
 	ctaLabel: string;
 	/** Visual emphasis on the larger pack. */
 	featured?: boolean;
@@ -73,6 +73,12 @@ export type SiteContent = {
 				lead: string;
 				note: string;
 				offers: PlanOffer[];
+				/** Button label while the Checkout Session request is in flight. */
+				ctaLoadingLabel: string;
+				/** Shown when PUBLIC_COMMERCE_API_BASE_URL is unset. */
+				checkoutNotConfigured: string;
+				/** Fallback when the commerce API returns a non-OK response. */
+				checkoutFailed: string;
 			};
 			footnote: string;
 		};

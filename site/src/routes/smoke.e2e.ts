@@ -107,8 +107,12 @@ test.describe('smoke', () => {
 		await expect(page.getByText('Up to 10 groups').first()).toBeVisible();
 		await expect(page.getByText('All-access · 3 groups')).toBeVisible();
 		await expect(page.getByText('All-access · 10 groups')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Subscribe' })).toHaveCount(2);
 		await expect(page.getByRole('link', { name: 'Get started' }).first()).toBeVisible();
-		await expect(page.locator('.footnote')).toContainText('Paid checkout is not live yet');
+		await expect(page.locator('.footnote')).toContainText('Paid Subscribe opens Stripe Checkout');
+		// CI/Pages builds without commerce URL show configure error (no network call).
+		await page.getByRole('button', { name: 'Subscribe' }).first().click();
+		await expect(page.getByRole('alert')).toContainText('PUBLIC_COMMERCE_API_BASE_URL');
 	});
 
 	test('checkout success shows link code and plan label', async ({ page }) => {

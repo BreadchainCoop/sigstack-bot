@@ -43,6 +43,7 @@ Optional public env (GitHub Pages-safe; never put secret keys here):
 | -------- | ------ |
 | `PUBLIC_STRIPE_PORTAL_URL` | Success page “Manage billing” link; if unset, shows “coming soon” stub |
 | `PUBLIC_SIGNAL_USERNAME_TOKEN` | Alpha / checkout success “Message Sigstack” button — token only; site builds `signal.me/#eu/<token>` (never put the bot E.164 or a full URL here; `#` breaks unquoted `.env`) |
+| `PUBLIC_COMMERCE_API_BASE_URL` | Plans paid Subscribe CTAs → `POST {base}/v1/checkout/sessions` (no trailing slash). Local: `http://localhost:8082`. Prod: Phala `:8082` public host. If unset, Subscribe shows a configure error. |
 
 Set via `site/.env` (gitignored; copy from [`.env.example`](.env.example)) or the GitHub Actions variable for Pages. Empty env hides the Message CTA (missing-link copy). After the bot claims or re-claims its username, paste the logged `username_token` (or second line of `!bot-username`) into env / the Actions var and redeploy Pages — do not commit real tokens. TEE capture: [DEVELOPMENT.md — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).
 

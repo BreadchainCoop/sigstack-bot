@@ -134,7 +134,7 @@ export const en: SiteContent = {
 				eyebrow: 'Subscribe',
 				title: 'All-access packs',
 				lead: 'One subscription unlocks every product for all members in the groups you enable.',
-				note: 'Language Threads and In-chat auto cannot run at the same time—choose one translation mode. Voice pairs with either. Checkout is not live yet.',
+				note: 'Language Threads and In-chat auto cannot run at the same time—choose one translation mode. Voice pairs with either.',
 				offers: [
 					{
 						id: 'all-access-3',
@@ -144,8 +144,7 @@ export const en: SiteContent = {
 							'Enable Sigstack in up to three Signal groups. Every member in those chats gets full product access.',
 						priceLabel: '$10',
 						period: '/mo',
-						ctaHref: '/get-started',
-						ctaLabel: 'Get started'
+						ctaLabel: 'Subscribe'
 					},
 					{
 						id: 'all-access-10',
@@ -155,14 +154,17 @@ export const en: SiteContent = {
 							'Same all-access model for larger organizers—up to ten groups, all members included.',
 						priceLabel: '$25',
 						period: '/mo',
-						ctaHref: '/get-started',
-						ctaLabel: 'Get started',
+						ctaLabel: 'Subscribe',
 						featured: true
 					}
-				]
+				],
+				ctaLoadingLabel: 'Starting checkout…',
+				checkoutNotConfigured:
+					'Checkout is not configured for this site build. Set PUBLIC_COMMERCE_API_BASE_URL and redeploy.',
+				checkoutFailed: 'Could not start checkout. Try again in a moment.'
 			},
 			footnote:
-				'Alpha is free with a code. Paid checkout is not live yet—Get started covers organizer setup until Stripe is wired.'
+				'Alpha is free with a code. Paid Subscribe opens Stripe Checkout; after payment, link in Signal with the code on the success page. Get started covers organizer setup.'
 		},
 		checkoutSuccess: {
 			title: 'You are subscribed',

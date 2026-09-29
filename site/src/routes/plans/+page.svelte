@@ -1,11 +1,36 @@
 <script lang="ts">
+	import { env } from '$env/dynamic/public';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { getContent } from '$lib/content';
+	import { commerceApiBase, createCheckoutSession } from '$lib/commerceCheckout';
 	import Button from '$lib/components/Button.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const { pages, meta } = $derived(getContent(getLocale()));
 	const page = $derived(pages.plans);
+
+	let loadingSku = $state<string | null>(null);
+	let checkoutError = $state<string | null>(null);
+
+	async function startCheckout(planSku: string) {
+		checkoutError = null;
+		const base = commerceApiBase(env.PUBLIC_COMMERCE_API_BASE_URL);
+		if (!base) {
+			checkoutError = page.paid.checkoutNotConfigured;
+			return;
+		}
+
+		loadingSku = planSku;
+		const result = await createCheckoutSession(base, planSku);
+		loadingSku = null;
+
+		if (!result.ok) {
+			checkoutError = result.error || page.paid.checkoutFailed;
+			return;
+		}
+
+		window.location.assign(result.url);
+	}
 </script>
 
 <svelte:head>
@@ -41,10 +66,18 @@
 							>{offer.period}</span
 						>{/if}
 				</p>
-				<Button href={offer.ctaHref}>{offer.ctaLabel}</Button>
+				<Button
+					disabled={loadingSku !== null}
+					onclick={() => startCheckout(offer.id)}
+				>
+					{loadingSku === offer.id ? page.paid.ctaLoadingLabel : offer.ctaLabel}
+				</Button>
 			</article>
 		{/each}
 	</div>
+	{#if checkoutError}
+		<p class="checkout-error" role="alert">{checkoutError}</p>
+	{/if}
 </section>
 
 <p class="footnote muted">{page.footnote}</p>
@@ -142,6 +175,13 @@
 		font-weight: 500;
 		color: var(--muted);
 		margin-left: 0.15rem;
+	}
+
+	.checkout-error {
+		margin: var(--space-4) 0 0;
+		max-width: 40rem;
+		color: #b42318;
+		font-size: 0.95rem;
 	}
 
 	.footnote {

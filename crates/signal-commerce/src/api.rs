@@ -253,7 +253,7 @@ mod tests {
     use dstack_client::DstackClient;
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
-    use signal_bot::entitlements_store::PlanSku;
+    use signal_bot::entitlements_store::{EntitlementStatus, PlanSku};
     use tower::ServiceExt;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -443,5 +443,148 @@ mod tests {
         let pending = store.get_pending("tok123").unwrap();
         assert_eq!(pending.stripe_customer_id.as_deref(), Some("cus_1"));
         assert_eq!(pending.stripe_subscription_id.as_deref(), Some("sub_1"));
+    }
+
+    fn sign_webhook(body: &[u8], secret: &[u8]) -> String {
+        let t = Utc::now().timestamp();
+        let signed = format!("{t}.{}", String::from_utf8_lossy(body));
+        let mut mac = HmacSha256::new_from_slice(secret).unwrap();
+        mac.update(signed.as_bytes());
+        let sig = hex::encode(mac.finalize().into_bytes());
+        format!("t={t},v1={sig}")
+    }
+
+    async fn post_signed_webhook(
+        app: axum::Router,
+        payload: serde_json::Value,
+    ) -> axum::http::Response<Body> {
+        let body = serde_json::to_vec(&payload).unwrap();
+        let header = sign_webhook(&body, b"whsec_test");
+        app.oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/webhooks/stripe")
+                .header("Stripe-Signature", header)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+    }
+
+    async fn pending_with_stripe_sub(store: &Arc<EntitlementsStore>, token: &str, sub_id: &str) {
+        store
+            .create_pending(
+                token.into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        store
+            .attach_stripe_ids_to_pending(token, Some("cus_life".into()), Some(sub_id.into()))
+            .unwrap();
+        store.flush().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn webhook_subscription_updated_marks_past_due() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path().join("e.enc")).await;
+        pending_with_stripe_sub(&store, "tok_upd", "sub_upd").await;
+
+        let cfg = test_cfg(None);
+        let stripe = StripeClient::new(&cfg.stripe).unwrap();
+        let app = create_router(
+            state_from_parts(store.clone(), stripe, &cfg),
+            &cfg.site.cors_origin,
+        );
+
+        let res = post_signed_webhook(
+            app,
+            serde_json::json!({
+                "id": "evt_sub_updated",
+                "type": "customer.subscription.updated",
+                "data": { "object": { "id": "sub_upd", "status": "past_due" } }
+            }),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+
+        store.reload().await.unwrap();
+        let pending = store.get_pending("tok_upd").unwrap();
+        assert_eq!(pending.status, EntitlementStatus::PastDue);
+        let expires = pending.expires_at.expect("grace expires_at");
+        let skew = (expires - Utc::now()).num_days();
+        assert!((6..=8).contains(&skew), "expected ~7 day grace, got {skew}");
+    }
+
+    #[tokio::test]
+    async fn webhook_subscription_deleted_cancels() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path().join("e.enc")).await;
+        pending_with_stripe_sub(&store, "tok_del", "sub_del").await;
+
+        let cfg = test_cfg(None);
+        let stripe = StripeClient::new(&cfg.stripe).unwrap();
+        let app = create_router(
+            state_from_parts(store.clone(), stripe, &cfg),
+            &cfg.site.cors_origin,
+        );
+
+        let res = post_signed_webhook(
+            app,
+            serde_json::json!({
+                "id": "evt_sub_deleted",
+                "type": "customer.subscription.deleted",
+                "data": { "object": { "id": "sub_del", "status": "canceled" } }
+            }),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+
+        store.reload().await.unwrap();
+        let pending = store.get_pending("tok_del").unwrap();
+        assert_eq!(pending.status, EntitlementStatus::Canceled);
+        assert!(pending.expires_at.is_none());
+    }
+
+    #[tokio::test]
+    async fn webhook_invoice_payment_failed_sets_grace() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path().join("e.enc")).await;
+        pending_with_stripe_sub(&store, "tok_inv", "sub_inv").await;
+
+        let cfg = test_cfg(None);
+        let stripe = StripeClient::new(&cfg.stripe).unwrap();
+        let app = create_router(
+            state_from_parts(store.clone(), stripe, &cfg),
+            &cfg.site.cors_origin,
+        );
+
+        let res = post_signed_webhook(
+            app,
+            serde_json::json!({
+                "id": "evt_inv_failed",
+                "type": "invoice.payment_failed",
+                "data": {
+                    "object": {
+                        "id": "in_1",
+                        "subscription": "sub_inv"
+                    }
+                }
+            }),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+
+        store.reload().await.unwrap();
+        let pending = store.get_pending("tok_inv").unwrap();
+        assert_eq!(pending.status, EntitlementStatus::PastDue);
+        let expires = pending.expires_at.expect("grace expires_at");
+        let skew = (expires - Utc::now()).num_days();
+        assert!((6..=8).contains(&skew), "expected ~7 day grace, got {skew}");
     }
 }

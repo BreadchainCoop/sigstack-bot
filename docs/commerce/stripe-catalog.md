@@ -37,19 +37,20 @@ Refuse live keys in the script. Duplicate live catalog later with a live key + a
 <!-- stripe-catalog:generated:start -->
 ## Test catalog (seeded)
 
-_Not seeded in this checkout yet._ Run the script with `--write-docs` to fill Product / Price IDs.
+Product: **Sigstack All-Access** (`prod_VLrFdkiQzlcrpp`)
 
 | plan_sku | lookup_key | amount | max_groups | Price ID (test) |
 |----------|------------|--------|------------|-----------------|
-| `all-access-3` | `all-access-3-monthly` | $10/mo | 3 | _pending seed_ |
-| `all-access-10` | `all-access-10-monthly` | $25/mo | 10 | _pending seed_ |
+| `all-access-3` | `all-access-3-monthly` | $10/mo | 3 | `price_1UL9WmKDFZS5PEar2Y7pyhN0` |
+| `all-access-10` | `all-access-10-monthly` | $25/mo | 10 | `price_1UL9WmKDFZS5PEarCbTlmIyn` |
 
-Env placeholders for checkout (fill after seed):
+Env placeholders for checkout (IDs are public; secret key stays out of git):
 
 ```bash
-STRIPE_PRICE_ALL_ACCESS_3=price_...
-STRIPE_PRICE_ALL_ACCESS_10=price_...
+STRIPE_PRICE_ALL_ACCESS_3=price_1UL9WmKDFZS5PEar2Y7pyhN0
+STRIPE_PRICE_ALL_ACCESS_10=price_1UL9WmKDFZS5PEarCbTlmIyn
 ```
+
 <!-- stripe-catalog:generated:end -->
 
 ## Related code

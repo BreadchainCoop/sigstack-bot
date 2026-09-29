@@ -58,7 +58,16 @@ impl StripeClient {
         }
         let url = format!("{}/v1/checkout/sessions", self.api_base);
         let params = [
+            ("ui_mode", "hosted_page"),
             ("mode", "subscription"),
+            ("billing_address_collection", "auto"),
+            ("phone_number_collection[enabled]", "false"),
+            ("automatic_tax[enabled]", "false"),
+            ("allow_promotion_codes", "false"),
+            ("payment_method_collection", "always"),
+            ("submit_type", "auto"),
+            ("integration_identifier", "hosted_web_0001"),
+            ("origin_context", "web"),
             ("line_items[0][price]", price_id),
             ("line_items[0][quantity]", "1"),
             ("success_url", success_url),

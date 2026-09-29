@@ -2,6 +2,9 @@
   "plugins": {
     "compound-engineering": {
       "enabled": true
+    },
+    "stripe": {
+      "enabled": true
     }
   }
 }

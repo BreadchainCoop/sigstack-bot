@@ -85,7 +85,12 @@ impl PlanSku {
     }
 }
 
-/// Billable feature axes used by future command / inference gates.
+/// Billable feature axes for future per-command gates.
+///
+/// Composition via [`compose_effective_grants`] / [`EntitlementsStore::effective_grants`]
+/// is implemented, but runtime dispatch still uses the coarse
+/// [`crate::entitlement_gate`] (any active individual / group enabled). Wire
+/// handler → grant checks when SKUs no longer share full all-access.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FeatureGrant {

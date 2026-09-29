@@ -511,4 +511,101 @@ mod tests {
         assert!(!handler.matches(&dm("!claim-group", "u")));
         assert!(!handler.matches(&dm("!help", "u")));
     }
+
+    /// Alpha redeem must not be blocked by an unpaid Stripe pending for a different token.
+    #[tokio::test]
+    async fn coexist_alpha_link_while_unpaid_stripe_pending_exists() {
+        let store = EntitlementsStore::new_in_memory();
+        store
+            .create_pending(
+                "tok-unpaid-other".into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                Some(Utc::now() + Duration::hours(48)),
+                None,
+                None,
+            )
+            .unwrap();
+        let codes = store.mint_alpha_codes(1, 90).unwrap();
+        let handler = handler(store.clone());
+
+        let reply = handler
+            .execute(&dm(&format!("!link {}", codes[0]), "uuid-alpha"))
+            .await
+            .unwrap();
+        assert!(reply.contains("Linked"), "{reply}");
+        assert!(reply.contains("Alpha"), "{reply}");
+        assert_eq!(store.get_individual("uuid-alpha").len(), 1);
+        // Unpaid Stripe pending untouched.
+        assert!(store.get_pending("tok-unpaid-other").is_some());
+    }
+
+    /// Same owner: alpha first, then paid Stripe bind after webhook attach.
+    #[tokio::test]
+    async fn coexist_alpha_then_stripe_link_same_owner() {
+        let store = EntitlementsStore::new_in_memory();
+        let handler = handler(store.clone());
+        handler
+            .execute(&dm(&format!("!link {REUSABLE_ALPHA_CODE}"), "uuid-both"))
+            .await
+            .unwrap();
+
+        store
+            .create_pending(
+                "tok-paid-both".into(),
+                PlanSku::AllAccess10,
+                EntitlementSource::Stripe,
+                Some(Utc::now() + Duration::hours(48)),
+                None,
+                None,
+            )
+            .unwrap();
+        store
+            .attach_stripe_ids_to_pending(
+                "tok-paid-both",
+                Some("cus_both".into()),
+                Some("sub_both".into()),
+            )
+            .unwrap();
+
+        let paid = handler
+            .execute(&dm("!link tok-paid-both", "uuid-both"))
+            .await
+            .unwrap();
+        assert!(paid.contains("Linked"), "{paid}");
+        assert!(paid.contains("All-access · 10 groups"), "{paid}");
+        assert_eq!(store.get_individual("uuid-both").len(), 2);
+        assert!(store.get_pending("tok-paid-both").is_none());
+    }
+
+    #[tokio::test]
+    async fn coexist_stripe_token_and_alpha_code_are_distinct() {
+        let store = EntitlementsStore::new_in_memory();
+        store
+            .create_pending(
+                "tok-stripe-a".into(),
+                PlanSku::AllAccess3,
+                EntitlementSource::Stripe,
+                Some(Utc::now() + Duration::hours(48)),
+                Some("cus_a".into()),
+                Some("sub_a".into()),
+            )
+            .unwrap();
+        let alpha_codes = store.mint_alpha_codes(1, 90).unwrap();
+        let handler = handler(store.clone());
+
+        let stripe = handler
+            .execute(&dm("!link tok-stripe-a", "uuid-s"))
+            .await
+            .unwrap();
+        assert!(stripe.contains("Stripe"), "{stripe}");
+
+        let alpha = handler
+            .execute(&dm(&format!("!link {}", alpha_codes[0]), "uuid-a"))
+            .await
+            .unwrap();
+        assert!(alpha.contains("Alpha"), "{alpha}");
+        assert_eq!(store.get_individual("uuid-s").len(), 1);
+        assert_eq!(store.get_individual("uuid-a").len(), 1);
+    }
 }

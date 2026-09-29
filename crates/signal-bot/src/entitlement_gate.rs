@@ -316,4 +316,133 @@ mod tests {
         assert!(DENY_NEED_LINK.contains("checkout") || DENY_NEED_LINK.contains("alpha"));
         assert!(DENY_NEED_ENABLE.contains("!enable-sigstack"));
     }
+
+    // --- Alpha + Stripe coexistence under enforce (epic coexistence issue) ---
+
+    fn enforce_gate(store: Arc<EntitlementsStore>) -> EntitlementGate {
+        EntitlementGate {
+            store,
+            enforce: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn coexist_alpha_only_dm_and_group_after_enable() {
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("uuid-alpha".into()).unwrap();
+        let gate = enforce_gate(store.clone());
+
+        assert!(gate
+            .allow(&dm("!translate-me-on es", "uuid-alpha"))
+            .await
+            .is_ok());
+        assert_eq!(
+            gate.allow(&group("!translate-all-on es", "uuid-alpha", "g1"))
+                .await
+                .unwrap_err(),
+            GateDeny::NeedEnable
+        );
+        store.enable_sigstack("uuid-alpha", "g1".into()).unwrap();
+        assert!(gate
+            .allow(&group("!translate-all-on es", "uuid-bob", "g1"))
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
+    async fn coexist_paid_only_dm_and_group_after_enable() {
+        let store = EntitlementsStore::new_in_memory();
+        store
+            .upsert(paid_active("uuid-paid", PlanSku::AllAccess3))
+            .unwrap();
+        let gate = enforce_gate(store.clone());
+
+        assert!(gate.allow(&dm("!transcribe-on", "uuid-paid")).await.is_ok());
+        store.enable_sigstack("uuid-paid", "g-paid".into()).unwrap();
+        assert!(gate
+            .allow(&group("!help", "uuid-member", "g-paid"))
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
+    async fn coexist_owner_with_both_alpha_and_paid_still_entitled() {
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("uuid-both".into()).unwrap();
+        store
+            .upsert(paid_active("uuid-both", PlanSku::AllAccess10))
+            .unwrap();
+        let gate = enforce_gate(store.clone());
+
+        // Coarse gate: any active individual unlocks DM (composition unused at runtime).
+        assert!(gate.allow(&dm("!help", "uuid-both")).await.is_ok());
+        store.enable_sigstack("uuid-both", "g-both".into()).unwrap();
+        assert!(gate
+            .allow(&group("!translate-me-on es", "uuid-guest", "g-both"))
+            .await
+            .is_ok());
+        // Paid pack still caps groups; alpha uncapped would allow more, but enable uses
+        // the first claimable granting row — both are claimable; assert at least one group works.
+        assert!(store.is_group_enabled("g-both", Utc::now()));
+    }
+
+    #[tokio::test]
+    async fn coexist_expired_alpha_active_paid_keeps_access() {
+        let store = EntitlementsStore::new_in_memory();
+        let alpha = store.redeem_reusable_alpha("uuid-mix".into()).unwrap();
+        store
+            .set_status(&alpha.id, EntitlementStatus::Expired)
+            .unwrap();
+        store
+            .upsert(paid_active("uuid-mix", PlanSku::AllAccess3))
+            .unwrap();
+        let gate = enforce_gate(store.clone());
+
+        assert!(gate.allow(&dm("!help", "uuid-mix")).await.is_ok());
+        store.enable_sigstack("uuid-mix", "g1".into()).unwrap();
+        assert!(gate
+            .allow(&group("!help", "uuid-other", "g1"))
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
+    async fn coexist_active_alpha_canceled_paid_keeps_access() {
+        let store = EntitlementsStore::new_in_memory();
+        store.redeem_reusable_alpha("uuid-mix2".into()).unwrap();
+        let mut paid = paid_active("uuid-mix2", PlanSku::AllAccess3);
+        paid.id = "paid-canceled".into();
+        paid.status = EntitlementStatus::Canceled;
+        store.upsert(paid).unwrap();
+        let gate = enforce_gate(store.clone());
+
+        assert!(gate.allow(&dm("!help", "uuid-mix2")).await.is_ok());
+        store
+            .enable_sigstack("uuid-mix2", "g-alpha".into())
+            .unwrap();
+        assert!(gate
+            .allow(&group("!translate-all-on es", "uuid-x", "g-alpha"))
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
+    async fn coexist_both_expired_denies_dm() {
+        let store = EntitlementsStore::new_in_memory();
+        let alpha = store.redeem_reusable_alpha("uuid-dead".into()).unwrap();
+        store
+            .set_status(&alpha.id, EntitlementStatus::Expired)
+            .unwrap();
+        let mut paid = paid_active("uuid-dead", PlanSku::AllAccess3);
+        paid.id = "paid-expired".into();
+        paid.status = EntitlementStatus::Expired;
+        paid.expires_at = Some(Utc::now() - Duration::days(1));
+        store.upsert(paid).unwrap();
+        let gate = enforce_gate(store);
+
+        assert_eq!(
+            gate.allow(&dm("!help", "uuid-dead")).await.unwrap_err(),
+            GateDeny::NeedLink
+        );
+    }
 }

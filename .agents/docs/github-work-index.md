@@ -53,7 +53,7 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | [63](https://github.com/BreadchainCoop/sigstack-bot/issues/63) | feat: revise get-started flow and entitlement user comms | |
 | [64](https://github.com/BreadchainCoop/sigstack-bot/issues/64) | feat: deploy commerce service and entitlements on phala cvm | |
 | [65](https://github.com/BreadchainCoop/sigstack-bot/issues/65) | test: commerce and entitlement e2e test plan | |
-| [70](https://github.com/BreadchainCoop/sigstack-bot/issues/70) | feat: alpha coexistence with Stripe link and paid gating | After Stripe `!link` spine |
+| [70](https://github.com/BreadchainCoop/sigstack-bot/issues/70) | feat: alpha coexistence with Stripe link and paid gating | Matrix tests under enforce; per-`FeatureGrant` still deferred |
 | [79](https://github.com/BreadchainCoop/sigstack-bot/issues/79) | ops: seed stripe test catalog and write price ids to docs | Shipped; test Price IDs in `docs/commerce/stripe-catalog.md` |
 
 **Recommended order (epic [#68](https://github.com/BreadchainCoop/sigstack-bot/issues/68)):** foundation #53+#62 (done) → parallel #63/#65 + #79 + related #52/#54 → #79→#55→#56 → #57 → #58 → #70 → #61 → #64 → finish #65 before prod enforce. Fast alpha #69 is **outside** this epic. Full write-up on the epic issue.

@@ -48,11 +48,12 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | [58](https://github.com/BreadchainCoop/sigstack-bot/issues/58) | feat: gate product commands on entitlements | Coarse MVP via `entitlement_gate`; per-`FeatureGrant` deferred |
 | [59](https://github.com/BreadchainCoop/sigstack-bot/issues/59) | feat: alpha promo codes — 3-month bundle-all free path | Superseded by #69 + #70 |
 | [60](https://github.com/BreadchainCoop/sigstack-bot/issues/60) | ops: alpha code generation and revocation tooling | Minimal mint in #69; fuller ops later |
-| [61](https://github.com/BreadchainCoop/sigstack-bot/issues/61) | feat: wire plans ctas to stripe checkout | |
+| [61](https://github.com/BreadchainCoop/sigstack-bot/issues/61) | feat: wire plans ctas to stripe checkout | Shipped; Plans Subscribe → commerce `POST /v1/checkout/sessions` |
 | [62](https://github.com/BreadchainCoop/sigstack-bot/issues/62) | feat: checkout success cancel and alpha claim pages | `site/` commerce landings |
 | [63](https://github.com/BreadchainCoop/sigstack-bot/issues/63) | feat: revise get-started flow and entitlement user comms | |
-| [64](https://github.com/BreadchainCoop/sigstack-bot/issues/64) | feat: deploy commerce service and entitlements on phala cvm | |
-| [65](https://github.com/BreadchainCoop/sigstack-bot/issues/65) | test: commerce and entitlement e2e test plan | |
+| [64](https://github.com/BreadchainCoop/sigstack-bot/issues/64) | feat: deploy commerce service and entitlements on phala cvm | Shipped on live CVM; enforce default false until E2E green |
+| [65](https://github.com/BreadchainCoop/sigstack-bot/issues/65) | test: commerce and entitlement e2e test plan | [`docs/commerce/e2e-checklist.md`](../../docs/commerce/e2e-checklist.md) |
+
 | [70](https://github.com/BreadchainCoop/sigstack-bot/issues/70) | feat: alpha coexistence with Stripe link and paid gating | Matrix tests under enforce; per-`FeatureGrant` still deferred |
 | [79](https://github.com/BreadchainCoop/sigstack-bot/issues/79) | ops: seed stripe test catalog and write price ids to docs | Shipped; test Price IDs in `docs/commerce/stripe-catalog.md` |
 

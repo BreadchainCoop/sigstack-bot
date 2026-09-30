@@ -21,12 +21,15 @@ test.describe('smoke', () => {
 		await expect(page.getByRole('link', { name: 'Products' }).first()).toBeVisible();
 	});
 
-	test('get started shows organizer steps and hub commands', async ({ page }) => {
+	test('get started shows subscribe-link-invite-enable path', async ({ page }) => {
 		await page.goto('./get-started/');
 		await expect(page.getByRole('heading', { level: 1, name: 'Getting started' })).toBeVisible();
+		await expect(page.getByText('Subscribe or redeem alpha', { exact: true })).toBeVisible();
+		await expect(page.getByText('Link in Signal', { exact: true })).toBeVisible();
 		await expect(page.getByText('Invite Sigstack', { exact: true })).toBeVisible();
+		await expect(page.getByText('Enable the group', { exact: true })).toBeVisible();
 		await expect(page.getByText('!help / !info')).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Language Threads' }).first()).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Plans' }).first()).toBeVisible();
 	});
 
 	test('products dropdown pins language threads section', async ({ page }) => {
@@ -125,7 +128,7 @@ test.describe('smoke', () => {
 			'href',
 			E2E_SIGNAL_USERNAME_LINK
 		);
-		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Full setup steps' })).toBeVisible();
 	});
 
 	test('checkout success without code shows receipt fallback', async ({ page }) => {
@@ -160,7 +163,7 @@ test.describe('smoke', () => {
 			'href',
 			E2E_SIGNAL_USERNAME_LINK
 		);
-		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toHaveCount(0);
+		await expect(page.getByRole('link', { name: 'Full setup steps' })).toHaveCount(0);
 		await expect(page.getByRole('heading', { name: 'Link in Signal' })).toBeVisible();
 		await expect(page.getByText('!enable-sigstack', { exact: false })).toBeVisible();
 		await expect(page.locator('.link-steps')).toHaveCount(0);
@@ -172,7 +175,7 @@ test.describe('smoke', () => {
 		await expect(page.getByText('!link shared-token')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy command' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'See paid plans' })).toHaveCount(0);
-		await expect(page.getByRole('link', { name: 'Organizer checklist' })).toHaveCount(0);
+		await expect(page.getByRole('link', { name: 'Full setup steps' })).toHaveCount(0);
 	});
 
 	test('alpha empty submit shows validation without navigating', async ({ page }) => {

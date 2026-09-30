@@ -58,7 +58,8 @@ services:
       - GROUP_PREFERENCES__LEGACY_COMPOSE_HASH=${GROUP_PREFERENCES_LEGACY_COMPOSE_HASH:-}
       - ENTITLEMENTS__PERSIST=true
       - ENTITLEMENTS__STORAGE_PATH=/data/entitlements.enc
-      - ENTITLEMENTS__ENFORCE=true
+      # Keep false until commerce E2E checklist is green; then set ENTITLEMENTS_ENFORCE=true in .phala.env.
+      - ENTITLEMENTS__ENFORCE=${ENTITLEMENTS_ENFORCE:-false}
       - ENTITLEMENTS__LEGACY_COMPOSE_HASH=${ENTITLEMENTS_LEGACY_COMPOSE_HASH:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock:ro
@@ -109,6 +110,12 @@ services:
       - group-prefs-translation:/data
     ports:
       - "8082:8082"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     depends_on:
       - signal-bot
     restart: unless-stopped

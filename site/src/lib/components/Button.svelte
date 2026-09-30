@@ -9,15 +9,23 @@
 		href,
 		variant = 'primary',
 		children,
-		external = false
+		external = false,
+		onclick,
+		disabled = false,
+		type = 'button'
 	}: {
-		href: string;
+		/** When set, renders an anchor. Omit for a `<button>`. */
+		href?: string;
 		variant?: Variant;
 		children: Snippet;
 		external?: boolean;
+		onclick?: (e: MouseEvent) => void;
+		disabled?: boolean;
+		type?: 'button' | 'submit';
 	} = $props();
 
 	const resolved = $derived.by(() => {
+		if (!href) return '';
 		if (external || href.startsWith('http')) return href;
 		const hashIndex = href.indexOf('#');
 		if (hashIndex === -1) return resolve(href as Pathname);
@@ -27,12 +35,18 @@
 	});
 </script>
 
-{#if external || href.startsWith('http')}
-	<a class="btn btn-{variant}" href={resolved} target="_blank" rel="noopener noreferrer">
-		{@render children()}
-	</a>
+{#if href}
+	{#if external || href.startsWith('http')}
+		<a class="btn btn-{variant}" href={resolved} target="_blank" rel="noopener noreferrer">
+			{@render children()}
+		</a>
+	{:else}
+		<a class="btn btn-{variant}" href={resolved}>
+			{@render children()}
+		</a>
+	{/if}
 {:else}
-	<a class="btn btn-{variant}" href={resolved}>
+	<button class="btn btn-{variant}" {type} {disabled} {onclick}>
 		{@render children()}
-	</a>
+	</button>
 {/if}

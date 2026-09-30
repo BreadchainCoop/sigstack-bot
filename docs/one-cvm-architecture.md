@@ -60,6 +60,8 @@ phala deploy --cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353 \
 
 [`scripts/deploy_phala.sh`](../scripts/deploy_phala.sh) defaults to that `--cvm-id`. Do not `phala deploy -n` against the live CVM.
 
+Commerce (`signal-commerce` `:8082`) shares `group-prefs-translation` with the bot. Before the first commerce-bearing upgrade, set `SIGNAL_COMMERCE_IMAGE` (digest-pinned linux/amd64), Stripe test secrets, Price IDs, and prod `SITE_*` in `docker/.phala.env`. Keep `ENTITLEMENTS_ENFORCE=false` until the commerce E2E checklist is green; then set `true` and redeploy in place. Public checkout base for Pages: `https://9adac7636fe255182f699940ffd1924960415507-8082.dstack-pha-prod9.phala.network` (confirm after deploy if the app id changes).
+
 ### Signal username → site Message button
 
 After deploy (or re-register), read CVM logs for `Signal username ready` / `username_token` (or DM `!bot-username`), set GitHub Actions variable `PUBLIC_SIGNAL_USERNAME_TOKEN`, and redeploy Pages so alpha / checkout **Message Sigstack** works. Discriminator and token can change after re-register; routine in-place upgrades that keep `signal-config-translation` usually keep the username. Full checklist: [`.agents/docs/DEVELOPMENT.md` — Signal username → site Message button](../.agents/docs/DEVELOPMENT.md#signal-username-site-message-button).

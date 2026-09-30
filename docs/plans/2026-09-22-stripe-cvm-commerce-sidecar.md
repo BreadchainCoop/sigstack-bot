@@ -113,16 +113,20 @@ Ops:
 
 Paid rows can still be lost if the prefs/entitlements volume is wiped despite the rules above. Separate ops work covers subscriber backup / Stripe rebuild / cancel-and-notify so customers are not charged for a dead bot — see the work index (subscriber backup row).
 
+## Enforce rollout
+
+`docker/phala.yaml` defaults `ENTITLEMENTS__ENFORCE` from `ENTITLEMENTS_ENFORCE` (**false** until the commerce E2E checklist is green). After L3 smoke on the live CVM, set `ENTITLEMENTS_ENFORCE=true` in `docker/.phala.env` and redeploy in place — do not wipe volumes.
+
 ## Out of scope for this decision
 
-- Wiring Plans CTAs on Pages (needs the public commerce base URL after deploy)
 - Customer Portal proxy (`PUBLIC_STRIPE_PORTAL_URL` stub may remain)
 - Live-mode Stripe catalog (seed test Prices first)
 - Alpha coexistence beyond existing paid-over-alpha composition
 
 ## Success criteria
 
-- Plans can obtain a Checkout URL from the CVM without a second cloud host
+- Plans can obtain a Checkout URL from the CVM without a second cloud host (site CTAs use `PUBLIC_COMMERCE_API_BASE_URL`)
 - Success page can show a `!link` code that binds after webhook + bot reload
 - Subscription cancel / payment failure updates entitlement status with 7-day `past_due` grace
 - Live CVM volumes and Signal phone unchanged across commerce deploy
+- First commerce deploy keeps `ENTITLEMENTS_ENFORCE=false` until E2E checklist passes

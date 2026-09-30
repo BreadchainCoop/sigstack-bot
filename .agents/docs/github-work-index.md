@@ -47,7 +47,7 @@ When adding work, update **this file**—do not sprinkle `#N` into other paths.
 | [57](https://github.com/BreadchainCoop/sigstack-bot/issues/57) | feat: !link and !claim-group for subscription binding | `!enable-sigstack` + pay-gated Stripe `!link` (alpha-only is #69) |
 | [58](https://github.com/BreadchainCoop/sigstack-bot/issues/58) | feat: gate product commands on entitlements | Coarse MVP via `entitlement_gate`; per-`FeatureGrant` deferred |
 | [59](https://github.com/BreadchainCoop/sigstack-bot/issues/59) | feat: alpha promo codes — 3-month bundle-all free path | Superseded by #69 + #70 |
-| [60](https://github.com/BreadchainCoop/sigstack-bot/issues/60) | ops: alpha code generation and revocation tooling | Minimal mint in #69; fuller ops later |
+| [60](https://github.com/BreadchainCoop/sigstack-bot/issues/60) | ops: alpha code generation and revocation tooling | `mint-alpha` mint/list/revoke + [`docs/commerce/alpha-ops.md`](../../docs/commerce/alpha-ops.md) |
 | [61](https://github.com/BreadchainCoop/sigstack-bot/issues/61) | feat: wire plans ctas to stripe checkout | Shipped; Plans Subscribe → commerce `POST /v1/checkout/sessions` |
 | [62](https://github.com/BreadchainCoop/sigstack-bot/issues/62) | feat: checkout success cancel and alpha claim pages | `site/` commerce landings |
 | [63](https://github.com/BreadchainCoop/sigstack-bot/issues/63) | feat: revise get-started flow and entitlement user comms | Subscribe→link→invite→enable; gate deny copy |

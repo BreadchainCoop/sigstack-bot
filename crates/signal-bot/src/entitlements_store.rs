@@ -117,6 +117,30 @@ pub enum EntitlementStatus {
     Canceled,
 }
 
+impl EntitlementStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::PastDue => "past_due",
+            Self::Expired => "expired",
+            Self::Canceled => "canceled",
+        }
+    }
+}
+
+/// Row for ops `mint-alpha list` (pending codes + bound alpha entitlements).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AlphaOpsRow {
+    /// `"pending"` (unused code) or `"bound"` (linked to a Signal owner).
+    pub state: &'static str,
+    /// Pending link token when unused; usually `None` after bind.
+    pub code: Option<String>,
+    pub record_id: String,
+    pub status: EntitlementStatus,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub owner_uuid: Option<String>,
+}
+
 /// One entitlement row (individual pending/linked, and/or claimed to a group).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EntitlementRecord {
@@ -1178,6 +1202,120 @@ impl EntitlementsStore {
         Ok(codes)
     }
 
+    /// Pending + bound alpha rows for ops listing (`mint-alpha list`).
+    pub fn list_alpha(&self) -> Vec<AlphaOpsRow> {
+        let mut rows = Vec::new();
+        {
+            let pending = self.pending_by_token.read().unwrap();
+            for (token, rec) in pending.iter() {
+                if rec.source != EntitlementSource::Alpha {
+                    continue;
+                }
+                rows.push(AlphaOpsRow {
+                    state: "pending",
+                    code: Some(token.clone()),
+                    record_id: rec.id.clone(),
+                    status: rec.status,
+                    expires_at: rec.expires_at,
+                    owner_uuid: rec.owner_uuid.clone(),
+                });
+            }
+        }
+        {
+            let individuals = self.individuals.read().unwrap();
+            for recs in individuals.values() {
+                for rec in recs {
+                    if rec.source != EntitlementSource::Alpha {
+                        continue;
+                    }
+                    rows.push(AlphaOpsRow {
+                        state: "bound",
+                        code: rec.link_token.clone(),
+                        record_id: rec.id.clone(),
+                        status: rec.status,
+                        expires_at: rec.expires_at,
+                        owner_uuid: rec.owner_uuid.clone(),
+                    });
+                }
+            }
+        }
+        rows.sort_by(|a, b| {
+            a.state
+                .cmp(b.state)
+                .then_with(|| a.record_id.cmp(&b.record_id))
+        });
+        rows
+    }
+
+    /// Revoke alpha by pending `link_token`, bound `record_id`, or `owner_uuid`.
+    ///
+    /// - Pending: removes the unused code.
+    /// - Bound: sets matching alpha rows to `canceled` (by id, or all alpha for owner).
+    ///
+    /// Returns the affected records.
+    pub fn revoke_alpha(
+        self: &Arc<Self>,
+        code_or_id_or_owner: &str,
+    ) -> Result<Vec<EntitlementRecord>, String> {
+        let key = code_or_id_or_owner.trim();
+        if key.is_empty() {
+            return Err("code, record id, or owner uuid required".into());
+        }
+
+        // 1) Unused pending code
+        {
+            let mut pending = self.pending_by_token.write().unwrap();
+            if let Some(rec) = pending.remove(key) {
+                if rec.source != EntitlementSource::Alpha {
+                    pending.insert(key.to_string(), rec);
+                    return Err(format!("pending token is not alpha: {key}"));
+                }
+                drop(pending);
+                self.schedule_persist();
+                return Ok(vec![rec]);
+            }
+        }
+
+        // 2) Bound record id
+        if let Some(rec) = self.find_alpha_individual_by_id(key) {
+            let updated = self.set_status(&rec.id, EntitlementStatus::Canceled)?;
+            return Ok(vec![updated]);
+        }
+
+        // 3) All alpha rows for this owner
+        let owned: Vec<EntitlementRecord> = self
+            .get_individual(key)
+            .into_iter()
+            .filter(|r| r.source == EntitlementSource::Alpha)
+            .collect();
+        if owned.is_empty() {
+            return Err(format!(
+                "no alpha pending code, record id, or owner matched: {key}"
+            ));
+        }
+        let mut out = Vec::with_capacity(owned.len());
+        for rec in owned {
+            if rec.status == EntitlementStatus::Canceled {
+                out.push(rec);
+                continue;
+            }
+            out.push(self.set_status(&rec.id, EntitlementStatus::Canceled)?);
+        }
+        Ok(out)
+    }
+
+    fn find_alpha_individual_by_id(&self, record_id: &str) -> Option<EntitlementRecord> {
+        let individuals = self.individuals.read().unwrap();
+        for recs in individuals.values() {
+            for rec in recs {
+                if rec.id == record_id && rec.source == EntitlementSource::Alpha {
+                    return Some(rec.clone());
+                }
+            }
+        }
+        None
+    }
+
     /// Redeem the reusable friend code for `owner_uuid` (does not touch pending tokens).
     ///
     /// Grants a fresh `bundle-all-alpha` for 90 days. Fails if the owner already has an
@@ -1457,6 +1595,28 @@ mod tests {
             assert_eq!(pending.source, EntitlementSource::Alpha);
             assert!(pending.expires_at.is_some());
         }
+    }
+
+    #[test]
+    fn list_and_revoke_alpha_pending_and_bound() {
+        let store = EntitlementsStore::new_in_memory();
+        let codes = store.mint_alpha_codes(2, 90).unwrap();
+        let listed = store.list_alpha();
+        assert_eq!(listed.iter().filter(|r| r.state == "pending").count(), 2);
+
+        let removed = store.revoke_alpha(&codes[0]).unwrap();
+        assert_eq!(removed.len(), 1);
+        assert!(store.get_pending(&codes[0]).is_none());
+
+        store.bind_link_token(&codes[1], "uuid-ops".into()).unwrap();
+        let listed = store.list_alpha();
+        assert_eq!(listed.iter().filter(|r| r.state == "pending").count(), 0);
+        assert_eq!(listed.iter().filter(|r| r.state == "bound").count(), 1);
+
+        let canceled = store.revoke_alpha("uuid-ops").unwrap();
+        assert_eq!(canceled.len(), 1);
+        assert_eq!(canceled[0].status, EntitlementStatus::Canceled);
+        assert!(!store.has_active_individual("uuid-ops", Utc::now()));
     }
 
     #[test]

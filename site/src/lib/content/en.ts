@@ -96,20 +96,24 @@ export const en: SiteContent = {
 		},
 		getStarted: {
 			title: 'Getting started',
-			lead: 'After you link, invite Sigstack to your Signal group and enable it.',
-			eyebrow: 'Organizers',
+			lead: 'Pay or redeem alpha, link your Signal account, invite Sigstack, then enable each group. Every member in an enabled group gets all-access products.',
+			eyebrow: 'Setup',
 			steps: [
 				{
+					title: 'Subscribe or redeem alpha',
+					body: 'On Plans, Subscribe for an all-access pack, or redeem an alpha code. You get a link code on the success / alpha page.'
+				},
+				{
+					title: 'Link in Signal',
+					body: 'Open a DM with Sigstack and send !link <code> (from your checkout success page or alpha redeem). Linking binds your Signal account—it is not the same as inviting the bot to a group.'
+				},
+				{
 					title: 'Invite Sigstack',
-					body: 'Create or open a Signal group and invite Sigstack (it auto-accepts).'
+					body: 'Create or open a Signal group and invite Sigstack (it auto-accepts). Inviting alone does not unlock products until you link and enable.'
 				},
 				{
 					title: 'Enable the group',
-					body: 'Send !enable-sigstack so everyone in that chat can use Sigstack.'
-				},
-				{
-					title: 'Open the hub',
-					body: 'Send !help for product menus: Language Threads, in-chat, and transcription.'
+					body: 'In that group, send !enable-sigstack so everyone in the chat can use Language Threads, in-chat translation, and transcription. Then !help for product menus.'
 				}
 			],
 			hubCommandsHeading: 'Hub commands',
@@ -164,7 +168,7 @@ export const en: SiteContent = {
 				checkoutFailed: 'Could not start checkout. Try again in a moment.'
 			},
 			footnote:
-				'Alpha is free with a code. Paid Subscribe opens Stripe Checkout; after payment, link in Signal with the code on the success page. Get started covers organizer setup.'
+				'Alpha is free with a code. Paid Subscribe opens Stripe Checkout; after payment, send !link in a Signal DM, invite Sigstack, then !enable-sigstack. Get started walks through the full path.'
 		},
 		checkoutSuccess: {
 			title: 'You are subscribed',
@@ -182,14 +186,14 @@ export const en: SiteContent = {
 				'We could not find a link code in this page URL. Check your Stripe receipt email for `!link <code>`, then send that command in a DM with Sigstack.',
 			portalCta: 'Manage billing',
 			portalComingSoon: 'Manage billing (coming soon)',
-			getStartedCta: 'Organizer checklist'
+			getStartedCta: 'Full setup steps'
 		},
 		checkoutCancel: {
 			title: 'Checkout canceled',
 			lead: 'No charge was made and no entitlement was created. You can pick a plan whenever you are ready.',
 			eyebrow: 'Checkout',
 			plansCta: 'Back to Plans',
-			getStartedCta: 'Organizer checklist'
+			getStartedCta: 'Full setup steps'
 		},
 		alpha: {
 			title: 'Alpha',

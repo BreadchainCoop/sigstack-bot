@@ -30,9 +30,7 @@
 <CommandTable rows={page.hubCommands} />
 
 <div class="cta-row">
-	<Button href="/products#language-threads">Language Threads</Button>
-	<Button href="/privacy" variant="ghost">Privacy</Button>
-	<Button href="https://github.com/BreadchainCoop/sigstack-bot/issues" variant="ghost" external
-		>GitHub issues</Button
-	>
+	<Button href="/plans">Plans</Button>
+	<Button href="/alpha" variant="ghost">Alpha</Button>
+	<Button href="/products#language-threads" variant="ghost">Language Threads</Button>
 </div>

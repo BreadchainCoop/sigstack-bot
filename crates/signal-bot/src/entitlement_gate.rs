@@ -26,8 +26,9 @@ use signal_bot_core::starts_with_word;
 use signal_client::BotMessage;
 use std::sync::Arc;
 
-pub const DENY_NEED_LINK: &str =
-    "Access locked. DM this bot with !link <code> to unlock (checkout code or alpha).";
+pub const DENY_NEED_LINK: &str = "Complete linking: DM this bot with !link <code> from your checkout success page or alpha redeem. Subscribe or redeem: https://breadchaincoop.github.io/sigstack-bot/sigstack/plans/";
+
+pub const DENY_NEED_SUBSCRIBE: &str = "Your access ended (expired or canceled). Subscribe to continue: https://breadchaincoop.github.io/sigstack-bot/sigstack/plans/ — or redeem a new alpha code.";
 
 pub const DENY_NEED_ENABLE: &str =
     "Sigstack is not enabled in this group yet. A linked member must run !enable-sigstack.";
@@ -35,7 +36,11 @@ pub const DENY_NEED_ENABLE: &str =
 /// Why access was denied (for reply copy).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateDeny {
+    /// No individual entitlement (never linked / unpaid pending).
     NeedLink,
+    /// Had an entitlement that is no longer granting (expired / canceled).
+    NeedSubscribe,
+    /// Linked but group not enabled with `!enable-sigstack`.
     NeedEnable,
 }
 
@@ -43,8 +48,21 @@ impl GateDeny {
     pub fn message(self) -> &'static str {
         match self {
             Self::NeedLink => DENY_NEED_LINK,
+            Self::NeedSubscribe => DENY_NEED_SUBSCRIBE,
             Self::NeedEnable => DENY_NEED_ENABLE,
         }
+    }
+}
+
+fn deny_for_unentitled(store: &EntitlementsStore, owner: &str) -> GateDeny {
+    if owner.is_empty() {
+        return GateDeny::NeedLink;
+    }
+    // Any individual row means they linked before; guide them to re-subscribe.
+    if !store.get_individual(owner).is_empty() {
+        GateDeny::NeedSubscribe
+    } else {
+        GateDeny::NeedLink
     }
 }
 
@@ -69,7 +87,7 @@ pub fn check_access(store: &EntitlementsStore, message: &BotMessage) -> Result<(
         return if entitled {
             Ok(())
         } else {
-            Err(GateDeny::NeedLink)
+            Err(deny_for_unentitled(store, &owner))
         };
     }
 
@@ -87,7 +105,7 @@ pub fn check_access(store: &EntitlementsStore, message: &BotMessage) -> Result<(
     if entitled {
         Ok(())
     } else {
-        Err(GateDeny::NeedLink)
+        Err(deny_for_unentitled(store, &owner))
     }
 }
 
@@ -215,7 +233,7 @@ mod tests {
         for cmd in PRODUCT_DM_CMDS {
             assert_eq!(
                 check_access(&store, &dm(cmd, "uuid-ada")).unwrap_err(),
-                GateDeny::NeedLink,
+                GateDeny::NeedSubscribe,
                 "{cmd}"
             );
         }
@@ -313,8 +331,23 @@ mod tests {
 
     #[test]
     fn deny_copy_mentions_checkout_or_alpha() {
-        assert!(DENY_NEED_LINK.contains("checkout") || DENY_NEED_LINK.contains("alpha"));
+        assert!(DENY_NEED_LINK.contains("!link"));
+        assert!(DENY_NEED_LINK.contains("/plans/"));
+        assert!(DENY_NEED_SUBSCRIBE.contains("Subscribe") || DENY_NEED_SUBSCRIBE.contains("alpha"));
         assert!(DENY_NEED_ENABLE.contains("!enable-sigstack"));
+    }
+
+    #[test]
+    fn canceled_dm_gets_subscribe_copy() {
+        let store = EntitlementsStore::new_in_memory();
+        let mut canceled = paid_active("uuid-ada", PlanSku::AllAccess3);
+        canceled.status = EntitlementStatus::Canceled;
+        store.upsert(canceled).unwrap();
+        assert_eq!(
+            check_access(&store, &dm("!help", "uuid-ada")).unwrap_err(),
+            GateDeny::NeedSubscribe
+        );
+        assert!(GateDeny::NeedSubscribe.message().contains("/plans/"));
     }
 
     // --- Alpha + Stripe coexistence under enforce (epic coexistence issue) ---
@@ -442,7 +475,7 @@ mod tests {
 
         assert_eq!(
             gate.allow(&dm("!help", "uuid-dead")).await.unwrap_err(),
-            GateDeny::NeedLink
+            GateDeny::NeedSubscribe
         );
     }
 }

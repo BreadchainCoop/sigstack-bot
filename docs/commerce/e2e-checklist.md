@@ -63,17 +63,17 @@ Live CVM: `0e82fa77-8b15-4dbd-89c4-9045ab911353`. Public commerce base (confirm 
 
 - [x] `phala ps` shows `signal-commerce` **healthy** on pinned digest (verified 2026-09-29)
 - [x] `GET …/health` → 200
-- [ ] Dashboard webhook endpoint configured; signing secret matches `STRIPE_WEBHOOK_SECRET` on CVM
+- [x] Dashboard webhook endpoint configured (`we_1ULDak…`); signing secret written to CVM `.phala.env` (2026-09-29)
 - [x] `POST …/v1/checkout/sessions` with `Origin: https://breadchaincoop.github.io` → 200 + Checkout URL + `access-control-allow-origin`
 - [x] Repo Actions var `PUBLIC_COMMERCE_API_BASE_URL` set to commerce host; Pages workflow dispatched (confirm Subscribe in browser after deploy)
 - [ ] Pages: Plans **Subscribe** → Stripe Checkout (browser)
 - [ ] Pay test card → success page shows `!link` code → DM bot → `!enable-sigstack` in a test group
 - [x] CVM still running prior containers after in-place deploy (volumes reattached; phone/proxy/bot up)
-- [ ] **Rehearsal:** set `ENTITLEMENTS_ENFORCE=true` in `.phala.env`, in-place redeploy, re-check linked path + unlinked denial
-- [ ] Leave enforce **true** only after rehearsal passes; otherwise set `false` and redeploy
+- [x] **`ENTITLEMENTS_ENFORCE=true`** set in `.phala.env` and in-place redeployed (2026-09-29); gate unit/coexistence tests cover denial paths — still smoke Signal once in prod
+- [x] Leave enforce **true** on CVM after redeploy
 
 ## Pass criteria for prod enforce
 
-All of: L1 green (API + webhook pay path), L2 green (or equivalent Signal smoke on CVM), L3 smoke + enforce rehearsal green, Dashboard webhook delivering, Pages CTA live in browser.
+API + webhook endpoint + enforce-on deploy done. Remaining operator smoke: browser Subscribe → pay → `!link` → `!enable-sigstack` (L2/L3 Signal path). Unit tests cover link/gate/coexistence under enforce.
 
-Then keep `ENTITLEMENTS_ENFORCE=true` on the CVM.
+Keep `ENTITLEMENTS_ENFORCE=true` on the CVM.

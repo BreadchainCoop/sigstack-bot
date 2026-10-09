@@ -4,10 +4,8 @@
 # One signal-api + one signal-bot: hub, translation, and voice. Per-message
 # tokio::spawn keeps STT from stalling other handlers.
 #
-# Build & push (linux/amd64):
-#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-bot-tee:latest -f docker/Dockerfile --push .
-#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-registration-proxy:latest -f docker/Dockerfile.proxy --push .
-#   docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB/signal-commerce:latest -f docker/Dockerfile.commerce --push .
+# Images: .github/workflows/images.yml builds and pushes to ghcr.io/breadchaincoop/*
+# on merge to main; pin the digests from its run summary in docker/.phala.env.
 #
 # First create: `phala deploy -n sigstack-translation …`
 # Later upgrades MUST use `--cvm-id 0e82fa77-8b15-4dbd-89c4-9045ab911353` (or the live app id)

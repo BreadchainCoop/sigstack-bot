@@ -24,7 +24,8 @@ permissions:
 
 concurrency:
   group: images-${{ github.ref }}
-  cancel-in-progress: true
+  # Queue on main so every merged commit publishes an image a rollback can pin.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -45,7 +46,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -66,7 +67,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           # Phala CVMs are linux/amd64 only.
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.name }}
@@ -74,7 +75,7 @@ jobs:
 
       # Deploys pin by digest (docker/.phala.env), so surface it where ops can copy it.
       - name: Summary
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         run: |
           echo "### ${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
